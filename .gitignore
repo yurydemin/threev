@@ -1,0 +1,25 @@
+build/bin
+node_modules
+frontend/dist
+
+# Compiled binary produced by `go build ./...` in repo root
+/threev
+
+# Go build artifacts
+*.exe
+*.exe~
+*.test
+*.out
+
+# SQLite database files
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
