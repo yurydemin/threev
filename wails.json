@@ -9,5 +9,12 @@
   "author": {
     "name": "yurydemin",
     "email": "y.y.demin@gmail.com"
+  },
+  "info": {
+    "companyName": "threev",
+    "productName": "threev",
+    "productVersion": "0.1.0",
+    "copyright": "Copyright © 2026",
+    "comments": "S3-compatible object storage desktop client"
   }
 }

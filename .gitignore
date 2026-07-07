@@ -23,3 +23,6 @@ frontend/dist
 
 # OS
 .DS_Store
+
+# Wails build cache
+frontend/package.json.md5
