@@ -10,8 +10,11 @@
   },
   "dependencies": {
     "@headlessui/react": "^2.2.10",
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.23.0",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "react-dom": "^19.1.0",
+    "zustand": "^5.0.14"
   },
   "devDependencies": {
     "@types/react": "^19.1.0",

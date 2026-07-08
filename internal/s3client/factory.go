@@ -21,12 +21,26 @@ import (
 // management/testing.
 const defaultHTTPTimeout = 30 * time.Second
 
+// defaultRegion mirrors the "profiles.region" column default from
+// docs/02-tech-spec.md section 8.1. It is applied here - the single place
+// every S3 client is constructed - rather than only at the database layer,
+// so an empty Region (e.g. a not-yet-saved profile being tested straight
+// from an edit form) never reaches the AWS SDK, which rejects it outright
+// ("Invalid region: region was not a valid DNS name") instead of falling
+// back to any default of its own.
+const defaultRegion = "us-east-1"
+
 // NewS3Client builds an *s3.Client configured from a connection profile:
 // static credentials, region, custom endpoint, path-style addressing,
 // optional TLS verification skip, and optional custom headers.
 func NewS3Client(p domain.Profile) (*s3.Client, error) {
+	region := p.Region
+	if region == "" {
+		region = defaultRegion
+	}
+
 	cfg := aws.Config{
-		Region:      p.Region,
+		Region:      region,
 		Credentials: credentials.NewStaticCredentialsProvider(p.AccessKeyID, p.SecretAccessKey, p.SessionToken),
 		HTTPClient:  newHTTPClient(p),
 	}
