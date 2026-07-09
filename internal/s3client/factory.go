@@ -1,7 +1,6 @@
 package s3client
 
 import (
-	"crypto/tls"
 	"net/http"
 	"time"
 
@@ -32,8 +31,39 @@ const defaultRegion = "us-east-1"
 
 // NewS3Client builds an *s3.Client configured from a connection profile:
 // static credentials, region, custom endpoint, path-style addressing,
-// optional TLS verification skip, and optional custom headers.
+// optional TLS verification skip, and optional custom headers, using a
+// plain, non-pooled *http.Client (see newHTTPClient). This is the
+// constructor used by callers that build a short-lived client per call
+// (connection testing, file manager listing) rather than the long-lived,
+// pooled/fresh pair managed by ConnectionManager (Stage 3, manager.go).
 func NewS3Client(p domain.Profile) (*s3.Client, error) {
+	return buildClient(p, newHTTPClient(p))
+}
+
+// NewS3ClientWithHTTPClient builds an *s3.Client identically to NewS3Client,
+// except it sends requests through the given httpClient instead of building
+// one internally. This lets callers that manage their own long-lived,
+// pooled *http.Client/*http.Transport (ConnectionManager, Stage 3) construct
+// an *s3.Client on top of it without duplicating the aws.Config/s3.Options
+// wiring that also lives in NewS3Client.
+func NewS3ClientWithHTTPClient(p domain.Profile, httpClient *http.Client) (*s3.Client, error) {
+	return buildClient(p, httpClient)
+}
+
+// buildClient is the shared implementation behind NewS3Client and
+// NewS3ClientWithHTTPClient: it builds the aws.Config (region, static
+// credentials) and s3.Client (custom endpoint, path-style addressing,
+// custom headers) common to both, differing only in which *http.Client
+// backs outgoing requests.
+//
+// The SDK's built-in retry behavior is always disabled (aws.NopRetryer{}):
+// this application implements its own retry strategy (docs/02-tech-spec.md
+// section 10.4, s3client/retry.go, a later step) with its own backoff,
+// per-attempt fresh-connection behavior, and circuit breaker integration.
+// Leaving the SDK's default Standard retryer in place would let each
+// logical "attempt" as seen by our retry layer silently retry up to 3 more
+// times inside the SDK first, breaking backoff/circuit-breaker accounting.
+func buildClient(p domain.Profile, httpClient *http.Client) (*s3.Client, error) {
 	region := p.Region
 	if region == "" {
 		region = defaultRegion
@@ -42,13 +72,14 @@ func NewS3Client(p domain.Profile) (*s3.Client, error) {
 	cfg := aws.Config{
 		Region:      region,
 		Credentials: credentials.NewStaticCredentialsProvider(p.AccessKeyID, p.SecretAccessKey, p.SessionToken),
-		HTTPClient:  newHTTPClient(p),
+		HTTPClient:  httpClient,
 	}
 
 	client := s3.NewFromConfig(cfg, func(o *s3.Options) {
 		endpoint := p.EndpointURL
 		o.BaseEndpoint = &endpoint
 		o.UsePathStyle = p.PathStyle
+		o.Retryer = aws.NopRetryer{}
 
 		for header, value := range p.CustomHeaders {
 			o.APIOptions = append(o.APIOptions, smithyhttp.AddHeaderValue(header, value))
@@ -58,19 +89,25 @@ func NewS3Client(p domain.Profile) (*s3.Client, error) {
 	return client, nil
 }
 
-// newHTTPClient builds the *http.Client used to send every request for
-// profile p. When p.VerifySSL is false, TLS certificate verification is
-// disabled on this client only, and only because the user explicitly
-// requested it for this specific profile - never globally - per SEC-004
+// newHTTPClient builds the plain *http.Client used by NewS3Client: a
+// timeout-bounded client with no connection pooling tuning of its own
+// (relying on Go's http.DefaultTransport-like defaults), optionally with
+// TLS verification disabled. This is deliberately simple - see
+// transport.go's newPooledTransport/newFreshTransport for the tuned
+// transports used by ConnectionManager.
+//
+// When p.VerifySSL is false, TLS certificate verification is disabled on
+// this client only, and only because the user explicitly requested it for
+// this specific profile - never globally - per SEC-004
 // (docs/02-tech-spec.md section 11).
 func newHTTPClient(p domain.Profile) *http.Client {
 	client := &http.Client{
 		Timeout: defaultHTTPTimeout,
 	}
 
-	if !p.VerifySSL {
+	if tlsConfig := tlsConfigFor(p); tlsConfig != nil {
 		client.Transport = &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec // explicit, per-profile opt-out required by SEC-004; never a global default
+			TLSClientConfig: tlsConfig,
 		}
 	}
 
