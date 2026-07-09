@@ -10,6 +10,7 @@ import (
 	"threev/internal/config"
 	"threev/internal/connection"
 	"threev/internal/crypto"
+	"threev/internal/filemanager"
 	"threev/internal/storage"
 )
 
@@ -29,6 +30,11 @@ type App struct {
 	// connectionService implements docs/02-tech-spec.md section 9.1 and is
 	// bound directly to the frontend (see main.go's options.App.Bind).
 	connectionService *connection.ConnectionService
+
+	// fileManagerService exposes bucket/object browsing (docs/02-tech-spec.md
+	// section 9.2) and is bound directly to the frontend (see main.go's
+	// options.App.Bind).
+	fileManagerService *filemanager.FileManagerService
 }
 
 // NewApp creates a new App application struct, eagerly opening the SQLite
@@ -81,8 +87,9 @@ func newApp() (*App, error) {
 	repo := storage.NewProfileRepository(db)
 
 	return &App{
-		db:                db,
-		connectionService: connection.NewConnectionService(repo, key),
+		db:                 db,
+		connectionService:  connection.NewConnectionService(repo, key),
+		fileManagerService: filemanager.NewFileManagerService(repo, key),
 	}, nil
 }
 

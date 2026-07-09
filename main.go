@@ -29,6 +29,7 @@ func main() {
 		Bind: []interface{}{
 			app,
 			app.connectionService,
+			app.fileManagerService,
 		},
 	})
 
