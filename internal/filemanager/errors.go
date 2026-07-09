@@ -1,0 +1,37 @@
+package filemanager
+
+import (
+	"errors"
+	"fmt"
+
+	"github.com/aws/smithy-go"
+
+	"threev/internal/s3client"
+)
+
+// noSuchBucketErrorCode is the AWS/S3 API error code returned when an
+// operation targets a bucket that does not exist (or that the caller has no
+// permission to see, which S3 also reports as NoSuchBucket rather than
+// AccessDenied for ListObjectsV2 in most implementations).
+const noSuchBucketErrorCode = "NoSuchBucket"
+
+// classifyOperationError turns a raw S3/network error from operation (e.g.
+// "list buckets", "list objects") into a single wrapped error carrying a
+// human-readable message and category, reusing s3client.ClassifyError for
+// the categories it already knows about (network/auth/tls/timeout/...).
+//
+// It additionally special-cases the NoSuchBucket API error code: unlike
+// ClassifyError - which is shared by every caller and only classifies
+// operation-agnostic failure kinds - "the bucket does not exist" is
+// meaningful only to operations that take a bucket name, so it is resolved
+// here rather than pushed down into ClassifyError.
+func classifyOperationError(operation string, err error) error {
+	var apiErr smithy.APIError
+	if errors.As(err, &apiErr) && apiErr.ErrorCode() == noSuchBucketErrorCode {
+		return fmt.Errorf("%s: %s (%s): %w", operation, "Бакет не найден", "not-found", err)
+	}
+
+	category, message := s3client.ClassifyError(err)
+
+	return fmt.Errorf("%s: %s (%s): %w", operation, message, category, err)
+}
