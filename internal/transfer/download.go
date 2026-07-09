@@ -56,6 +56,11 @@ type DownloadParams struct {
 	// Host is the bare hostname (e.g. url.Parse(profile.EndpointURL).
 	// Hostname()) Breaker tracks state for, resolved by the caller.
 	Host string
+	// Limiter, if non-nil, paces every response body read (downloadSegment)
+	// against its download-direction token bucket
+	// (BandwidthLimiter.WrapDownloadReader) - identical semantics to
+	// UploadParams.Limiter, see its doc comment.
+	Limiter *BandwidthLimiter
 
 	Bucket, Key string
 	// LocalPath is the local filesystem path Download saves the object

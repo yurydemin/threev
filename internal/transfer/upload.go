@@ -85,6 +85,14 @@ type UploadParams struct {
 	// Host is the bare hostname (e.g. url.Parse(profile.EndpointURL).
 	// Hostname()) Breaker tracks state for, resolved by the caller.
 	Host string
+	// Limiter, if non-nil, paces every request body read
+	// (uploadSingle/uploadPart) against its upload-direction token bucket
+	// (BandwidthLimiter.WrapUploadReader). A nil Limiter - the zero value
+	// of this field, and what every caller gets unless it explicitly
+	// wires one in (docs/02-tech-spec.md section 10.6: "По умолчанию
+	// лимит выключен") - means unlimited, exactly as WrapUploadReader's
+	// own nil-receiver handling documents.
+	Limiter *BandwidthLimiter
 
 	Bucket, Key string
 	// LocalPath is the local filesystem path of the file to upload.
@@ -158,10 +166,12 @@ func uploadSingle(ctx context.Context, p UploadParams) (string, error) {
 		defer func() { _ = file.Close() }()
 
 		hasher := md5.New() //nolint:gosec // see package-level rationale above
-		body := &countingReader{r: io.TeeReader(file, hasher), onRead: p.Hooks.OnBytesTransferred}
 
 		timeoutCtx, cancel := context.WithTimeout(attemptCtx, s3client.AdaptiveTimeout(p.TotalBytes, 0))
 		defer cancel()
+
+		var body io.Reader = &countingReader{r: io.TeeReader(file, hasher), onRead: p.Hooks.OnBytesTransferred}
+		body = p.Limiter.WrapUploadReader(timeoutCtx, body)
 
 		out, err := client.PutObject(timeoutCtx, &s3.PutObjectInput{
 			Bucket:        aws.String(p.Bucket),

@@ -282,11 +282,12 @@ func uploadPart(ctx context.Context, p UploadParams, uploadID string, partNumber
 			client = p.Fresh
 		}
 
-		var body io.Reader = io.NewSectionReader(file, offset, size)
-		body = &countingReader{r: body, onRead: p.Hooks.OnBytesTransferred}
-
 		timeoutCtx, cancel := context.WithTimeout(attemptCtx, s3client.AdaptiveTimeout(size, 0))
 		defer cancel()
+
+		var body io.Reader = io.NewSectionReader(file, offset, size)
+		body = &countingReader{r: body, onRead: p.Hooks.OnBytesTransferred}
+		body = p.Limiter.WrapUploadReader(timeoutCtx, body)
 
 		out, err := client.UploadPart(timeoutCtx, &s3.UploadPartInput{
 			Bucket:        aws.String(p.Bucket),

@@ -405,8 +405,10 @@ func downloadSegment(ctx context.Context, p DownloadParams, offset, size int64, 
 
 		buf := make([]byte, downloadSegmentReadBufferSize)
 
+		body := p.Limiter.WrapDownloadReader(timeoutCtx, resp.Body)
+
 		for {
-			n, readErr := resp.Body.Read(buf)
+			n, readErr := body.Read(buf)
 			if n > 0 {
 				if _, writeErr := file.WriteAt(buf[:n], offset+written); writeErr != nil {
 					return fmt.Errorf("write at offset %d: %w", offset+written, writeErr)
