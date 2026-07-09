@@ -1,0 +1,77 @@
+package filemanager
+
+import (
+	"context"
+	"time"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
+)
+
+// minPresignExpiry and maxPresignExpiry bound the TTL of a presigned URL
+// (Stage 2 plan constraint 2): 60 seconds is short enough to be safe for a
+// short-lived preview/"copy URL" action, 1 hour is a generous upper bound
+// that still limits how long a leaked URL remains valid. Stage 4
+// (FR-BULK-005, 1 min - 7 days) will widen this range without changing
+// GetPresignedURL's signature.
+const (
+	minPresignExpiry = 60 * time.Second
+	maxPresignExpiry = time.Hour
+)
+
+// defaultPresignExpiry is used whenever the caller passes a non-positive or
+// unset expirySeconds, matching the fixed 5-minute TTL the Stage 2
+// frontend uses for preview/"copy URL" (plan constraint 2).
+const defaultPresignExpiry = 5 * time.Minute
+
+// GetPresignedURL returns a temporary, self-contained URL granting GetObject
+// access (SEC-003: no broader permission is requested) to bucket/key for
+// the profile identified by profileID (docs/02-tech-spec.md section 9.2,
+// FR-FM-007/009). expirySeconds is clamped into
+// [minPresignExpiry, maxPresignExpiry]; a non-positive value falls back to
+// defaultPresignExpiry instead of being clamped up to the minimum, so
+// callers that don't care about TTL (e.g. Stage 2's frontend, which never
+// sets this parameter explicitly) get the intended 5-minute default rather
+// than the 1-minute floor.
+func (f *FileManagerService) GetPresignedURL(profileID int64, bucket, key string, expirySeconds int64) (string, error) {
+	client, err := f.resolveClient(profileID)
+	if err != nil {
+		return "", err
+	}
+
+	presignClient := s3.NewPresignClient(client)
+
+	// Presigning is a local cryptographic operation (computing a SigV4
+	// signature) and never makes a network call to S3, so
+	// context.Background() is used here purely for consistency with the
+	// rest of the service rather than to bound any I/O.
+	result, err := presignClient.PresignGetObject(context.Background(), &s3.GetObjectInput{
+		Bucket: aws.String(bucket),
+		Key:    aws.String(key),
+	}, s3.WithPresignExpires(clampPresignExpiry(expirySeconds)))
+	if err != nil {
+		return "", classifyOperationError("get presigned url", err)
+	}
+
+	return result.URL, nil
+}
+
+// clampPresignExpiry converts expirySeconds into a time.Duration bounded by
+// [minPresignExpiry, maxPresignExpiry], defaulting non-positive input to
+// defaultPresignExpiry.
+func clampPresignExpiry(expirySeconds int64) time.Duration {
+	if expirySeconds <= 0 {
+		return defaultPresignExpiry
+	}
+
+	requested := time.Duration(expirySeconds) * time.Second
+
+	if requested < minPresignExpiry {
+		return minPresignExpiry
+	}
+	if requested > maxPresignExpiry {
+		return maxPresignExpiry
+	}
+
+	return requested
+}

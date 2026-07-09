@@ -15,6 +15,16 @@ import (
 // AccessDenied for ListObjectsV2 in most implementations).
 const noSuchBucketErrorCode = "NoSuchBucket"
 
+// noSuchKeyErrorCodes are the AWS/S3 API error codes returned when an
+// operation targets an object key that does not exist. GetObject reports
+// "NoSuchKey"; HeadObject reports "NotFound" instead, since a HEAD response
+// has no body to carry a structured S3 error code, so the SDK synthesizes
+// this code from the bare 404 status.
+var noSuchKeyErrorCodes = map[string]bool{
+	"NoSuchKey": true,
+	"NotFound":  true,
+}
+
 // classifyOperationError turns a raw S3/network error from operation (e.g.
 // "list buckets", "list objects") into a single wrapped error carrying a
 // human-readable message and category, reusing s3client.ClassifyError for
@@ -27,8 +37,13 @@ const noSuchBucketErrorCode = "NoSuchBucket"
 // here rather than pushed down into ClassifyError.
 func classifyOperationError(operation string, err error) error {
 	var apiErr smithy.APIError
-	if errors.As(err, &apiErr) && apiErr.ErrorCode() == noSuchBucketErrorCode {
-		return fmt.Errorf("%s: %s (%s): %w", operation, "Бакет не найден", "not-found", err)
+	if errors.As(err, &apiErr) {
+		switch {
+		case apiErr.ErrorCode() == noSuchBucketErrorCode:
+			return fmt.Errorf("%s: %s (%s): %w", operation, "Бакет не найден", "not-found", err)
+		case noSuchKeyErrorCodes[apiErr.ErrorCode()]:
+			return fmt.Errorf("%s: %s (%s): %w", operation, "Объект не найден", "not-found", err)
+		}
 	}
 
 	category, message := s3client.ClassifyError(err)
