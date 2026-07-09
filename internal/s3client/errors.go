@@ -10,6 +10,7 @@ import (
 	"net/http"
 
 	"github.com/aws/smithy-go"
+	smithyhttp "github.com/aws/smithy-go/transport/http"
 )
 
 // authErrorCodes are the S3/AWS API error codes that indicate a problem
@@ -56,6 +57,20 @@ func ClassifyError(err error) (category, message string) {
 			return "auth", "Неверные учётные данные"
 		}
 
+		// HEAD responses (HeadObject) never carry a body (RFC 9110), so the
+		// SDK's error deserializer has no <Error><Code>...</Code></Error>
+		// XML to read a real code like "AccessDenied" from - it instead
+		// synthesizes a pseudo-code from the bare HTTP status text (e.g.
+		// "Forbidden" for 401/403), which authErrorCodes above does not and
+		// cannot enumerate. Falling back to the raw status code here catches
+		// exactly this case, so a bad-credentials HeadObject call is
+		// classified "auth" (fail fast) instead of "unknown" (retried
+		// through MetadataRetryPolicy's full backoff for no benefit - wrong
+		// credentials will not start working on attempt 2 or 3).
+		if isAuthStatusCode(apiErr) {
+			return "auth", "Неверные учётные данные"
+		}
+
 		return "unknown", "Хранилище вернуло ошибку: " + apiErr.ErrorCode()
 	}
 
@@ -84,6 +99,23 @@ func isTLSError(err error) bool {
 		errors.As(err, &unknownAuthErr) ||
 		errors.As(err, &certInvalidErr) ||
 		errors.Is(err, http.ErrSchemeMismatch)
+}
+
+// isAuthStatusCode reports whether err (at any depth) carries an HTTP 401 or
+// 403 status, the fallback signal for an auth failure when no structured API
+// error code is available (see ClassifyError's HeadObject comment above).
+func isAuthStatusCode(err error) bool {
+	var respErr *smithyhttp.ResponseError
+	if !errors.As(err, &respErr) {
+		return false
+	}
+
+	switch respErr.HTTPStatusCode() {
+	case http.StatusUnauthorized, http.StatusForbidden:
+		return true
+	default:
+		return false
+	}
 }
 
 // isNetworkError reports whether err (at any depth) is a lower-level
