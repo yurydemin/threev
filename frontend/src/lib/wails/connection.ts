@@ -6,8 +6,8 @@
  * - Convert between the frontend-domain types (`types/index.ts`, camelCase)
  *   and the wailsjs-generated Go DTO classes (`domain.*`, PascalCase).
  * - Normalize rejected promises (Wails surfaces Go errors as string
- *   rejections) into a single `ConnectionApiError` shape the rest of the
- *   app can rely on.
+ *   rejections) into a single `ApiError` shape the rest of the app can rely
+ *   on (see `./errors`).
  *
  * Do not import `wailsjs/go/**` anywhere else in the app — go through this
  * module instead.
@@ -18,50 +18,15 @@ import {
   GetProfiles,
   SaveProfile,
   TestConnection as TestConnectionBinding,
-} from '../../wailsjs/go/connection/ConnectionService';
-import { domain } from '../../wailsjs/go/models';
+} from '../../../wailsjs/go/connection/ConnectionService';
+import { domain } from '../../../wailsjs/go/models';
 import type {
   Connection,
   ConnectionFormValues,
   ConnectionSummary,
   ConnectionTestResult,
-} from '../types';
-
-/**
- * Uniform error shape for failures coming out of the Go backend via Wails.
- * `raw` preserves the original rejection value/message for debugging.
- */
-export class ConnectionApiError extends Error {
-  readonly raw: string;
-
-  constructor(raw: string) {
-    super(raw);
-    this.name = 'ConnectionApiError';
-    this.raw = raw;
-  }
-}
-
-function toApiError(err: unknown): ConnectionApiError {
-  if (err instanceof ConnectionApiError) return err;
-  if (err instanceof Error) return new ConnectionApiError(err.message);
-  if (typeof err === 'string') return new ConnectionApiError(err);
-  return new ConnectionApiError('Unknown error');
-}
-
-async function call<T>(fn: () => Promise<T>): Promise<T> {
-  try {
-    return await fn();
-  } catch (err) {
-    throw toApiError(err);
-  }
-}
-
-function toIsoString(value: unknown): string {
-  if (!value) return '';
-  if (typeof value === 'string') return value;
-  if (value instanceof Date) return value.toISOString();
-  return String(value);
-}
+} from '../../types';
+import { call, toIsoString } from './errors';
 
 function fromProfileDTO(dto: domain.ProfileDTO): ConnectionSummary {
   return {

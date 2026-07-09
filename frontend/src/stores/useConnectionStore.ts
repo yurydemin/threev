@@ -1,10 +1,10 @@
 import { create } from 'zustand';
 import {
-  ConnectionApiError,
   deleteConnection as apiDeleteConnection,
   listConnections,
   saveConnection as apiSaveConnection,
-} from '../lib/wails';
+} from '../lib/wails/connection';
+import { ApiError } from '../lib/wails/errors';
 import type { Connection, ConnectionFormValues, ConnectionSummary } from '../types';
 
 interface ConnectionState {
@@ -22,13 +22,13 @@ interface ConnectionState {
 }
 
 function errorMessage(err: unknown): string {
-  if (err instanceof ConnectionApiError) return err.message;
+  if (err instanceof ApiError) return err.message;
   if (err instanceof Error) return err.message;
   return 'Unknown error';
 }
 
 /**
- * Connection list state, backed by `ConnectionService` via `lib/wails.ts`.
+ * Connection list state, backed by `ConnectionService` via `lib/wails/connection.ts`.
  *
  * Errors are captured into `error` rather than re-thrown, so screens/forms
  * can render them without needing try/catch of their own. `testConnection`

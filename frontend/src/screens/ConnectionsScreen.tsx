@@ -3,7 +3,7 @@ import { Sidebar } from '../components/layout/Sidebar';
 import { ConnectionForm } from '../components/connection/ConnectionForm';
 import { ConnectionList } from '../components/connection/ConnectionList';
 import { Button } from '../components/ui/Button';
-import { getConnection } from '../lib/wails';
+import { getConnection } from '../lib/wails/connection';
 import { useConnectionStore } from '../stores/useConnectionStore';
 import type { Connection, ConnectionSummary } from '../types';
 

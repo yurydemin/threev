@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { AlertTriangle, Check, ChevronDown, ChevronRight, Eye, EyeOff } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import { testConnection as apiTestConnection } from '../../lib/wails';
+import { testConnection as apiTestConnection } from '../../lib/wails/connection';
 import { useConnectionStore } from '../../stores/useConnectionStore';
 import type { Connection, ConnectionFormValues } from '../../types';
 import { Button } from '../ui/Button';

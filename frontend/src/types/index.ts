@@ -1,6 +1,6 @@
 /**
  * Frontend-domain types mirroring Go DTOs exposed by `ConnectionService`
- * (see `wailsjs/go/models.ts`, namespace `domain`).
+ * and `FileManagerService` (see `wailsjs/go/models.ts`, namespace `domain`).
  *
  * These are plain TS interfaces rather than re-exports of the wailsjs
  * classes: the generated classes carry extra runtime machinery
@@ -53,3 +53,54 @@ export interface ConnectionTestResult {
  * the backend / the store), not by form state.
  */
 export type ConnectionFormValues = Omit<Connection, 'id' | 'createdAt' | 'updatedAt'>;
+
+/** Mirrors `domain.Bucket`. */
+export interface Bucket {
+  name: string;
+  creationDate: string;
+}
+
+/** Mirrors `domain.ObjectEntry`. */
+export interface ObjectEntry {
+  key: string;
+  isFolder: boolean;
+  size: number;
+  contentType: string;
+  lastModified: string;
+  storageClass: string;
+}
+
+/** Mirrors `domain.ListObjectsRequest`. */
+export interface ListObjectsRequest {
+  profileId: number;
+  bucket: string;
+  prefix: string;
+  continuationToken: string;
+  sortBy: string;
+  sortOrder: string;
+  refresh: boolean;
+}
+
+/** Mirrors `domain.ListObjectsResponse`. */
+export interface ListObjectsResponse {
+  entries: ObjectEntry[];
+  nextContinuationToken: string;
+  isTruncated: boolean;
+}
+
+/** Mirrors `domain.ObjectMeta`. */
+export interface ObjectMeta {
+  key: string;
+  size: number;
+  contentType: string;
+  etag: string;
+  lastModified: string;
+  metadata: Record<string, string>;
+}
+
+/** Mirrors `domain.TextPreviewResult`. */
+export interface TextPreviewResult {
+  content: string;
+  truncated: boolean;
+  totalSize: number;
+}
