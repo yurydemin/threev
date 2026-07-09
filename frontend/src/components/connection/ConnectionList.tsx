@@ -7,6 +7,7 @@ export interface ConnectionListProps {
   connections: ConnectionSummary[];
   isLoading: boolean;
   onAdd: () => void;
+  onConnect: (connection: ConnectionSummary) => void;
   onEdit: (connection: ConnectionSummary) => void;
   onDuplicate: (connection: ConnectionSummary) => void;
   onDelete: (connection: ConnectionSummary) => void;
@@ -36,6 +37,7 @@ export function ConnectionList({
   connections,
   isLoading,
   onAdd,
+  onConnect,
   onEdit,
   onDuplicate,
   onDelete,
@@ -69,6 +71,7 @@ export function ConnectionList({
         <ConnectionCard
           key={connection.id}
           connection={connection}
+          onConnect={onConnect}
           onEdit={onEdit}
           onDuplicate={onDuplicate}
           onDelete={onDelete}

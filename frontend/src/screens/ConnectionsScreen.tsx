@@ -9,6 +9,11 @@ import type { Connection, ConnectionSummary } from '../types';
 
 type FormState = { open: false } | { open: true; initialValues?: Connection };
 
+export interface ConnectionsScreenProps {
+  /** Enters the File Manager for this connection ("Подключиться" on a card). */
+  onConnect: (connection: ConnectionSummary) => void;
+}
+
 /**
  * "Список подключений" per docs/03-ux-ui-spec.md section 5.2.
  *
@@ -26,7 +31,7 @@ type FormState = { open: false } | { open: true; initialValues?: Connection };
  * is no toast/notification system yet to surface a background test result,
  * so routing through the form's own test UI is the honest choice.
  */
-export function ConnectionsScreen() {
+export function ConnectionsScreen({ onConnect }: ConnectionsScreenProps) {
   const connections = useConnectionStore((state) => state.connections);
   const isLoading = useConnectionStore((state) => state.isLoading);
   const deleteConnection = useConnectionStore((state) => state.deleteConnection);
@@ -73,6 +78,7 @@ export function ConnectionsScreen() {
             connections={connections}
             isLoading={isLoading}
             onAdd={openCreate}
+            onConnect={onConnect}
             onEdit={openEdit}
             onDuplicate={handleDuplicate}
             onDelete={handleDelete}
