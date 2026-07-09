@@ -67,28 +67,7 @@ func (c *ConnectionService) GetProfiles() ([]domain.ProfileDTO, error) {
 // an edit form. AccessKeyID is returned as stored: it is not a secret and
 // is never encrypted in the first place.
 func (c *ConnectionService) GetProfile(id int64) (domain.Profile, error) {
-	p, err := c.repo.GetByID(context.Background(), id)
-	if err != nil {
-		return domain.Profile{}, fmt.Errorf("get profile %d: %w", id, err)
-	}
-
-	secret, err := crypto.Decrypt(p.SecretAccessKey, c.encryptionKey)
-	if err != nil {
-		return domain.Profile{}, fmt.Errorf("get profile %d: decrypt secret access key: %w", id, err)
-	}
-
-	p.SecretAccessKey = string(secret)
-
-	if p.SessionToken != "" {
-		token, err := crypto.Decrypt(p.SessionToken, c.encryptionKey)
-		if err != nil {
-			return domain.Profile{}, fmt.Errorf("get profile %d: decrypt session token: %w", id, err)
-		}
-
-		p.SessionToken = string(token)
-	}
-
-	return p, nil
+	return ResolveProfile(context.Background(), c.repo, c.encryptionKey, id)
 }
 
 // SaveProfile creates a new profile (p.ID == 0) or overwrites an existing
