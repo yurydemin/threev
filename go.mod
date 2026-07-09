@@ -10,6 +10,7 @@ require (
 	github.com/denisbrodbeck/machineid v1.0.1
 	github.com/wailsapp/wails/v2 v2.13.0
 	golang.org/x/crypto v0.51.0
+	golang.org/x/sync v0.22.0
 	modernc.org/sqlite v1.53.0
 )
 
