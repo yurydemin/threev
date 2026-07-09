@@ -1,23 +1,24 @@
-package filemanager
+package mimetype
 
 import (
 	"path/filepath"
 	"strings"
 )
 
-// defaultContentType is returned by contentTypeForKey for extensions absent
-// from contentTypeByExtension, or when key has no extension at all.
-const defaultContentType = "application/octet-stream"
+// DefaultContentType is returned by ContentTypeForKey for extensions absent
+// from ContentTypeByExtension, or when key has no extension at all.
+const DefaultContentType = "application/octet-stream"
 
-// contentTypeByExtension maps a lower-cased file extension (without the
+// ContentTypeByExtension maps a lower-cased file extension (without the
 // leading dot) to a MIME type. This is a deliberately self-maintained,
 // static table rather than the standard library's mime.TypeByExtension:
 // that function consults OS-specific mime.types files/registry entries and
 // so returns different results across Windows/macOS/Linux - unacceptable
 // for a cross-platform desktop client where the same object must render an
-// identical MIME type (and therefore preview behavior, FR-FM-003/007)
-// regardless of which OS the app happens to be running on.
-var contentTypeByExtension = map[string]string{
+// identical MIME type (and therefore preview/upload Content-Type behavior,
+// FR-FM-003/007, FR-TR-001) regardless of which OS the app happens to be
+// running on.
+var ContentTypeByExtension = map[string]string{
 	// Images
 	"jpg":  "image/jpeg",
 	"jpeg": "image/jpeg",
@@ -73,15 +74,15 @@ var contentTypeByExtension = map[string]string{
 	"avi": "video/x-msvideo",
 }
 
-// contentTypeForKey returns a MIME type for key based solely on its file
-// extension (see contentTypeByExtension), falling back to
-// defaultContentType when the extension is missing or unrecognized.
-func contentTypeForKey(key string) string {
+// ContentTypeForKey returns a MIME type for key based solely on its file
+// extension (see ContentTypeByExtension), falling back to
+// DefaultContentType when the extension is missing or unrecognized.
+func ContentTypeForKey(key string) string {
 	ext := strings.ToLower(strings.TrimPrefix(filepath.Ext(key), "."))
 
-	if ct, ok := contentTypeByExtension[ext]; ok {
+	if ct, ok := ContentTypeByExtension[ext]; ok {
 		return ct
 	}
 
-	return defaultContentType
+	return DefaultContentType
 }

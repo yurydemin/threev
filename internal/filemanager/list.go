@@ -8,6 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 
 	"threev/internal/domain"
+	"threev/internal/mimetype"
 )
 
 // listTimeout bounds a single ListBuckets/ListObjectsV2 call. Mirrors
@@ -169,7 +170,7 @@ func entriesFromPage(out *s3.ListObjectsV2Output, prefix string) []domain.Object
 			Key:          objKey,
 			IsFolder:     false,
 			Size:         aws.ToInt64(obj.Size),
-			ContentType:  contentTypeForKey(objKey),
+			ContentType:  mimetype.ContentTypeForKey(objKey),
 			StorageClass: string(obj.StorageClass),
 		}
 		if obj.LastModified != nil {

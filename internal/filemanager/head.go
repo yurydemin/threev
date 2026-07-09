@@ -8,6 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 
 	"threev/internal/domain"
+	"threev/internal/mimetype"
 )
 
 // HeadObject returns metadata for a single object (bucket/key) belonging to
@@ -46,12 +47,12 @@ func headObjectOutputToMeta(key string, out *s3.HeadObjectOutput) domain.ObjectM
 
 	// S3 does not always return a correct/present Content-Type for objects
 	// uploaded without one explicitly set, so fall back to the same
-	// extension-based table ListObjects uses (see mime.go) rather than
-	// surfacing an empty/generic value from the server.
+	// extension-based table ListObjects uses (see internal/mimetype) rather
+	// than surfacing an empty/generic value from the server.
 	if ct := aws.ToString(out.ContentType); ct != "" {
 		meta.ContentType = ct
 	} else {
-		meta.ContentType = contentTypeForKey(key)
+		meta.ContentType = mimetype.ContentTypeForKey(key)
 	}
 
 	if out.LastModified != nil {

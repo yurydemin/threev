@@ -19,4 +19,8 @@ var (
 
 	// ErrInvalidProfileName is returned when a profile's Name is empty.
 	ErrInvalidProfileName = errors.New("profile name must not be empty")
+
+	// ErrTransferTaskNotFound is returned when a transfer_queue lookup by ID
+	// finds no matching row.
+	ErrTransferTaskNotFound = errors.New("transfer task not found")
 )

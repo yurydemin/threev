@@ -1,4 +1,4 @@
-package filemanager
+package mimetype
 
 import "testing"
 
@@ -16,21 +16,21 @@ func TestContentTypeForKey(t *testing.T) {
 		{"json", "data.json", "application/json"},
 		{"txt", "notes.txt", "text/plain"},
 		{"zip", "archive.zip", "application/zip"},
-		{"unknown extension", "file.xyz123", defaultContentType},
-		{"no extension", "README", defaultContentType},
+		{"unknown extension", "file.xyz123", DefaultContentType},
+		{"no extension", "README", DefaultContentType},
 		{"uppercase extension", "IMAGE.JPG", "image/jpeg"},
 		{"mixed case extension", "Photo.JpEg", "image/jpeg"},
 		{"nested path resolves by last extension", "folder/sub/file.png", "image/png"},
-		{"nested path unknown extension", "folder/sub/file.unknownext", defaultContentType},
-		{"trailing dot with no extension text", "folder/", defaultContentType},
+		{"nested path unknown extension", "folder/sub/file.unknownext", DefaultContentType},
+		{"trailing dot with no extension text", "folder/", DefaultContentType},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			if got := contentTypeForKey(tt.key); got != tt.want {
-				t.Errorf("contentTypeForKey(%q) = %q, want %q", tt.key, got, tt.want)
+			if got := ContentTypeForKey(tt.key); got != tt.want {
+				t.Errorf("ContentTypeForKey(%q) = %q, want %q", tt.key, got, tt.want)
 			}
 		})
 	}
