@@ -5,9 +5,20 @@ import { StatusBar } from '../components/layout/StatusBar';
 import { BucketPanel } from '../components/file-manager/BucketPanel';
 import { FileList } from '../components/file-manager/FileList';
 import { FileGrid } from '../components/file-manager/FileGrid';
+import { ObjectContextMenu } from '../components/file-manager/ObjectContextMenu';
+import { ObjectPreviewModal } from '../components/file-manager/ObjectPreviewModal';
 import { useFileManagerStore } from '../stores/useFileManagerStore';
+import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import { filterEntriesByQuery } from '../lib/utils';
+import { isPreviewSupported } from '../lib/preview';
 import type { ObjectEntry } from '../types';
+
+/** Local shape for the currently open ПКМ context menu (`null` = hidden). */
+interface ContextMenuState {
+  entry: ObjectEntry;
+  x: number;
+  y: number;
+}
 
 export interface FileManagerScreenProps {
   profileId: number;
@@ -25,15 +36,26 @@ export interface FileManagerScreenProps {
  * list/grid view *and* the `StatusBar` count need, so computing it once and
  * threading it down keeps the two in sync for free.
  *
- * `onOpenFile`/`onContextMenu` are still stubs — real preview dispatch and
- * the ПКМ context menu are Block I, the next step.
+ * `onOpenFile` opens `ObjectPreviewModal` for files whose type
+ * `lib/preview.ts#isPreviewSupported` recognizes, and is a no-op for
+ * everything else (folders are already handled by `FileRow`/`FileGridItem`
+ * themselves via `onNavigateToFolder`; a file without a supported preview
+ * has no Stage 2 action to fall back to — see Block I task notes — so a
+ * double-click on e.g. a `.zip` simply does nothing rather than showing an
+ * empty/broken modal). `onContextMenu` opens `ObjectContextMenu` at the
+ * click position.
  */
 export function FileManagerScreen({ profileId, profileName, onExit }: FileManagerScreenProps) {
   const [view, setView] = useState<FileManagerView>('list');
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
+  const [previewEntry, setPreviewEntry] = useState<ObjectEntry | null>(null);
   const selectedBucket = useFileManagerStore((state) => state.selectedBucket);
   const entries = useFileManagerStore((state) => state.entries);
   const currentPrefix = useFileManagerStore((state) => state.currentPrefix);
   const searchQuery = useFileManagerStore((state) => state.searchQuery);
+  const refresh = useFileManagerStore((state) => state.refresh);
+
+  useKeyboardShortcuts({ onRefresh: refresh });
 
   const filteredEntries = useMemo(
     () => filterEntriesByQuery(entries, searchQuery, currentPrefix),
@@ -48,13 +70,12 @@ export function FileManagerScreen({ profileId, profileName, onExit }: FileManage
     : undefined;
 
   function handleOpenFile(entry: ObjectEntry) {
-    // TODO(Block I): dispatch to ObjectPreviewModal (image/pdf/text).
-    console.log('[FileManagerScreen] open file (Block I not implemented yet):', entry.key);
+    if (!isPreviewSupported(entry.contentType)) return;
+    setPreviewEntry(entry);
   }
 
   function handleContextMenu(entry: ObjectEntry, x: number, y: number) {
-    // TODO(Block I): show ObjectContextMenu at (x, y).
-    console.log('[FileManagerScreen] context menu (Block I not implemented yet):', entry.key, x, y);
+    setContextMenu({ entry, x, y });
   }
 
   return (
@@ -83,6 +104,22 @@ export function FileManagerScreen({ profileId, profileName, onExit }: FileManage
 
         <StatusBar left={statusLeft} />
       </div>
+
+      {contextMenu && (
+        <ObjectContextMenu
+          entry={contextMenu.entry}
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onClose={() => setContextMenu(null)}
+          onOpenPreview={setPreviewEntry}
+        />
+      )}
+
+      <ObjectPreviewModal
+        entry={previewEntry}
+        isOpen={previewEntry !== null}
+        onClose={() => setPreviewEntry(null)}
+      />
     </div>
   );
 }
