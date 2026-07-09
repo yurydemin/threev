@@ -1,5 +1,9 @@
+import { useState } from 'react';
 import { Sidebar } from '../components/layout/Sidebar';
-import { Button } from '../components/ui/Button';
+import { Toolbar, type FileManagerView } from '../components/layout/Toolbar';
+import { StatusBar } from '../components/layout/StatusBar';
+import { BucketPanel } from '../components/file-manager/BucketPanel';
+import { useFileManagerStore } from '../stores/useFileManagerStore';
 
 export interface FileManagerScreenProps {
   profileId: number;
@@ -9,33 +13,39 @@ export interface FileManagerScreenProps {
 }
 
 /**
- * File Manager screen — MINIMAL placeholder (Stage 2, Block F).
+ * File Manager screen — layout shell (Stage 2, Block G), per Architectural
+ * Decision 6 of the Stage 2 plan.
  *
- * This only proves the navigation wiring end-to-end (clicking "Подключиться"
- * on a connection card lands here with the right profile, and both the main
- * nav's "Подключения" item and the local "Назад" button return to the
- * Connections screen). The real layout — `BucketPanel` + Toolbar +
- * Breadcrumbs + ObjectList, per Architectural Decision 6 of the Stage 2 plan
- * — is built in Block G and will replace this file's body entirely.
+ * `<main>`'s content is still a placeholder — the actual Object List
+ * (table/grid, sorting, skeleton/empty states, "Load more") is Block H, the
+ * next step. Everything around it (main nav, `BucketPanel`, `Toolbar` with
+ * back/forward/refresh/breadcrumbs/search/view-switch, `StatusBar`) is
+ * fully wired to `useFileManagerStore` here.
  */
 export function FileManagerScreen({ profileId, profileName, onExit }: FileManagerScreenProps) {
+  const [view, setView] = useState<FileManagerView>('list');
+  const selectedBucket = useFileManagerStore((state) => state.selectedBucket);
+  const entries = useFileManagerStore((state) => state.entries);
+
   return (
     <div className="flex h-screen w-full">
       <Sidebar onSelectConnections={onExit} />
+      <BucketPanel />
 
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <header className="flex h-header shrink-0 items-center justify-between border-b border-border bg-bg-secondary px-4">
-          <h1 className="text-[13px] font-semibold text-fg-primary">Файловый менеджер</h1>
-          <Button variant="secondary" onClick={onExit}>
-            Назад к подключениям
-          </Button>
-        </header>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <Toolbar view={view} onViewChange={setView} />
 
-        <main className="flex flex-1 items-center justify-center p-4">
-          <p className="text-sm text-fg-secondary">
-            Профиль: {profileName} (ID: {profileId})
-          </p>
+        <main className="flex flex-1 items-center justify-center overflow-auto">
+          {selectedBucket ? (
+            <p className="text-sm text-fg-muted">Object List — Блок H</p>
+          ) : (
+            <p className="text-sm text-fg-muted">
+              Выберите бакет слева, чтобы просмотреть его содержимое
+            </p>
+          )}
         </main>
+
+        <StatusBar left={selectedBucket ? `${entries.length} объектов` : undefined} />
       </div>
     </div>
   );

@@ -11,8 +11,11 @@ export interface ModalProps {
   children: ReactNode;
   /** Rendered as a flex row, justify-end, gap 8px (buttons). */
   footer?: ReactNode;
-  /** `default` = 480px max-width, `large` = 640px. */
-  size?: 'default' | 'large';
+  /**
+   * `default` = 480px max-width, `large` = 640px, `preview` = 90vw/85vh with
+   * a scrollable body (object preview modals, Block I).
+   */
+  size?: 'default' | 'large' | 'preview';
 }
 
 /**
@@ -35,12 +38,16 @@ export function Modal({ isOpen, onClose, title, children, footer, size = 'defaul
         <DialogPanel
           transition
           className={cn(
-            'w-full rounded border border-border bg-bg-elevated p-4 shadow-[0_4px_12px_rgba(0,0,0,0.15)]',
+            'flex w-full flex-col rounded border border-border bg-bg-elevated p-4 shadow-[0_4px_12px_rgba(0,0,0,0.15)]',
             'transition duration-normal ease-out data-[closed]:translate-y-2 data-[closed]:opacity-0',
-            size === 'large' ? 'max-w-[640px]' : 'max-w-[480px]',
+            size === 'large'
+              ? 'max-w-[640px]'
+              : size === 'preview'
+                ? 'h-[85vh] max-w-[90vw]'
+                : 'max-w-[480px]',
           )}
         >
-          <div className="flex items-start justify-between gap-4">
+          <div className="flex shrink-0 items-start justify-between gap-4">
             <DialogTitle as="h2" className="text-[13px] font-semibold text-fg-primary">
               {title}
             </DialogTitle>
@@ -54,8 +61,12 @@ export function Modal({ isOpen, onClose, title, children, footer, size = 'defaul
               <X className="h-4 w-4" aria-hidden="true" />
             </Button>
           </div>
-          <div className="pt-2">{children}</div>
-          {footer && <div className="flex items-center justify-end gap-2 pt-4">{footer}</div>}
+          <div className={cn('pt-2', size === 'preview' && 'min-h-0 flex-1 overflow-y-auto')}>
+            {children}
+          </div>
+          {footer && (
+            <div className="flex shrink-0 items-center justify-end gap-2 pt-4">{footer}</div>
+          )}
         </DialogPanel>
       </div>
     </Dialog>
