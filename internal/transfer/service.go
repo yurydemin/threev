@@ -27,6 +27,12 @@ import (
 // domain.TransferProgressEvent payload.
 const wailsProgressEvent = "transfer:progress"
 
+// wailsObjectChangeEvent is the Wails event name TransferService publishes
+// on (docs/02-tech-spec.md section 9.5) whenever a transfer creates or
+// removes an object under a bucket/prefix, carrying a
+// domain.ObjectChangeEvent payload - see emitObjectChangeEvent.
+const wailsObjectChangeEvent = "object:change"
+
 // TransferService implements the Wails-bound API described in
 // docs/02-tech-spec.md section 9.3: queueing/pausing/resuming/cancelling/
 // retrying upload and download tasks, backed by the transfer_queue/
@@ -141,6 +147,25 @@ func (s *TransferService) emitProgressEvent(taskID int64, transferred, total int
 		ETASeconds:       eta,
 		Status:           status,
 		Error:            errMsg,
+	})
+}
+
+// emitObjectChangeEvent publishes a domain.ObjectChangeEvent on
+// wailsObjectChangeEvent via runtime.EventsEmit, or does nothing at all if
+// SetContext has not been called yet - the exact same no-op-until-SetContext
+// contract as emitProgressEvent (see its doc comment), for the same reason:
+// this is best-effort UI plumbing (letting an open FileManagerScreen refresh
+// its listing), never required for a transfer to run correctly.
+func (s *TransferService) emitObjectChangeEvent(bucket, prefix, changeType string) {
+	holder, ok := s.wailsCtx.Load().(ctxHolder)
+	if !ok || holder.ctx == nil {
+		return
+	}
+
+	runtime.EventsEmit(holder.ctx, wailsObjectChangeEvent, domain.ObjectChangeEvent{
+		Bucket: bucket,
+		Prefix: prefix,
+		Type:   changeType,
 	})
 }
 

@@ -104,3 +104,81 @@ export interface TextPreviewResult {
   truncated: boolean;
   totalSize: number;
 }
+
+/** Mirrors `domain.TransferTask`. Status is one of "pending" | "running" | "paused" | "completed" | "failed" | "cancelled" (FR-QUEUE-002). */
+export interface TransferTask {
+  id: number;
+  profileId: number;
+  type: string; // "upload" | "download"
+  sourcePath: string;
+  destinationPath: string;
+  status: string;
+  totalBytes: number;
+  transferredBytes: number;
+  errorMessage: string;
+  multipartUploadId: string;
+  priority: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Mirrors `domain.TransferHistoryEntry`. */
+export interface TransferHistoryEntry {
+  id: number;
+  queueId: number;
+  profileId: number;
+  type: string;
+  sourcePath: string;
+  destinationPath: string;
+  totalBytes: number;
+  status: string;
+  completedAt: string;
+  errorMessage: string;
+}
+
+/** Input to `TransferService.QueueUpload`, mirrors `domain.UploadRequest`. */
+export interface UploadRequest {
+  profileId: number;
+  bucket: string;
+  key: string;
+  localPath: string;
+  priority: number;
+}
+
+/** Input to `TransferService.QueueDownload`, mirrors `domain.DownloadRequest`. */
+export interface DownloadRequest {
+  profileId: number;
+  bucket: string;
+  key: string;
+  localPath: string;
+  priority: number;
+}
+
+/**
+ * Payload of the Wails "transfer:progress" event, mirrors
+ * `domain.TransferProgressEvent`. NOT part of the generated wailsjs
+ * bindings (`wails generate module` only scans bound service method
+ * signatures, not `runtime.EventsEmit` payloads) - received in
+ * `hooks/useTransferEvents.ts` as a raw PascalCase object and mapped
+ * manually.
+ */
+export interface TransferProgressEvent {
+  taskId: number;
+  transferredBytes: number;
+  totalBytes: number;
+  speedBytesPerSec: number;
+  etaSeconds: number;
+  status: string;
+  error: string;
+}
+
+/**
+ * Payload of the Wails "object:change" event, mirrors
+ * `domain.ObjectChangeEvent`. Same caveat as `TransferProgressEvent` - not
+ * part of the generated bindings.
+ */
+export interface ObjectChangeEvent {
+  bucket: string;
+  prefix: string;
+  type: string; // "create" | "delete"
+}

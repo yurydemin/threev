@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/url"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -338,6 +339,14 @@ func (s *TransferService) handleTaskResult(task domain.TransferTask, rt *running
 
 		s.emitProgressEvent(task.ID, transferred, total, speed, eta, "completed", "")
 
+		// Only an upload actually changes what a bucket/prefix listing would
+		// show server-side; a download never does, so no FileManagerScreen
+		// needs to hear about it (see this function's own doc comment for
+		// the pooled/bucket/key/uploadID parameters' broader purpose).
+		if task.Type == "upload" {
+			s.emitObjectChangeEvent(bucket, objectPrefixOf(key), "create")
+		}
+
 	case errors.Is(err, context.Canceled):
 		var intent string
 		if v, ok := rt.intent.Load().(string); ok {
@@ -391,6 +400,20 @@ func taskBucketKey(task domain.TransferTask) (bucket, key string, err error) {
 	default:
 		return "", "", fmt.Errorf("unknown transfer task type %q", task.Type)
 	}
+}
+
+// objectPrefixOf returns the "folder" prefix key belongs to - everything up
+// to and including the last "/", or "" if key has no "/" (an object at
+// bucket root) - matching the bucket/prefix a FileManagerScreen browsing
+// that location would be showing (see FileManagerService.ListObjects's
+// Prefix parameter).
+func objectPrefixOf(key string) string {
+	idx := strings.LastIndex(key, "/")
+	if idx == -1 {
+		return ""
+	}
+
+	return key[:idx+1]
 }
 
 // extractHostname returns the bare hostname component of endpointURL (e.g.

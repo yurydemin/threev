@@ -630,3 +630,23 @@ func TestSplitBucketKeyInvalid(t *testing.T) {
 		}
 	}
 }
+
+func TestObjectPrefixOf(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		key  string
+		want string
+	}{
+		{"", ""},
+		{"file.txt", ""},
+		{"folder/file.txt", "folder/"},
+		{"a/b/c/file.txt", "a/b/c/"},
+	}
+
+	for _, tt := range tests {
+		if got := objectPrefixOf(tt.key); got != tt.want {
+			t.Errorf("objectPrefixOf(%q) = %q, want %q", tt.key, got, tt.want)
+		}
+	}
+}
