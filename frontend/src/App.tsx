@@ -7,6 +7,7 @@ import { ConnectionsScreen } from './screens/ConnectionsScreen';
 import { FileManagerScreen } from './screens/FileManagerScreen';
 import { TransferScreen } from './screens/TransferScreen';
 import { WelcomeScreen } from './screens/WelcomeScreen';
+import { ToastContainer } from './components/ui/ToastContainer';
 import type { ConnectionSummary } from './types';
 
 /**
@@ -82,6 +83,7 @@ function App() {
             ) : (
                 <ConnectionsScreen onConnect={handleConnect} onSelectTransfers={handleSelectTransfers} />
             )}
+            <ToastContainer />
         </div>
     );
 }

@@ -1,4 +1,5 @@
 import { clsx, type ClassValue } from 'clsx';
+import { toast } from './toast';
 import type { ObjectEntry } from '../types';
 
 /**
@@ -70,18 +71,20 @@ export function getEntryDisplayName(key: string, currentPrefix: string): string 
 }
 
 /**
- * Writes `text` to the system clipboard, logging (not throwing/surfacing) on
- * failure — there is no toast system yet (Stage 4), so a denied permission
- * or unsupported environment fails silently rather than crashing the
+ * Writes `text` to the system clipboard, logging and toasting (not
+ * throwing/surfacing to the caller) on failure — a denied permission or
+ * unsupported environment fails gracefully rather than crashing the
  * caller's interaction. Shared by `ObjectContextMenu` ("Скопировать
  * имя"/"Скопировать путь"/"Копировать URL") and `PresignedUrlModal`
- * ("Копировать" button).
+ * ("Копировать" button) — the toast is raised here, once, rather than at
+ * each call site, since all of them want the same message.
  */
 export async function copyToClipboard(text: string): Promise<void> {
   try {
     await navigator.clipboard.writeText(text);
   } catch (err) {
     console.error('[copyToClipboard] clipboard write failed:', err);
+    toast.error('Не удалось скопировать в буфер обмена');
   }
 }
 

@@ -17,6 +17,7 @@ import { pickDownloadDestination, pickDownloadDirectory } from '../../lib/wails/
 import { useTransferStore } from '../../stores/useTransferStore';
 import { getPreviewKind } from '../../lib/preview';
 import { copyToClipboard, getEntryDisplayName } from '../../lib/utils';
+import { toast } from '../../lib/toast';
 import { useFileManagerStore } from '../../stores/useFileManagerStore';
 import type { ObjectEntry } from '../../types';
 
@@ -103,7 +104,10 @@ export function ObjectContextMenu({
                 .getState()
                 .queueDownloadPrefix(activeProfileId, selectedBucket, entry.key, dir);
             })
-            .catch((err) => console.error('[ObjectContextMenu] pickDownloadDirectory failed:', err));
+            .catch((err) => {
+              console.error('[ObjectContextMenu] pickDownloadDirectory failed:', err);
+              toast.error('Не удалось выбрать папку для скачивания');
+            });
         },
       },
       {
@@ -143,7 +147,10 @@ export function ObjectContextMenu({
                 });
               }
             })
-            .catch((err) => console.error('[ObjectContextMenu] pickDownloadDirectory failed:', err));
+            .catch((err) => {
+              console.error('[ObjectContextMenu] pickDownloadDirectory failed:', err);
+              toast.error('Не удалось выбрать папку для скачивания');
+            });
         },
       },
       {
@@ -189,7 +196,10 @@ export function ObjectContextMenu({
             priority: 0,
           });
         })
-        .catch((err) => console.error('[ObjectContextMenu] pickDownloadDestination failed:', err));
+        .catch((err) => {
+          console.error('[ObjectContextMenu] pickDownloadDestination failed:', err);
+          toast.error('Не удалось выбрать место для скачивания');
+        });
     },
   });
 
@@ -209,7 +219,10 @@ export function ObjectContextMenu({
       if (!activeProfileId || !selectedBucket) return;
       void getPresignedUrl(activeProfileId, selectedBucket, entry.key, COPY_URL_EXPIRY_SECONDS)
         .then((url) => copyToClipboard(url))
-        .catch((err) => console.error('[ObjectContextMenu] getPresignedUrl failed:', err));
+        .catch((err) => {
+          console.error('[ObjectContextMenu] getPresignedUrl failed:', err);
+          toast.error('Не удалось получить presigned URL');
+        });
     },
   });
 

@@ -5,6 +5,7 @@ import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { headObject, updateMetadata } from '../../lib/wails/fileManager';
 import { formatBytes } from '../../lib/utils';
+import { toast } from '../../lib/toast';
 import type { ObjectEntry, ObjectMeta } from '../../types';
 
 export interface PropertiesModalProps {
@@ -66,7 +67,10 @@ export function PropertiesModal({ isOpen, onClose, profileId, bucket, entry }: P
         setCacheControl('');
         setPairs(metaToPairs(result.metadata));
       })
-      .catch((err) => console.error('[PropertiesModal] headObject failed:', err))
+      .catch((err) => {
+        console.error('[PropertiesModal] headObject failed:', err);
+        toast.error('Не удалось загрузить свойства объекта');
+      })
       .finally(() => {
         if (!cancelled) setIsLoading(false);
       });
@@ -95,6 +99,7 @@ export function PropertiesModal({ isOpen, onClose, profileId, bucket, entry }: P
       onClose();
     } catch (err) {
       console.error('[PropertiesModal] updateMetadata failed:', err);
+      toast.error('Не удалось сохранить метаданные');
     } finally {
       setIsSaving(false);
     }

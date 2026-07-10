@@ -1,5 +1,6 @@
 import { pickUploadFiles } from './wails/transfer';
 import { useTransferStore } from '../stores/useTransferStore';
+import { toast } from './toast';
 
 /**
  * Opens the native "pick files" dialog and, if the user selected at least
@@ -14,8 +15,6 @@ import { useTransferStore } from '../stores/useTransferStore';
  *
  * No-op if the user cancels the dialog (`pickUploadFiles()` resolves to an
  * empty array) or if `profileId`/`bucket` are unset (nothing to upload to).
- * Errors are logged, not surfaced — no toast system yet, same convention as
- * `ObjectContextMenu`.
  */
 export async function pickAndQueueUploadFiles(
   profileId: number | null,
@@ -29,5 +28,6 @@ export async function pickAndQueueUploadFiles(
     await useTransferStore.getState().queueUploadPaths(profileId, bucket, prefix, paths);
   } catch (err) {
     console.error('[uploadFiles] pickAndQueueUploadFiles failed:', err);
+    toast.error('Не удалось начать загрузку файлов');
   }
 }

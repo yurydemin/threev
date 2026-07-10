@@ -16,6 +16,7 @@ import { useFileManagerStore } from '../../stores/useFileManagerStore';
 import { useTransferStore } from '../../stores/useTransferStore';
 import { pickUploadDirectory } from '../../lib/wails/transfer';
 import { pickAndQueueUploadFiles } from '../../lib/uploadFiles';
+import { toast } from '../../lib/toast';
 import { Button } from '../ui/Button';
 import { ContextMenu, type ContextMenuItem } from '../ui/ContextMenu';
 import { Breadcrumbs } from '../file-manager/Breadcrumbs';
@@ -74,6 +75,7 @@ export function Toolbar({ view, onViewChange }: ToolbarProps) {
         .queueUploadPaths(activeProfileId, selectedBucket, currentPrefix, [path]);
     } catch (err) {
       console.error('[Toolbar] pickUploadDirectory failed:', err);
+      toast.error('Не удалось выбрать папку для загрузки');
     }
   }
 

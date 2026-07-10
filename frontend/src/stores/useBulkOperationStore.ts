@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 import { cancelBulkOperation, copyObjects, deleteObjects, moveObjects } from '../lib/wails/fileManager';
+import { ApiError } from '../lib/wails/errors';
+import { toast } from '../lib/toast';
 import type { BulkOperationProgressEvent } from '../types';
 
 /** `BulkOperationProgressEvent.status` values that mean "no longer running". */
@@ -65,7 +67,14 @@ export const useBulkOperationStore = create<BulkOperationState>()((set, get) => 
     active: null,
 
     startDelete: async (profileId, bucket, keys) => {
-      const operationId = await deleteObjects(profileId, bucket, keys);
+      let operationId: number;
+      try {
+        operationId = await deleteObjects(profileId, bucket, keys);
+      } catch (err) {
+        console.error('[useBulkOperationStore] deleteObjects failed:', err);
+        toast.error('Не удалось начать удаление объектов');
+        return;
+      }
       set({
         active: {
           operationId,
@@ -79,7 +88,14 @@ export const useBulkOperationStore = create<BulkOperationState>()((set, get) => 
     },
 
     startCopy: async (profileId, sourceBucket, keys, destBucket, destPrefix) => {
-      const operationId = await copyObjects(profileId, sourceBucket, keys, destBucket, destPrefix);
+      let operationId: number;
+      try {
+        operationId = await copyObjects(profileId, sourceBucket, keys, destBucket, destPrefix);
+      } catch (err) {
+        console.error('[useBulkOperationStore] copyObjects failed:', err);
+        toast.error('Не удалось начать копирование объектов');
+        return;
+      }
       set({
         active: {
           operationId,
@@ -93,7 +109,14 @@ export const useBulkOperationStore = create<BulkOperationState>()((set, get) => 
     },
 
     startMove: async (profileId, sourceBucket, keys, destBucket, destPrefix) => {
-      const operationId = await moveObjects(profileId, sourceBucket, keys, destBucket, destPrefix);
+      let operationId: number;
+      try {
+        operationId = await moveObjects(profileId, sourceBucket, keys, destBucket, destPrefix);
+      } catch (err) {
+        console.error('[useBulkOperationStore] moveObjects failed:', err);
+        toast.error('Не удалось начать перемещение объектов');
+        return;
+      }
       set({
         active: {
           operationId,
@@ -112,8 +135,8 @@ export const useBulkOperationStore = create<BulkOperationState>()((set, get) => 
       try {
         await cancelBulkOperation(active.operationId);
       } catch (err) {
-        // No toast system yet (Stage 4, Block E) — logged, not surfaced.
         console.error('[useBulkOperationStore] cancelBulkOperation failed:', err);
+        toast.error(err instanceof ApiError ? err.message : 'Не удалось отменить операцию');
       }
     },
 
@@ -122,6 +145,9 @@ export const useBulkOperationStore = create<BulkOperationState>()((set, get) => 
       set({ active: event });
       if (TERMINAL_STATUSES.has(event.status)) {
         scheduleAutoHide(event.operationId);
+        if (event.failedCount > 0) {
+          toast.warning(`${event.failedCount} из ${event.total} объектов не удалось обработать`);
+        }
       }
     },
 
