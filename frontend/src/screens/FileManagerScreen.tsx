@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type CSSProperties } from 'react';
 import { Sidebar } from '../components/layout/Sidebar';
 import { Toolbar, type FileManagerView } from '../components/layout/Toolbar';
 import { StatusBar } from '../components/layout/StatusBar';
@@ -7,8 +7,10 @@ import { FileList } from '../components/file-manager/FileList';
 import { FileGrid } from '../components/file-manager/FileGrid';
 import { ObjectContextMenu } from '../components/file-manager/ObjectContextMenu';
 import { ObjectPreviewModal } from '../components/file-manager/ObjectPreviewModal';
+import { DropOverlay } from '../components/file-manager/DropOverlay';
 import { useFileManagerStore } from '../stores/useFileManagerStore';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
+import { useFileDropUpload } from '../hooks/useFileDropUpload';
 import { filterEntriesByQuery } from '../lib/utils';
 import { isPreviewSupported } from '../lib/preview';
 import type { ObjectEntry } from '../types';
@@ -49,6 +51,7 @@ export function FileManagerScreen({ profileId, profileName, onExit }: FileManage
   const [view, setView] = useState<FileManagerView>('list');
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [previewEntry, setPreviewEntry] = useState<ObjectEntry | null>(null);
+  const activeProfileId = useFileManagerStore((state) => state.activeProfileId);
   const selectedBucket = useFileManagerStore((state) => state.selectedBucket);
   const entries = useFileManagerStore((state) => state.entries);
   const currentPrefix = useFileManagerStore((state) => state.currentPrefix);
@@ -56,6 +59,8 @@ export function FileManagerScreen({ profileId, profileName, onExit }: FileManage
   const refresh = useFileManagerStore((state) => state.refresh);
 
   useKeyboardShortcuts({ onRefresh: refresh });
+
+  const { isDraggingOver, dragHandlers } = useFileDropUpload(activeProfileId, selectedBucket, currentPrefix);
 
   const filteredEntries = useMemo(
     () => filterEntriesByQuery(entries, searchQuery, currentPrefix),
@@ -86,7 +91,14 @@ export function FileManagerScreen({ profileId, profileName, onExit }: FileManage
       <div className="flex min-w-0 flex-1 flex-col">
         <Toolbar view={view} onViewChange={setView} />
 
-        <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <main
+          className="relative flex min-h-0 flex-1 flex-col overflow-hidden"
+          // Required for Wails' `OnFileDrop(callback, true)` to recognize this
+          // area as a valid drop target — see `useFileDropUpload` for why this
+          // is independent from `dragHandlers` (which only drive the overlay).
+          style={{ '--wails-drop-target': 'drop' } as CSSProperties}
+          {...dragHandlers}
+        >
           {selectedBucket ? (
             view === 'list' ? (
               <FileList entries={filteredEntries} onOpenFile={handleOpenFile} onContextMenu={handleContextMenu} />
@@ -100,6 +112,7 @@ export function FileManagerScreen({ profileId, profileName, onExit }: FileManage
               </p>
             </div>
           )}
+          {isDraggingOver && <DropOverlay />}
         </main>
 
         <StatusBar left={statusLeft} />

@@ -1,5 +1,6 @@
 import { Folder as FolderIcon } from 'lucide-react';
 import { useFileManagerStore } from '../../stores/useFileManagerStore';
+import { pickAndQueueUploadFiles } from '../../lib/uploadFiles';
 import type { ObjectEntry } from '../../types';
 import { Button } from '../ui/Button';
 import { FileGridItem } from './FileGridItem';
@@ -19,6 +20,8 @@ export interface FileGridProps {
  */
 export function FileGrid({ entries, onOpenFile, onContextMenu }: FileGridProps) {
   const rawEntryCount = useFileManagerStore((state) => state.entries.length);
+  const activeProfileId = useFileManagerStore((state) => state.activeProfileId);
+  const selectedBucket = useFileManagerStore((state) => state.selectedBucket);
   const currentPrefix = useFileManagerStore((state) => state.currentPrefix);
   const searchQuery = useFileManagerStore((state) => state.searchQuery);
   const isLoadingEntries = useFileManagerStore((state) => state.isLoadingEntries);
@@ -53,6 +56,15 @@ export function FileGrid({ entries, onOpenFile, onContextMenu }: FileGridProps) 
       <div className="flex flex-1 flex-col items-center justify-center gap-2 py-16 text-center">
         <FolderIcon className="h-12 w-12 text-fg-muted" aria-hidden="true" />
         <p className="text-sm text-fg-primary">{hasSearchQuery ? 'Ничего не найдено' : 'Эта папка пуста'}</p>
+        {!hasSearchQuery && (
+          <Button
+            variant="primary"
+            className="mt-2"
+            onClick={() => void pickAndQueueUploadFiles(activeProfileId, selectedBucket, currentPrefix)}
+          >
+            Загрузить файлы
+          </Button>
+        )}
       </div>
     );
   }

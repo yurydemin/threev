@@ -1,6 +1,7 @@
 import { ChevronDown, ChevronUp, Folder as FolderIcon } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useFileManagerStore } from '../../stores/useFileManagerStore';
+import { pickAndQueueUploadFiles } from '../../lib/uploadFiles';
 import type { ObjectEntry } from '../../types';
 import { Button } from '../ui/Button';
 import { FileRow } from './FileRow';
@@ -141,10 +142,23 @@ export function FileList({ entries, onOpenFile, onContextMenu }: FileListProps) 
 }
 
 function EmptyListState({ hasSearchQuery }: { hasSearchQuery: boolean }) {
+  const activeProfileId = useFileManagerStore((state) => state.activeProfileId);
+  const selectedBucket = useFileManagerStore((state) => state.selectedBucket);
+  const currentPrefix = useFileManagerStore((state) => state.currentPrefix);
+
   return (
     <div className="flex flex-col items-center justify-center gap-2 py-16 text-center">
       <FolderIcon className="h-12 w-12 text-fg-muted" aria-hidden="true" />
       <p className="text-sm text-fg-primary">{hasSearchQuery ? 'Ничего не найдено' : 'Эта папка пуста'}</p>
+      {!hasSearchQuery && (
+        <Button
+          variant="primary"
+          className="mt-2"
+          onClick={() => void pickAndQueueUploadFiles(activeProfileId, selectedBucket, currentPrefix)}
+        >
+          Загрузить файлы
+        </Button>
+      )}
     </div>
   );
 }

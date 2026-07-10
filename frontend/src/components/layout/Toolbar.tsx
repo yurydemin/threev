@@ -1,7 +1,22 @@
-import { ChevronLeft, ChevronRight, LayoutGrid, List, RotateCcw, Search } from 'lucide-react';
+import { useState } from 'react';
+import {
+  ChevronLeft,
+  ChevronRight,
+  FileUp,
+  FolderUp,
+  LayoutGrid,
+  List,
+  RotateCcw,
+  Search,
+  Upload,
+} from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useFileManagerStore } from '../../stores/useFileManagerStore';
+import { useTransferStore } from '../../stores/useTransferStore';
+import { pickUploadDirectory } from '../../lib/wails/transfer';
+import { pickAndQueueUploadFiles } from '../../lib/uploadFiles';
 import { Button } from '../ui/Button';
+import { ContextMenu, type ContextMenuItem } from '../ui/ContextMenu';
 import { Breadcrumbs } from '../file-manager/Breadcrumbs';
 
 export type FileManagerView = 'list' | 'grid';
@@ -31,6 +46,7 @@ export interface ToolbarProps {
 export function Toolbar({ view, onViewChange }: ToolbarProps) {
   const history = useFileManagerStore((state) => state.history);
   const historyIndex = useFileManagerStore((state) => state.historyIndex);
+  const activeProfileId = useFileManagerStore((state) => state.activeProfileId);
   const selectedBucket = useFileManagerStore((state) => state.selectedBucket);
   const currentPrefix = useFileManagerStore((state) => state.currentPrefix);
   const searchQuery = useFileManagerStore((state) => state.searchQuery);
@@ -40,8 +56,36 @@ export function Toolbar({ view, onViewChange }: ToolbarProps) {
   const navigateToPrefix = useFileManagerStore((state) => state.navigateToPrefix);
   const setSearchQuery = useFileManagerStore((state) => state.setSearchQuery);
 
+  const [uploadMenu, setUploadMenu] = useState<{ x: number; y: number } | null>(null);
+
   const canGoBack = historyIndex > 0;
   const canGoForward = historyIndex < history.length - 1;
+
+  async function handlePickDirectory() {
+    if (!activeProfileId || !selectedBucket) return;
+    try {
+      const path = await pickUploadDirectory();
+      if (!path) return;
+      await useTransferStore
+        .getState()
+        .queueUploadPaths(activeProfileId, selectedBucket, currentPrefix, [path]);
+    } catch (err) {
+      console.error('[Toolbar] pickUploadDirectory failed:', err);
+    }
+  }
+
+  const uploadMenuItems: ContextMenuItem[] = [
+    {
+      label: 'Выбрать файлы…',
+      icon: <FileUp className="h-4 w-4" aria-hidden="true" />,
+      onClick: () => void pickAndQueueUploadFiles(activeProfileId, selectedBucket, currentPrefix),
+    },
+    {
+      label: 'Выбрать папку…',
+      icon: <FolderUp className="h-4 w-4" aria-hidden="true" />,
+      onClick: () => void handlePickDirectory(),
+    },
+  ];
 
   return (
     <div className="flex h-header shrink-0 items-center justify-between gap-4 border-b border-border bg-bg-secondary px-4">
@@ -117,7 +161,28 @@ export function Toolbar({ view, onViewChange }: ToolbarProps) {
             <LayoutGrid className="h-4 w-4" aria-hidden="true" />
           </Button>
         </div>
+
+        <Button
+          variant="primary"
+          disabled={!selectedBucket}
+          onClick={(event) => {
+            const rect = event.currentTarget.getBoundingClientRect();
+            setUploadMenu({ x: rect.left, y: rect.bottom + 4 });
+          }}
+        >
+          <Upload className="h-4 w-4" aria-hidden="true" />
+          Загрузить
+        </Button>
       </div>
+
+      {uploadMenu && (
+        <ContextMenu
+          x={uploadMenu.x}
+          y={uploadMenu.y}
+          items={uploadMenuItems}
+          onClose={() => setUploadMenu(null)}
+        />
+      )}
     </div>
   );
 }

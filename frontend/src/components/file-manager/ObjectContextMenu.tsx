@@ -1,6 +1,8 @@
-import { Copy, Eye, FolderOpen, Link } from 'lucide-react';
+import { Copy, Download, Eye, FolderOpen, Link } from 'lucide-react';
 import { ContextMenu, type ContextMenuItem } from '../ui/ContextMenu';
 import { getPresignedUrl } from '../../lib/wails/fileManager';
+import { pickDownloadDestination, pickDownloadDirectory } from '../../lib/wails/transfer';
+import { useTransferStore } from '../../stores/useTransferStore';
 import { getPreviewKind } from '../../lib/preview';
 import { getEntryDisplayName } from '../../lib/utils';
 import { useFileManagerStore } from '../../stores/useFileManagerStore';
@@ -31,11 +33,11 @@ async function copyToClipboard(text: string): Promise<void> {
 
 /**
  * ПКМ context menu for a single object, per docs/03-ux-ui-spec.md section
- * 5.4.5 — trimmed to the Stage 2 constraint 6 subset: "Открыть /
+ * 5.4.5 — trimmed to the Stage 2 constraint 6 subset plus "Скачать" (Stage
+ * 3 Block J, now that `TransferService` exists): "Скачать...", "Открыть /
  * Предпросмотр" (only if the type is previewable), "Копировать URL",
- * "Скопировать имя", "Скопировать путь". "Скачать...", "Изменить
- * метаданные...", "Удалить" are not shown at all (those services don't
- * exist yet — Stage 3/4).
+ * "Скопировать имя", "Скопировать путь". "Изменить метаданные...",
+ * "Удалить" are still not shown (those services don't exist yet — Stage 4).
  *
  * Reads `activeProfileId`/`selectedBucket`/`currentPrefix` directly from
  * `useFileManagerStore`, same convention as `Toolbar`/`BucketPanel`/
@@ -69,6 +71,22 @@ export function ObjectContextMenu({ entry, x, y, onClose, onOpenPreview }: Objec
   if (entry.isFolder) {
     const items: ContextMenuItem[] = [
       {
+        label: 'Скачать',
+        icon: <Download className="h-4 w-4" aria-hidden="true" />,
+        disabled: !activeProfileId || !selectedBucket,
+        onClick: () => {
+          if (!activeProfileId || !selectedBucket) return;
+          void pickDownloadDirectory()
+            .then((dir) => {
+              if (!dir) return;
+              return useTransferStore
+                .getState()
+                .queueDownloadPrefix(activeProfileId, selectedBucket, entry.key, dir);
+            })
+            .catch((err) => console.error('[ObjectContextMenu] pickDownloadDirectory failed:', err));
+        },
+      },
+      {
         label: 'Открыть',
         icon: <FolderOpen className="h-4 w-4" aria-hidden="true" />,
         onClick: () => navigateToPrefix(entry.key),
@@ -81,6 +99,27 @@ export function ObjectContextMenu({ entry, x, y, onClose, onOpenPreview }: Objec
   const displayName = getEntryDisplayName(entry.key, currentPrefix);
 
   const items: ContextMenuItem[] = [];
+
+  items.push({
+    label: 'Скачать...',
+    icon: <Download className="h-4 w-4" aria-hidden="true" />,
+    disabled: !activeProfileId || !selectedBucket,
+    onClick: () => {
+      if (!activeProfileId || !selectedBucket) return;
+      void pickDownloadDestination(displayName)
+        .then((localPath) => {
+          if (!localPath) return;
+          return useTransferStore.getState().queueDownload({
+            profileId: activeProfileId,
+            bucket: selectedBucket,
+            key: entry.key,
+            localPath,
+            priority: 0,
+          });
+        })
+        .catch((err) => console.error('[ObjectContextMenu] pickDownloadDestination failed:', err));
+    },
+  });
 
   if (previewKind) {
     items.push({
