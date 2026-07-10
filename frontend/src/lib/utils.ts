@@ -25,6 +25,34 @@ export function formatBytes(bytes: number): string {
 }
 
 /**
+ * Formats a transfer speed as a human-readable string (e.g. `"12.4 MB/s"`),
+ * per docs/03-ux-ui-spec.md section 5.5 (Transfer card bottom row). Reuses
+ * `formatBytes` rather than duplicating the unit-scaling logic.
+ */
+export function formatSpeed(bytesPerSec: number): string {
+  return `${formatBytes(bytesPerSec)}/s`;
+}
+
+/**
+ * Formats an ETA (seconds remaining) as a compact human-readable string, per
+ * docs/03-ux-ui-spec.md section 5.5. `etaSeconds < 0` means "unknown" (an
+ * em dash); `0` means "already done" — callers generally don't render this
+ * case (a finished transfer has no ETA row), so it resolves to an empty
+ * string rather than "0с". Not ISO-8601-precise by design (e.g. `"1h 5m"`,
+ * not `"1h 5m 30s"`) — this is a status-line hint, not a duration input.
+ */
+export function formatETA(etaSeconds: number): string {
+  if (etaSeconds < 0) return '—';
+  if (etaSeconds === 0) return '';
+  if (etaSeconds < 60) return `${Math.round(etaSeconds)}с`;
+  const totalMinutes = Math.floor(etaSeconds / 60);
+  if (totalMinutes < 60) return `${totalMinutes}m`;
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return `${hours}h ${minutes}m`;
+}
+
+/**
  * Derives the display name of an `ObjectEntry` within the currently browsed
  * `currentPrefix`: strips the prefix from the front of `key`, then takes
  * the last path segment. With `ListObjects`'s delimiter-based listing,

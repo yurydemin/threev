@@ -28,6 +28,17 @@ interface TransferState {
   isLoadingHistory: boolean;
   queueError: string | null;
   historyError: string | null;
+  /**
+   * Latest `speedBytesPerSec`/`etaSeconds` seen per task id, keyed off
+   * "transfer:progress" events (Stage 3 Block I). `TransferTask` itself
+   * (from `GetQueue()`) carries neither field - they only exist on the
+   * event payload - so these maps are the sole source for the Transfer
+   * screen's speed/ETA display. Entries are dropped once a task leaves
+   * `queue` (moves to `history` or is otherwise removed), so a stale speed
+   * never lingers on a task id that gets reused.
+   */
+  speedByTaskId: Record<number, number>;
+  etaByTaskId: Record<number, number>;
 
   fetchQueue: () => Promise<void>;
   fetchHistory: (limit?: number) => Promise<void>;
@@ -89,6 +100,8 @@ export const useTransferStore = create<TransferState>()((set, get) => ({
   isLoadingHistory: false,
   queueError: null,
   historyError: null,
+  speedByTaskId: {},
+  etaByTaskId: {},
 
   fetchQueue: async () => {
     set({ isLoadingQueue: true, queueError: null });
@@ -210,7 +223,11 @@ export const useTransferStore = create<TransferState>()((set, get) => ({
 
   applyProgressEvent: (event) => {
     if (TERMINAL_STATUSES.has(event.status)) {
-      set({ queue: get().queue.filter((task) => task.id !== event.taskId) });
+      const speedByTaskId = { ...get().speedByTaskId };
+      const etaByTaskId = { ...get().etaByTaskId };
+      delete speedByTaskId[event.taskId];
+      delete etaByTaskId[event.taskId];
+      set({ queue: get().queue.filter((task) => task.id !== event.taskId), speedByTaskId, etaByTaskId });
       void get().fetchHistory();
       return;
     }
@@ -231,6 +248,10 @@ export const useTransferStore = create<TransferState>()((set, get) => ({
       status: event.status,
       errorMessage: event.error,
     };
-    set({ queue: next });
+    set({
+      queue: next,
+      speedByTaskId: { ...get().speedByTaskId, [event.taskId]: event.speedBytesPerSec },
+      etaByTaskId: { ...get().etaByTaskId, [event.taskId]: event.etaSeconds },
+    });
   },
 }));
