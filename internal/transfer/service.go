@@ -3,15 +3,20 @@ package transfer
 import (
 	"context"
 	"fmt"
+	"io/fs"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 
+	"threev/internal/connection"
 	"threev/internal/domain"
 	"threev/internal/s3client"
 	"threev/internal/storage"
@@ -247,6 +252,138 @@ func (s *TransferService) QueueUpload(req domain.UploadRequest) (int64, error) {
 	return created.ID, nil
 }
 
+// downloadPrefixPageSize is the ListObjectsV2 page size QueueDownloadPrefix
+// requests - the same value as filemanager's own maxKeysPerPage
+// (FR-FM-005), duplicated here rather than exported/shared since the two
+// packages' list calls otherwise differ in every other respect (this one is
+// delimiter-less and fully paginated internally, filemanager's is
+// delimiter-based and paginated one page at a time by the caller).
+const downloadPrefixPageSize = 1000
+
+// normalizeS3Prefix returns prefix with any leading "/" stripped and,
+// unless prefix is empty, exactly one trailing "/" - the form every S3 key
+// QueueUploadPaths builds is prefixed with.
+func normalizeS3Prefix(prefix string) string {
+	prefix = strings.TrimPrefix(prefix, "/")
+	if prefix == "" {
+		return ""
+	}
+
+	if !strings.HasSuffix(prefix, "/") {
+		prefix += "/"
+	}
+
+	return prefix
+}
+
+// QueueUploadPaths is the single entry point both the system file/folder
+// picker (dialogs.go's PickUploadFiles/PickUploadDirectory) and a future
+// drag-and-drop handler (Этап 3 Block J, not yet implemented) call to queue
+// zero or more uploads at once: localPaths may freely mix plain files and
+// directories (absolute local paths), in any combination.
+//
+// S3 key construction for destinationPrefix (normalized via
+// normalizeS3Prefix) + each resulting file:
+//
+//   - a localPaths entry that is itself a plain file: destinationPrefix +
+//     filepath.Base(localPath).
+//   - a localPaths entry that is a directory: recursively walked
+//     (filepath.WalkDir); every regular file found (d.Type().IsRegular() -
+//     symlinks and anything else are silently skipped, and never followed)
+//     gets destinationPrefix + filepath.ToSlash(relPath), where relPath is
+//     the file's path relative to filepath.Dir(localPath) - i.e. INCLUDING
+//     the walked directory's own name as the first path segment, so that
+//     uploading several sibling files/directories in one call can never
+//     collide with each other, while still preserving a recognizable
+//     directory structure under destinationPrefix.
+//
+// Best-effort semantics: any single localPaths entry that cannot be
+// stat'd/walked, and any single resulting file QueueUpload itself rejects,
+// is logged and skipped - never aborting the rest of localPaths. The
+// returned []int64 holds the id of every task that was actually queued,
+// preserving no particular guaranteed order beyond localPaths' own
+// traversal order; a non-nil error is returned only when that slice would
+// otherwise be empty (nothing at all could be queued - e.g. localPaths
+// itself is empty, or every entry was unreadable), since an empty result
+// with no error would otherwise be indistinguishable from "nothing was
+// asked for" to a caller.
+func (s *TransferService) QueueUploadPaths(profileID int64, bucket, destinationPrefix string, localPaths []string) ([]int64, error) {
+	prefix := normalizeS3Prefix(destinationPrefix)
+
+	var ids []int64
+
+	for _, localPath := range localPaths {
+		info, err := os.Stat(localPath)
+		if err != nil {
+			log.Printf("transfer: QueueUploadPaths: stat %s: %v", localPath, err)
+			continue
+		}
+
+		if !info.IsDir() {
+			key := prefix + filepath.Base(localPath)
+			if id, ok := s.queueUploadPathBestEffort(profileID, bucket, key, localPath); ok {
+				ids = append(ids, id)
+			}
+
+			continue
+		}
+
+		baseDir := filepath.Dir(localPath)
+
+		walkErr := filepath.WalkDir(localPath, func(path string, d fs.DirEntry, walkEntryErr error) error {
+			if walkEntryErr != nil {
+				log.Printf("transfer: QueueUploadPaths: walk %s: %v", path, walkEntryErr)
+				return nil // best-effort: skip this entry, keep walking the rest of the tree
+			}
+
+			if !d.Type().IsRegular() {
+				return nil // directories are recursed into automatically; symlinks/other types are never followed
+			}
+
+			relPath, relErr := filepath.Rel(baseDir, path)
+			if relErr != nil {
+				log.Printf("transfer: QueueUploadPaths: relative path for %s under %s: %v", path, baseDir, relErr)
+				return nil
+			}
+
+			key := prefix + filepath.ToSlash(relPath)
+			if id, ok := s.queueUploadPathBestEffort(profileID, bucket, key, path); ok {
+				ids = append(ids, id)
+			}
+
+			return nil
+		})
+		if walkErr != nil {
+			log.Printf("transfer: QueueUploadPaths: walk %s: %v", localPath, walkErr)
+		}
+	}
+
+	if len(ids) == 0 {
+		return nil, fmt.Errorf("no files were queued for upload out of %d given path(s)", len(localPaths))
+	}
+
+	return ids, nil
+}
+
+// queueUploadPathBestEffort calls QueueUpload for localPath -> bucket/key,
+// logging (never propagating) any error - the shared best-effort tail of
+// both QueueUploadPaths branches (a bare file, and each regular file found
+// while walking a directory).
+func (s *TransferService) queueUploadPathBestEffort(profileID int64, bucket, key, localPath string) (id int64, ok bool) {
+	id, err := s.QueueUpload(domain.UploadRequest{
+		ProfileID: profileID,
+		Bucket:    bucket,
+		Key:       key,
+		LocalPath: localPath,
+	})
+	if err != nil {
+		log.Printf("transfer: QueueUploadPaths: queue upload %s -> %s/%s: %v", localPath, bucket, key, err)
+		return 0, false
+	}
+
+	return id, true
+}
+
 // QueueDownload creates a new "pending" download task for req.Bucket/
 // req.Key -> req.LocalPath (docs/02-tech-spec.md section 9.3) and calls
 // dispatch(). Unlike QueueUpload, TotalBytes is left at 0 here: the real
@@ -271,6 +408,160 @@ func (s *TransferService) QueueDownload(req domain.DownloadRequest) (int64, erro
 	s.dispatch()
 
 	return created.ID, nil
+}
+
+// QueueDownloadPrefix recursively lists every object under bucket/prefix -
+// a full, DELIMITER-LESS ListObjectsV2 pagination, unlike
+// filemanager.ListObjects's delimiter-based single-level folder view: the
+// goal here is "download everything that exists under this prefix,
+// mirroring its structure onto disk", which needs every key at every
+// depth, not just the immediate children - and calls QueueDownload once per
+// resulting object.
+//
+// Local path for each object: filepath.Join(localDestDir,
+// filepath.FromSlash(relPath)), where relPath is the object's key with
+// prefix stripped (strings.TrimPrefix(key, prefix)). Two kinds of key are
+// never queued:
+//
+//   - a zero-byte "folder placeholder" object (a key ending in "/" with
+//     size 0 - the same object filemanager/list.go's entriesFromPage
+//     special-cases for the same underlying reason: many S3-compatible
+//     servers/GUI clients create one when a "folder" is made explicitly).
+//   - a key whose relPath, once filepath.Clean'd and split into segments,
+//     contains ".." anywhere - a basic defense against directory traversal
+//     when mirroring a remote, otherwise-untrusted S3 key onto the local
+//     filesystem (see the Этап 3 plan's "known risks" section).
+//
+// Best-effort semantics identical to QueueUploadPaths: a single object that
+// fails to queue (or an entire ListObjectsV2 page that fails to fetch,
+// which simply ends pagination early rather than aborting everything
+// already queued) is logged and skipped, never aborting the rest; a
+// non-nil error is returned only if nothing at all was queued.
+func (s *TransferService) QueueDownloadPrefix(profileID int64, bucket, prefix, localDestDir string) ([]int64, error) {
+	profile, err := connection.ResolveProfile(context.Background(), s.profileRepo, s.encryptionKey, profileID)
+	if err != nil {
+		return nil, fmt.Errorf("resolve profile %d: %w", profileID, err)
+	}
+
+	pooled, fresh, err := s.connMgr.Get(profileID)
+	if err != nil {
+		return nil, fmt.Errorf("get S3 clients for profile %d: %w", profileID, err)
+	}
+
+	host := extractHostname(profile.EndpointURL)
+
+	var ids []int64
+
+	continuationToken := ""
+
+	for {
+		page, listErr := s.listObjectsPageForDownloadPrefix(pooled, fresh, host, bucket, prefix, continuationToken)
+		if listErr != nil {
+			log.Printf("transfer: QueueDownloadPrefix: list %s/%s: %v", bucket, prefix, listErr)
+			break
+		}
+
+		for _, obj := range page.Contents {
+			key := aws.ToString(obj.Key)
+
+			if strings.HasSuffix(key, "/") && aws.ToInt64(obj.Size) == 0 {
+				continue
+			}
+
+			localPath, ok := resolveDownloadPrefixLocalPath(localDestDir, prefix, key)
+			if !ok {
+				continue
+			}
+
+			id, err := s.QueueDownload(domain.DownloadRequest{
+				ProfileID: profileID,
+				Bucket:    bucket,
+				Key:       key,
+				LocalPath: localPath,
+			})
+			if err != nil {
+				log.Printf("transfer: QueueDownloadPrefix: queue download %s/%s -> %s: %v", bucket, key, localPath, err)
+				continue
+			}
+
+			ids = append(ids, id)
+		}
+
+		if !aws.ToBool(page.IsTruncated) {
+			break
+		}
+
+		continuationToken = aws.ToString(page.NextContinuationToken)
+		if continuationToken == "" {
+			break
+		}
+	}
+
+	if len(ids) == 0 {
+		return nil, fmt.Errorf("no objects were queued for download under %s/%s", bucket, prefix)
+	}
+
+	return ids, nil
+}
+
+// listObjectsPageForDownloadPrefix runs one delimiter-less ListObjectsV2
+// call (bucket/prefix, continuing from continuationToken if non-empty)
+// under s3client.WithRetry/s.breaker (s3client.MetadataRetryPolicy - the
+// same policy every other metadata-only call in this package uses), the
+// same pooled-then-fresh-client-on-retry pattern task.go's headObject call
+// follows, so that no direct S3 API call in this package ever bypasses the
+// shared retry/circuit-breaker machinery.
+func (s *TransferService) listObjectsPageForDownloadPrefix(pooled, fresh *s3.Client, host, bucket, prefix, continuationToken string) (*s3.ListObjectsV2Output, error) {
+	var page *s3.ListObjectsV2Output
+
+	err := s3client.WithRetry(context.Background(), s.breaker, s3client.MetadataRetryPolicy, host, func(attemptCtx context.Context, isRetry bool) error {
+		client := pooled
+		if isRetry {
+			client = fresh
+		}
+
+		input := &s3.ListObjectsV2Input{
+			Bucket:  aws.String(bucket),
+			Prefix:  aws.String(prefix),
+			MaxKeys: aws.Int32(downloadPrefixPageSize),
+		}
+		if continuationToken != "" {
+			input.ContinuationToken = aws.String(continuationToken)
+		}
+
+		out, listErr := client.ListObjectsV2(attemptCtx, input)
+		if listErr != nil {
+			return listErr
+		}
+
+		page = out
+
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return page, nil
+}
+
+// resolveDownloadPrefixLocalPath computes the local filesystem path for key
+// (found under prefix by QueueDownloadPrefix) inside localDestDir, or
+// returns ("", false) if key's path relative to prefix escapes
+// localDestDir via ".." once cleaned - see QueueDownloadPrefix's own doc
+// comment for why this check exists.
+func resolveDownloadPrefixLocalPath(localDestDir, prefix, key string) (string, bool) {
+	relPath := strings.TrimPrefix(key, prefix)
+
+	cleaned := filepath.ToSlash(filepath.Clean(relPath))
+	for _, segment := range strings.Split(cleaned, "/") {
+		if segment == ".." {
+			log.Printf("transfer: QueueDownloadPrefix: rejecting key %q: relative path %q escapes the destination directory", key, relPath)
+			return "", false
+		}
+	}
+
+	return filepath.Join(localDestDir, filepath.FromSlash(relPath)), true
 }
 
 // PauseTask pauses task id, working uniformly whether or not it is
@@ -460,4 +751,44 @@ func (s *TransferService) GetHistory(limit int) ([]domain.TransferHistoryEntry, 
 // ClearHistory deletes every transfer_history row (FR-SET-002).
 func (s *TransferService) ClearHistory() error {
 	return s.historyRepo.Clear(context.Background())
+}
+
+// RecoverOrphanedTasks resets every "running" transfer_queue row back to
+// "paused" - called once, synchronously, right after NewTransferService,
+// before any dispatch() call (see app.go's newApp), to reconcile state left
+// behind by a process that was killed mid-transfer (crash, force-quit,
+// power loss): no goroutine survives a process restart, so a "running" row
+// found at startup can only mean exactly that - its task was never actually
+// finished, yet dispatch() (which only ever looks at "pending" rows, see
+// scheduler.go) would otherwise leave it sitting there, indistinguishable
+// from a genuinely in-progress transfer, forever.
+//
+// It deliberately does not call dispatch() itself: per the Этап 3 plan's
+// constraint 4 ("автовозобновление не автостартует при следующем запуске"),
+// a reconciled task must be left Paused, requiring an explicit ResumeTask
+// from the user - never silently resumed on the user's behalf.
+//
+// It is deliberately NOT called from NewTransferService itself: the
+// constructor has no side effect today beyond assembling the struct, and
+// the two failure modes warrant different handling by their respective
+// callers - opening the database is fatal to the whole application
+// (app.go's newApp), while a failure reconciling the queue here is not (see
+// its call site's own doc comment for why it only logs and continues).
+func (s *TransferService) RecoverOrphanedTasks() error {
+	tasks, err := s.queueRepo.GetAll(context.Background())
+	if err != nil {
+		return fmt.Errorf("list transfer queue: %w", err)
+	}
+
+	for _, task := range tasks {
+		if task.Status != "running" {
+			continue
+		}
+
+		if err := s.queueRepo.UpdateStatus(context.Background(), task.ID, "paused", ""); err != nil {
+			return fmt.Errorf("reset orphaned task %d to paused: %w", task.ID, err)
+		}
+	}
+
+	return nil
 }

@@ -51,6 +51,26 @@ export namespace domain {
 	        this.Category = source["Category"];
 	    }
 	}
+	export class DownloadRequest {
+	    ProfileID: number;
+	    Bucket: string;
+	    Key: string;
+	    LocalPath: string;
+	    Priority: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new DownloadRequest(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.ProfileID = source["ProfileID"];
+	        this.Bucket = source["Bucket"];
+	        this.Key = source["Key"];
+	        this.LocalPath = source["LocalPath"];
+	        this.Priority = source["Priority"];
+	    }
+	}
 	export class ListObjectsRequest {
 	    ProfileID: number;
 	    Bucket: string;
@@ -306,6 +326,135 @@ export namespace domain {
 	        this.Content = source["Content"];
 	        this.Truncated = source["Truncated"];
 	        this.TotalSize = source["TotalSize"];
+	    }
+	}
+	export class TransferHistoryEntry {
+	    ID: number;
+	    QueueID: number;
+	    ProfileID: number;
+	    Type: string;
+	    SourcePath: string;
+	    DestinationPath: string;
+	    TotalBytes: number;
+	    Status: string;
+	    // Go type: time
+	    CompletedAt: any;
+	    ErrorMessage: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new TransferHistoryEntry(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.ID = source["ID"];
+	        this.QueueID = source["QueueID"];
+	        this.ProfileID = source["ProfileID"];
+	        this.Type = source["Type"];
+	        this.SourcePath = source["SourcePath"];
+	        this.DestinationPath = source["DestinationPath"];
+	        this.TotalBytes = source["TotalBytes"];
+	        this.Status = source["Status"];
+	        this.CompletedAt = this.convertValues(source["CompletedAt"], null);
+	        this.ErrorMessage = source["ErrorMessage"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class TransferTask {
+	    ID: number;
+	    ProfileID: number;
+	    Type: string;
+	    SourcePath: string;
+	    DestinationPath: string;
+	    Status: string;
+	    TotalBytes: number;
+	    TransferredBytes: number;
+	    ErrorMessage: string;
+	    MultipartUploadID: string;
+	    PartsCompleted: string;
+	    FileOffset: number;
+	    Priority: number;
+	    // Go type: time
+	    CreatedAt: any;
+	    // Go type: time
+	    UpdatedAt: any;
+	
+	    static createFrom(source: any = {}) {
+	        return new TransferTask(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.ID = source["ID"];
+	        this.ProfileID = source["ProfileID"];
+	        this.Type = source["Type"];
+	        this.SourcePath = source["SourcePath"];
+	        this.DestinationPath = source["DestinationPath"];
+	        this.Status = source["Status"];
+	        this.TotalBytes = source["TotalBytes"];
+	        this.TransferredBytes = source["TransferredBytes"];
+	        this.ErrorMessage = source["ErrorMessage"];
+	        this.MultipartUploadID = source["MultipartUploadID"];
+	        this.PartsCompleted = source["PartsCompleted"];
+	        this.FileOffset = source["FileOffset"];
+	        this.Priority = source["Priority"];
+	        this.CreatedAt = this.convertValues(source["CreatedAt"], null);
+	        this.UpdatedAt = this.convertValues(source["UpdatedAt"], null);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class UploadRequest {
+	    ProfileID: number;
+	    Bucket: string;
+	    Key: string;
+	    LocalPath: string;
+	    Priority: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new UploadRequest(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.ProfileID = source["ProfileID"];
+	        this.Bucket = source["Bucket"];
+	        this.Key = source["Key"];
+	        this.LocalPath = source["LocalPath"];
+	        this.Priority = source["Priority"];
 	    }
 	}
 

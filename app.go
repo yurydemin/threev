@@ -11,7 +11,9 @@ import (
 	"threev/internal/connection"
 	"threev/internal/crypto"
 	"threev/internal/filemanager"
+	"threev/internal/s3client"
 	"threev/internal/storage"
+	"threev/internal/transfer"
 )
 
 // cryptoSaltSettingKey is the "settings" table key under which the
@@ -35,6 +37,11 @@ type App struct {
 	// section 9.2) and is bound directly to the frontend (see main.go's
 	// options.App.Bind).
 	fileManagerService *filemanager.FileManagerService
+
+	// transferService exposes the upload/download transfer queue
+	// (docs/02-tech-spec.md sections 9.3/9.5) and is bound directly to the
+	// frontend (see main.go's options.App.Bind).
+	transferService *transfer.TransferService
 }
 
 // NewApp creates a new App application struct, eagerly opening the SQLite
@@ -86,10 +93,30 @@ func newApp() (*App, error) {
 
 	repo := storage.NewProfileRepository(db)
 
+	queueRepo := storage.NewTransferQueueRepository(db)
+	historyRepo := storage.NewTransferHistoryRepository(db)
+	connMgr := s3client.NewConnectionManager(repo, key)
+	breaker := s3client.NewCircuitBreaker()
+
+	transferService := transfer.NewTransferService(repo, key, queueRepo, historyRepo, connMgr, breaker)
+
+	// Reconcile any transfer_queue row left "running" by a process that was
+	// killed mid-transfer (see RecoverOrphanedTasks' own doc comment) before
+	// anything else - including the frontend, once it starts calling
+	// GetQueue - ever observes the queue. Unlike a failure to open the
+	// database above, this is not fatal to the application: the user can
+	// still browse/connect/transfer normally, they would simply need to
+	// notice and manually Resume any task left Paused by this step instead
+	// of it having been done for them automatically.
+	if err := transferService.RecoverOrphanedTasks(); err != nil {
+		log.Printf("threev: recover orphaned transfer tasks: %v", err)
+	}
+
 	return &App{
 		db:                 db,
 		connectionService:  connection.NewConnectionService(repo, key),
 		fileManagerService: filemanager.NewFileManagerService(repo, key),
+		transferService:    transferService,
 	}, nil
 }
 
@@ -138,6 +165,7 @@ func deriveEncryptionKey(db *sql.DB) ([32]byte, error) {
 // in NewApp (see its doc comment for why).
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
+	a.transferService.SetContext(ctx)
 }
 
 // shutdown is called when the app terminates, releasing the database
