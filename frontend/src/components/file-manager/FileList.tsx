@@ -1,9 +1,11 @@
+import type { MouseEvent } from 'react';
 import { ChevronDown, ChevronUp, Folder as FolderIcon } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useFileManagerStore } from '../../stores/useFileManagerStore';
 import { pickAndQueueUploadFiles } from '../../lib/uploadFiles';
 import type { ObjectEntry } from '../../types';
 import { Button } from '../ui/Button';
+import { Checkbox } from '../ui/Checkbox';
 import { FileRow } from './FileRow';
 
 const SKELETON_ROWS = 5;
@@ -50,6 +52,31 @@ export function FileList({ entries, onOpenFile, onContextMenu }: FileListProps) 
   const setSort = useFileManagerStore((state) => state.setSort);
   const loadMore = useFileManagerStore((state) => state.loadMore);
   const navigateToPrefix = useFileManagerStore((state) => state.navigateToPrefix);
+  const selectedKeys = useFileManagerStore((state) => state.selectedKeys);
+  const toggleSelect = useFileManagerStore((state) => state.toggleSelect);
+  const selectRange = useFileManagerStore((state) => state.selectRange);
+  const selectAll = useFileManagerStore((state) => state.selectAll);
+  const clearSelection = useFileManagerStore((state) => state.clearSelection);
+
+  const nonFolderKeys = entries.filter((entry) => !entry.isFolder).map((entry) => entry.key);
+  const allSelected = nonFolderKeys.length > 0 && nonFolderKeys.every((key) => selectedKeys.has(key));
+  const someSelected = selectedKeys.size > 0;
+
+  function handleToggleSelect(key: string, event: MouseEvent) {
+    if (event.shiftKey) {
+      selectRange(key);
+    } else {
+      toggleSelect(key);
+    }
+  }
+
+  function handleHeaderCheckboxClick() {
+    if (allSelected) {
+      clearSelection();
+    } else {
+      selectAll();
+    }
+  }
 
   /**
    * Cycle for the clicked column: asc → desc → "none" (falls back to the
@@ -76,6 +103,18 @@ export function FileList({ entries, onOpenFile, onContextMenu }: FileListProps) 
         role="row"
         className="flex h-row shrink-0 items-center border-b border-border bg-bg-secondary px-4 text-2xs font-semibold uppercase tracking-wide text-fg-muted"
       >
+        <div className="flex w-9 shrink-0 items-center justify-center">
+          <Checkbox
+            checked={allSelected}
+            indeterminate={someSelected && !allSelected}
+            onClick={(event) => {
+              event.stopPropagation();
+              handleHeaderCheckboxClick();
+            }}
+            onChange={() => {}}
+            aria-label="Выбрать все"
+          />
+        </div>
         {COLUMNS.map((column) => (
           <button
             key={column.key}
@@ -105,6 +144,7 @@ export function FileList({ entries, onOpenFile, onContextMenu }: FileListProps) 
           Array.from({ length: SKELETON_ROWS }).map((_, index) => (
             // eslint-disable-next-line react/no-array-index-key
             <div key={index} className="flex h-row shrink-0 items-center gap-3 border-b border-border-subtle px-4">
+              <div className="w-9 shrink-0" />
               <div className="h-3.5 flex-[3] animate-pulse-slow rounded-sm bg-bg-tertiary" />
               <div className="h-3.5 flex-1 animate-pulse-slow rounded-sm bg-bg-tertiary" />
               <div className="h-3.5 flex-1 animate-pulse-slow rounded-sm bg-bg-tertiary" />
@@ -125,6 +165,8 @@ export function FileList({ entries, onOpenFile, onContextMenu }: FileListProps) 
                 onNavigateToFolder={navigateToPrefix}
                 onOpenFile={onOpenFile}
                 onContextMenu={onContextMenu}
+                isSelected={selectedKeys.has(entry.key)}
+                onToggleSelect={handleToggleSelect}
               />
             ))}
             {isTruncated && (

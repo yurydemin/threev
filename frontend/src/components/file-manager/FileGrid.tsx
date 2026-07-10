@@ -1,3 +1,4 @@
+import type { MouseEvent } from 'react';
 import { Folder as FolderIcon } from 'lucide-react';
 import { useFileManagerStore } from '../../stores/useFileManagerStore';
 import { pickAndQueueUploadFiles } from '../../lib/uploadFiles';
@@ -29,6 +30,17 @@ export function FileGrid({ entries, onOpenFile, onContextMenu }: FileGridProps) 
   const isTruncated = useFileManagerStore((state) => state.isTruncated);
   const loadMore = useFileManagerStore((state) => state.loadMore);
   const navigateToPrefix = useFileManagerStore((state) => state.navigateToPrefix);
+  const selectedKeys = useFileManagerStore((state) => state.selectedKeys);
+  const toggleSelect = useFileManagerStore((state) => state.toggleSelect);
+  const selectRange = useFileManagerStore((state) => state.selectRange);
+
+  function handleToggleSelect(key: string, event: MouseEvent) {
+    if (event.shiftKey) {
+      selectRange(key);
+    } else {
+      toggleSelect(key);
+    }
+  }
 
   const isInitialLoading = isLoadingEntries && rawEntryCount === 0;
 
@@ -80,6 +92,8 @@ export function FileGrid({ entries, onOpenFile, onContextMenu }: FileGridProps) 
             onNavigateToFolder={navigateToPrefix}
             onOpenFile={onOpenFile}
             onContextMenu={onContextMenu}
+            isSelected={selectedKeys.has(entry.key)}
+            onToggleSelect={handleToggleSelect}
           />
         ))}
       </div>

@@ -33,6 +33,46 @@ export namespace domain {
 		    return a;
 		}
 	}
+	export class BulkCopyRequest {
+	    ProfileID: number;
+	    SourceBucket: string;
+	    Keys: string[];
+	    DestBucket: string;
+	    DestPrefix: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new BulkCopyRequest(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.ProfileID = source["ProfileID"];
+	        this.SourceBucket = source["SourceBucket"];
+	        this.Keys = source["Keys"];
+	        this.DestBucket = source["DestBucket"];
+	        this.DestPrefix = source["DestPrefix"];
+	    }
+	}
+	export class BulkMoveRequest {
+	    ProfileID: number;
+	    SourceBucket: string;
+	    Keys: string[];
+	    DestBucket: string;
+	    DestPrefix: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new BulkMoveRequest(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.ProfileID = source["ProfileID"];
+	        this.SourceBucket = source["SourceBucket"];
+	        this.Keys = source["Keys"];
+	        this.DestBucket = source["DestBucket"];
+	        this.DestPrefix = source["DestPrefix"];
+	    }
+	}
 	export class ConnectionTestResult {
 	    Success: boolean;
 	    Message: string;
@@ -49,6 +89,40 @@ export namespace domain {
 	        this.Message = source["Message"];
 	        this.Detail = source["Detail"];
 	        this.Category = source["Category"];
+	    }
+	}
+	export class CreateFolderRequest {
+	    ProfileID: number;
+	    Bucket: string;
+	    Prefix: string;
+	    Name: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new CreateFolderRequest(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.ProfileID = source["ProfileID"];
+	        this.Bucket = source["Bucket"];
+	        this.Prefix = source["Prefix"];
+	        this.Name = source["Name"];
+	    }
+	}
+	export class DeleteObjectsRequest {
+	    ProfileID: number;
+	    Bucket: string;
+	    Keys: string[];
+	
+	    static createFrom(source: any = {}) {
+	        return new DeleteObjectsRequest(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.ProfileID = source["ProfileID"];
+	        this.Bucket = source["Bucket"];
+	        this.Keys = source["Keys"];
 	    }
 	}
 	export class DownloadRequest {
@@ -436,6 +510,28 @@ export namespace domain {
 		    }
 		    return a;
 		}
+	}
+	export class UpdateMetadataRequest {
+	    ProfileID: number;
+	    Bucket: string;
+	    Key: string;
+	    ContentType: string;
+	    CacheControl: string;
+	    UserMetadata: Record<string, string>;
+	
+	    static createFrom(source: any = {}) {
+	        return new UpdateMetadataRequest(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.ProfileID = source["ProfileID"];
+	        this.Bucket = source["Bucket"];
+	        this.Key = source["Key"];
+	        this.ContentType = source["ContentType"];
+	        this.CacheControl = source["CacheControl"];
+	        this.UserMetadata = source["UserMetadata"];
+	    }
 	}
 	export class UploadRequest {
 	    ProfileID: number;

@@ -61,9 +61,12 @@ export function FileManagerScreen({ profileId, profileName, onExit, onSelectTran
   const currentPrefix = useFileManagerStore((state) => state.currentPrefix);
   const searchQuery = useFileManagerStore((state) => state.searchQuery);
   const refresh = useFileManagerStore((state) => state.refresh);
+  const selectedKeys = useFileManagerStore((state) => state.selectedKeys);
+  const selectAll = useFileManagerStore((state) => state.selectAll);
+  const clearSelection = useFileManagerStore((state) => state.clearSelection);
   const queueCount = useTransferStore((state) => state.queue.length);
 
-  useKeyboardShortcuts({ onRefresh: refresh });
+  useKeyboardShortcuts({ onRefresh: refresh, onSelectAll: selectAll, onClearSelection: clearSelection });
 
   const { isDraggingOver, dragHandlers } = useFileDropUpload(activeProfileId, selectedBucket, currentPrefix);
 
@@ -73,10 +76,11 @@ export function FileManagerScreen({ profileId, profileName, onExit, onSelectTran
   );
 
   const hasSearchQuery = searchQuery.trim().length > 0;
+  const selectionSuffix = selectedKeys.size > 0 ? ` • ${selectedKeys.size} выбрано` : '';
   const statusLeft = selectedBucket
     ? hasSearchQuery
-      ? `${filteredEntries.length} из ${entries.length} объектов`
-      : `${entries.length} объектов`
+      ? `${filteredEntries.length} из ${entries.length} объектов${selectionSuffix}`
+      : `${entries.length} объектов${selectionSuffix}`
     : undefined;
 
   function handleOpenFile(entry: ObjectEntry) {

@@ -1,6 +1,7 @@
 import type { MouseEvent } from 'react';
 import { cn, formatBytes, getEntryDisplayName } from '../../lib/utils';
 import type { ObjectEntry } from '../../types';
+import { Checkbox } from '../ui/Checkbox';
 import { FileIcon } from './FileIcon';
 
 export interface FileRowProps {
@@ -20,6 +21,10 @@ export interface FileRowProps {
    * for now.
    */
   onContextMenu: (entry: ObjectEntry, x: number, y: number) => void;
+  /** Whether `entry.key` is currently in `useFileManagerStore`'s `selectedKeys` (Stage 4, Block C). Always `false` for folders. */
+  isSelected: boolean;
+  /** Toggles/extends selection for `entry.key` — the caller inspects `event.shiftKey` to decide between `toggleSelect`/`selectRange`. */
+  onToggleSelect: (key: string, event: MouseEvent) => void;
 }
 
 function formatModified(lastModified: string): string {
@@ -36,10 +41,20 @@ function truncateType(contentType: string): string {
 
 /**
  * Single row of the table view, per docs/03-ux-ui-spec.md section 5.4.3.
- * No per-row checkbox/actions cell — Stage 2 constraint (bulk select is
- * Stage 4; the only per-row actions come from the ПКМ context menu, Block I).
+ * Leading checkbox cell (Stage 4, Block C) — folders are never selectable,
+ * so they render an empty spacer of the same width instead of a `Checkbox`.
+ * Per-row actions beyond selection still only come from the ПКМ context menu
+ * (Block I).
  */
-export function FileRow({ entry, currentPrefix, onNavigateToFolder, onOpenFile, onContextMenu }: FileRowProps) {
+export function FileRow({
+  entry,
+  currentPrefix,
+  onNavigateToFolder,
+  onOpenFile,
+  onContextMenu,
+  isSelected,
+  onToggleSelect,
+}: FileRowProps) {
   const name = getEntryDisplayName(entry.key, currentPrefix);
 
   function handleDoubleClick() {
@@ -60,8 +75,26 @@ export function FileRow({ entry, currentPrefix, onNavigateToFolder, onOpenFile, 
       role="row"
       onDoubleClick={handleDoubleClick}
       onContextMenu={handleContextMenu}
-      className="flex h-row shrink-0 items-center border-b border-border-subtle px-4 text-[13px] transition-colors duration-fast hover:bg-bg-tertiary"
+      className={cn(
+        'flex h-row shrink-0 items-center border-b border-l-2 border-border-subtle px-4 text-[13px] transition-colors duration-fast hover:bg-bg-tertiary',
+        isSelected ? 'border-l-accent bg-accent-subtle' : 'border-l-transparent',
+      )}
     >
+      {entry.isFolder ? (
+        <div className="w-9 shrink-0" />
+      ) : (
+        <div className="flex w-9 shrink-0 items-center justify-center">
+          <Checkbox
+            checked={isSelected}
+            onClick={(event) => {
+              event.stopPropagation();
+              onToggleSelect(entry.key, event);
+            }}
+            onChange={() => {}}
+            aria-label={`Выбрать ${name}`}
+          />
+        </div>
+      )}
       <div className="flex min-w-0 flex-[3] items-center gap-2 pr-2">
         <FileIcon isFolder={entry.isFolder} contentType={entry.contentType} />
         <span className={cn('truncate text-fg-primary', entry.isFolder && 'font-semibold')} title={name}>

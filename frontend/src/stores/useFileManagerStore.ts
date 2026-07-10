@@ -39,6 +39,11 @@ interface FileManagerState {
   history: HistoryEntry[];
   historyIndex: number;
 
+  /** Keys of currently checked (non-folder) entries in the current listing. Folders can never be selected (see backend Block A's doc comment on domain.DeleteObjectsRequest — bulk operations apply only to concrete object keys, recursive folder ops are out of scope). */
+  selectedKeys: Set<string>;
+  /** Anchor key for Shift+click range selection - the last individually toggled key, NOT the last range-extended one (see selectRange). */
+  selectionAnchor: string | null;
+
   /** Loads the bucket list for a profile and resets all bucket/entry state. */
   enterProfile: (profileId: number, profileName: string) => Promise<void>;
   /** Navigates to the root of `bucket`, pushing a new history entry. */
@@ -57,6 +62,15 @@ interface FileManagerState {
   refresh: () => Promise<void>;
   /** Clears all File Manager state (called when leaving back to Connections). */
   reset: () => void;
+
+  /** Toggles key in/out of selectedKeys (additive - never clears the rest), and sets it as the new selectionAnchor. No-op if key belongs to a folder entry. */
+  toggleSelect: (key: string) => void;
+  /** Extends the selection from selectionAnchor to key (inclusive), by index within the current entries' non-folder keys, in listed order (NOT sorted-by-key order - matches what the user visually sees). If there is no anchor yet, or either key can't be found among non-folder entries, falls back to toggleSelect(key). selectionAnchor itself is NOT moved by a range extension (standard file-manager Shift+click semantics: repeated Shift+clicks all extend from the same original anchor, not from the last Shift+click target). */
+  selectRange: (key: string) => void;
+  /** Selects every non-folder entry currently loaded (Ctrl/Cmd+A). */
+  selectAll: () => void;
+  /** Empties selectedKeys/selectionAnchor. */
+  clearSelection: () => void;
 }
 
 function errorMessage(err: unknown): string {
@@ -82,6 +96,8 @@ const initialBrowsingState = {
   entriesError: null as string | null,
   history: [] as HistoryEntry[],
   historyIndex: -1,
+  selectedKeys: new Set<string>(),
+  selectionAnchor: null as string | null,
 };
 
 /**
@@ -146,6 +162,8 @@ export const useFileManagerStore = create<FileManagerState>()((set, get) => {
       isTruncated: false,
       searchQuery: '',
       entriesError: null,
+      selectedKeys: new Set(),
+      selectionAnchor: null,
     });
     await loadEntries(target.bucket, target.prefix);
   }
@@ -185,6 +203,8 @@ export const useFileManagerStore = create<FileManagerState>()((set, get) => {
         isTruncated: false,
         searchQuery: '',
         entriesError: null,
+        selectedKeys: new Set(),
+        selectionAnchor: null,
       });
       pushHistory({ bucket, prefix: '' });
       await loadEntries(bucket, '');
@@ -200,6 +220,8 @@ export const useFileManagerStore = create<FileManagerState>()((set, get) => {
         isTruncated: false,
         searchQuery: '',
         entriesError: null,
+        selectedKeys: new Set(),
+        selectionAnchor: null,
       });
       pushHistory({ bucket, prefix });
       await loadEntries(bucket, prefix);
@@ -235,6 +257,7 @@ export const useFileManagerStore = create<FileManagerState>()((set, get) => {
     refresh: async () => {
       const { selectedBucket, currentPrefix } = get();
       if (!selectedBucket) return;
+      set({ selectedKeys: new Set(), selectionAnchor: null });
       await loadEntries(selectedBucket, currentPrefix, { refresh: true });
     },
 
@@ -247,5 +270,43 @@ export const useFileManagerStore = create<FileManagerState>()((set, get) => {
         bucketsError: null,
         ...initialBrowsingState,
       }),
+
+    toggleSelect: (key) => {
+      const entry = get().entries.find((e) => e.key === key);
+      if (entry?.isFolder) return;
+      const next = new Set(get().selectedKeys);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      set({ selectedKeys: next, selectionAnchor: key });
+    },
+
+    selectRange: (key) => {
+      const { entries, selectionAnchor, selectedKeys } = get();
+      const nonFolderKeys = entries.filter((e) => !e.isFolder).map((e) => e.key);
+      const anchorIndex = selectionAnchor ? nonFolderKeys.indexOf(selectionAnchor) : -1;
+      const targetIndex = nonFolderKeys.indexOf(key);
+      if (anchorIndex === -1 || targetIndex === -1) {
+        get().toggleSelect(key);
+        return;
+      }
+      const [start, end] = anchorIndex <= targetIndex ? [anchorIndex, targetIndex] : [targetIndex, anchorIndex];
+      const next = new Set(selectedKeys);
+      for (let i = start; i <= end; i += 1) {
+        next.add(nonFolderKeys[i]);
+      }
+      set({ selectedKeys: next });
+    },
+
+    selectAll: () => {
+      const keys = get()
+        .entries.filter((e) => !e.isFolder)
+        .map((e) => e.key);
+      set({ selectedKeys: new Set(keys) });
+    },
+
+    clearSelection: () => set({ selectedKeys: new Set(), selectionAnchor: null }),
   };
 });
