@@ -12,7 +12,17 @@ interface NavItem {
 
 const APP_VERSION = 'v0.1.0';
 
+export type SidebarActiveItem = 'connections' | 'transfers';
+
 export interface SidebarProps {
+  /**
+   * Which nav item is highlighted. Defaults to 'connections' — preserves
+   * every existing call site (`ConnectionsScreen`/`FileManagerScreen`)
+   * unchanged if they don't pass it: `FileManagerScreen` intentionally
+   * keeps "Подключения" highlighted while browsing (it has no nav item of
+   * its own — File Manager is reached FROM Connections, per Stage 2).
+   */
+  activeItem?: SidebarActiveItem;
   /**
    * Called when "Подключения" is clicked. Optional so existing call sites
    * (e.g. `ConnectionsScreen`, where this is already the active screen)
@@ -20,6 +30,8 @@ export interface SidebarProps {
    * interactive there, it just has nowhere further to navigate to.
    */
   onSelectConnections?: () => void;
+  /** Called when "Передачи" is clicked. Same optionality rationale as `onSelectConnections`. */
+  onSelectTransfers?: () => void;
 }
 
 /**
@@ -30,13 +42,26 @@ export interface SidebarProps {
  * by the file-manager-specific sidebar from UX-spec section 5.4.2 (that
  * becomes the separate `BucketPanel`, Block G).
  *
- * "Передачи"/"История"/"Настройки" remain inert placeholders (Stage 1 plan
- * constraint #12) until their respective stages land.
+ * "Подключения" and "Передачи" (Stage 3 Block K) are both live navigation
+ * targets, highlighted via `activeItem`. "История"/"Настройки" remain
+ * inert placeholders (Stage 1 plan constraint #12) until their respective
+ * stages land.
  */
-export function Sidebar({ onSelectConnections }: SidebarProps) {
+export function Sidebar({ activeItem, onSelectConnections, onSelectTransfers }: SidebarProps) {
+  const resolvedActiveItem = activeItem ?? 'connections';
   const navItems: NavItem[] = [
-    { label: 'Подключения', icon: Cloud, active: true, onClick: onSelectConnections },
-    { label: 'Передачи', icon: ArrowLeftRight, disabled: true },
+    {
+      label: 'Подключения',
+      icon: Cloud,
+      active: resolvedActiveItem === 'connections',
+      onClick: onSelectConnections,
+    },
+    {
+      label: 'Передачи',
+      icon: ArrowLeftRight,
+      active: resolvedActiveItem === 'transfers',
+      onClick: onSelectTransfers,
+    },
     { label: 'История', icon: History, disabled: true },
     { label: 'Настройки', icon: Settings, disabled: true },
   ];

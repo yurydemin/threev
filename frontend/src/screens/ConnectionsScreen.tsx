@@ -12,6 +12,8 @@ type FormState = { open: false } | { open: true; initialValues?: Connection };
 export interface ConnectionsScreenProps {
   /** Enters the File Manager for this connection ("Подключиться" on a card). */
   onConnect: (connection: ConnectionSummary) => void;
+  /** Navigates to the Transfers screen (Sidebar "Передачи"). */
+  onSelectTransfers: () => void;
 }
 
 /**
@@ -31,7 +33,7 @@ export interface ConnectionsScreenProps {
  * is no toast/notification system yet to surface a background test result,
  * so routing through the form's own test UI is the honest choice.
  */
-export function ConnectionsScreen({ onConnect }: ConnectionsScreenProps) {
+export function ConnectionsScreen({ onConnect, onSelectTransfers }: ConnectionsScreenProps) {
   const connections = useConnectionStore((state) => state.connections);
   const isLoading = useConnectionStore((state) => state.isLoading);
   const deleteConnection = useConnectionStore((state) => state.deleteConnection);
@@ -63,7 +65,7 @@ export function ConnectionsScreen({ onConnect }: ConnectionsScreenProps) {
 
   return (
     <div className="flex h-screen w-full">
-      <Sidebar />
+      <Sidebar activeItem="connections" onSelectTransfers={onSelectTransfers} />
 
       <div className="flex flex-1 flex-col overflow-hidden">
         <header className="flex h-header shrink-0 items-center justify-between border-b border-border bg-bg-secondary px-4">

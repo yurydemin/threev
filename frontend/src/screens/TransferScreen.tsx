@@ -31,7 +31,12 @@ const EMPTY_MESSAGES: Record<TransferTab, string> = {
  *  - "Все" = `queue` followed by `history` (history's own "most recent
  *    completion first" order is preserved, not re-sorted).
  */
-export function TransferScreen() {
+export interface TransferScreenProps {
+  /** Returns to the Connections screen (Sidebar "Подключения"). */
+  onSelectConnections: () => void;
+}
+
+export function TransferScreen({ onSelectConnections }: TransferScreenProps) {
   const [tab, setTab] = useState<TransferTab>('active');
   const queue = useTransferStore((state) => state.queue);
   const history = useTransferStore((state) => state.history);
@@ -61,7 +66,7 @@ export function TransferScreen() {
 
   return (
     <div className="flex h-screen w-full">
-      <Sidebar />
+      <Sidebar activeItem="transfers" onSelectConnections={onSelectConnections} />
 
       <div className="flex flex-1 flex-col overflow-hidden">
         <header className="flex h-header shrink-0 items-center justify-between border-b border-border bg-bg-secondary px-4">

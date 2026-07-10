@@ -2,6 +2,7 @@ import { useMemo, useState, type CSSProperties } from 'react';
 import { Sidebar } from '../components/layout/Sidebar';
 import { Toolbar, type FileManagerView } from '../components/layout/Toolbar';
 import { StatusBar } from '../components/layout/StatusBar';
+import { TransferIndicator } from '../components/layout/TransferIndicator';
 import { BucketPanel } from '../components/file-manager/BucketPanel';
 import { FileList } from '../components/file-manager/FileList';
 import { FileGrid } from '../components/file-manager/FileGrid';
@@ -9,6 +10,7 @@ import { ObjectContextMenu } from '../components/file-manager/ObjectContextMenu'
 import { ObjectPreviewModal } from '../components/file-manager/ObjectPreviewModal';
 import { DropOverlay } from '../components/file-manager/DropOverlay';
 import { useFileManagerStore } from '../stores/useFileManagerStore';
+import { useTransferStore } from '../stores/useTransferStore';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import { useFileDropUpload } from '../hooks/useFileDropUpload';
 import { filterEntriesByQuery } from '../lib/utils';
@@ -27,6 +29,8 @@ export interface FileManagerScreenProps {
   profileName: string;
   /** Returns to the Connections screen (also resets `useFileManagerStore`). */
   onExit: () => void;
+  /** Navigates to the Transfers screen (Sidebar "Передачи" and the `StatusBar` transfer indicator). */
+  onSelectTransfers: () => void;
 }
 
 /**
@@ -47,7 +51,7 @@ export interface FileManagerScreenProps {
  * empty/broken modal). `onContextMenu` opens `ObjectContextMenu` at the
  * click position.
  */
-export function FileManagerScreen({ profileId, profileName, onExit }: FileManagerScreenProps) {
+export function FileManagerScreen({ profileId, profileName, onExit, onSelectTransfers }: FileManagerScreenProps) {
   const [view, setView] = useState<FileManagerView>('list');
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [previewEntry, setPreviewEntry] = useState<ObjectEntry | null>(null);
@@ -57,6 +61,7 @@ export function FileManagerScreen({ profileId, profileName, onExit }: FileManage
   const currentPrefix = useFileManagerStore((state) => state.currentPrefix);
   const searchQuery = useFileManagerStore((state) => state.searchQuery);
   const refresh = useFileManagerStore((state) => state.refresh);
+  const queueCount = useTransferStore((state) => state.queue.length);
 
   useKeyboardShortcuts({ onRefresh: refresh });
 
@@ -85,7 +90,7 @@ export function FileManagerScreen({ profileId, profileName, onExit }: FileManage
 
   return (
     <div className="flex h-screen w-full">
-      <Sidebar onSelectConnections={onExit} />
+      <Sidebar onSelectConnections={onExit} onSelectTransfers={onSelectTransfers} />
       <BucketPanel />
 
       <div className="flex min-w-0 flex-1 flex-col">
@@ -115,7 +120,7 @@ export function FileManagerScreen({ profileId, profileName, onExit }: FileManage
           {isDraggingOver && <DropOverlay />}
         </main>
 
-        <StatusBar left={statusLeft} />
+        <StatusBar left={statusLeft} right={<TransferIndicator count={queueCount} onClick={onSelectTransfers} />} />
       </div>
 
       {contextMenu && (
