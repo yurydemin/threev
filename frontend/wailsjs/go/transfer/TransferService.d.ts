@@ -3,6 +3,8 @@
 import {domain} from '../models';
 import {context} from '../models';
 
+export function AutoResumeIfEnabled(arg1:Array<number>,arg2:boolean):Promise<void>;
+
 export function CancelTask(arg1:number):Promise<void>;
 
 export function ClearHistory():Promise<void>;
@@ -29,7 +31,7 @@ export function QueueUpload(arg1:domain.UploadRequest):Promise<number>;
 
 export function QueueUploadPaths(arg1:number,arg2:string,arg3:string,arg4:Array<string>):Promise<Array<number>>;
 
-export function RecoverOrphanedTasks():Promise<void>;
+export function RecoverOrphanedTasks():Promise<Array<number>>;
 
 export function ReorderTask(arg1:number,arg2:number):Promise<void>;
 
@@ -37,4 +39,10 @@ export function ResumeTask(arg1:number):Promise<void>;
 
 export function RetryTask(arg1:number):Promise<number>;
 
+export function SetBandwidthLimits(arg1:number,arg2:number):Promise<void>;
+
 export function SetContext(arg1:context.Context):Promise<void>;
+
+export function SetMaxConcurrentTasks(arg1:number):Promise<void>;
+
+export function SetPartSizeOverrideMB(arg1:number):Promise<void>;

@@ -34,9 +34,11 @@ const EMPTY_MESSAGES: Record<TransferTab, string> = {
 export interface TransferScreenProps {
   /** Returns to the Connections screen (Sidebar "Подключения"). */
   onSelectConnections: () => void;
+  /** Navigates to the Settings screen (Sidebar "Настройки"). */
+  onSelectSettings: () => void;
 }
 
-export function TransferScreen({ onSelectConnections }: TransferScreenProps) {
+export function TransferScreen({ onSelectConnections, onSelectSettings }: TransferScreenProps) {
   const [tab, setTab] = useState<TransferTab>('active');
   const queue = useTransferStore((state) => state.queue);
   const history = useTransferStore((state) => state.history);
@@ -66,7 +68,7 @@ export function TransferScreen({ onSelectConnections }: TransferScreenProps) {
 
   return (
     <div className="flex h-screen w-full">
-      <Sidebar activeItem="transfers" onSelectConnections={onSelectConnections} />
+      <Sidebar activeItem="transfers" onSelectConnections={onSelectConnections} onSelectSettings={onSelectSettings} />
 
       <div className="flex flex-1 flex-col overflow-hidden">
         <header className="flex h-header shrink-0 items-center justify-between border-b border-border bg-bg-secondary px-4">

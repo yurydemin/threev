@@ -1,5 +1,31 @@
 export namespace domain {
 	
+	export class AppSettings {
+	    Theme: string;
+	    UIScalePercent: number;
+	    CloseBehavior: string;
+	    AutoResumeQueue: boolean;
+	    MaxConcurrentTransfers: number;
+	    PartSizeOverrideMB: number;
+	    BandwidthLimitUploadBytesPerSec: number;
+	    BandwidthLimitDownloadBytesPerSec: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new AppSettings(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.Theme = source["Theme"];
+	        this.UIScalePercent = source["UIScalePercent"];
+	        this.CloseBehavior = source["CloseBehavior"];
+	        this.AutoResumeQueue = source["AutoResumeQueue"];
+	        this.MaxConcurrentTransfers = source["MaxConcurrentTransfers"];
+	        this.PartSizeOverrideMB = source["PartSizeOverrideMB"];
+	        this.BandwidthLimitUploadBytesPerSec = source["BandwidthLimitUploadBytesPerSec"];
+	        this.BandwidthLimitDownloadBytesPerSec = source["BandwidthLimitDownloadBytesPerSec"];
+	    }
+	}
 	export class Bucket {
 	    Name: string;
 	    // Go type: time

@@ -1,6 +1,7 @@
 import { ArrowLeftRight, Cloud, History, Settings } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { APP_VERSION } from '../../lib/appVersion';
 
 interface NavItem {
   label: string;
@@ -10,9 +11,7 @@ interface NavItem {
   onClick?: () => void;
 }
 
-const APP_VERSION = 'v0.1.0';
-
-export type SidebarActiveItem = 'connections' | 'transfers';
+export type SidebarActiveItem = 'connections' | 'transfers' | 'settings';
 
 export interface SidebarProps {
   /**
@@ -32,6 +31,8 @@ export interface SidebarProps {
   onSelectConnections?: () => void;
   /** Called when "Передачи" is clicked. Same optionality rationale as `onSelectConnections`. */
   onSelectTransfers?: () => void;
+  /** Called when "Настройки" is clicked (Stage 4, Block G). Same optionality rationale as `onSelectConnections`. */
+  onSelectSettings?: () => void;
 }
 
 /**
@@ -42,12 +43,12 @@ export interface SidebarProps {
  * by the file-manager-specific sidebar from UX-spec section 5.4.2 (that
  * becomes the separate `BucketPanel`, Block G).
  *
- * "Подключения" and "Передачи" (Stage 3 Block K) are both live navigation
- * targets, highlighted via `activeItem`. "История"/"Настройки" remain
- * inert placeholders (Stage 1 plan constraint #12) until their respective
- * stages land.
+ * "Подключения", "Передачи" (Stage 3 Block K) and "Настройки" (Stage 4
+ * Block G) are all live navigation targets, highlighted via `activeItem`.
+ * "История" remains an inert placeholder (Stage 1 plan constraint #12)
+ * until its own stage lands.
  */
-export function Sidebar({ activeItem, onSelectConnections, onSelectTransfers }: SidebarProps) {
+export function Sidebar({ activeItem, onSelectConnections, onSelectTransfers, onSelectSettings }: SidebarProps) {
   const resolvedActiveItem = activeItem ?? 'connections';
   const navItems: NavItem[] = [
     {
@@ -63,7 +64,12 @@ export function Sidebar({ activeItem, onSelectConnections, onSelectTransfers }: 
       onClick: onSelectTransfers,
     },
     { label: 'История', icon: History, disabled: true },
-    { label: 'Настройки', icon: Settings, disabled: true },
+    {
+      label: 'Настройки',
+      icon: Settings,
+      active: resolvedActiveItem === 'settings',
+      onClick: onSelectSettings,
+    },
   ];
 
   return (

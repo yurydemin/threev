@@ -199,3 +199,15 @@ export interface BulkOperationProgressEvent {
   failedCount: number;
   status: string; // "running" | "completed" | "cancelled"
 }
+
+/** Mirrors `domain.AppSettings`. */
+export interface AppSettings {
+  theme: string; // "system" | "light" | "dark"
+  uiScalePercent: number; // 90-125
+  closeBehavior: string; // "exit" | "confirm"
+  autoResumeQueue: boolean;
+  maxConcurrentTransfers: number; // 1-10
+  partSizeOverrideMB: number; // 0 = adaptive, otherwise 5-128
+  bandwidthLimitUploadBytesPerSec: number;
+  bandwidthLimitDownloadBytesPerSec: number;
+}

@@ -56,6 +56,8 @@ export interface FileManagerScreenProps {
   onExit: () => void;
   /** Navigates to the Transfers screen (Sidebar "Передачи" and the `StatusBar` transfer indicator). */
   onSelectTransfers: () => void;
+  /** Navigates to the Settings screen (Sidebar "Настройки"). */
+  onSelectSettings: () => void;
 }
 
 /**
@@ -76,7 +78,13 @@ export interface FileManagerScreenProps {
  * empty/broken modal). `onContextMenu` opens `ObjectContextMenu` at the
  * click position.
  */
-export function FileManagerScreen({ profileId, profileName, onExit, onSelectTransfers }: FileManagerScreenProps) {
+export function FileManagerScreen({
+  profileId,
+  profileName,
+  onExit,
+  onSelectTransfers,
+  onSelectSettings,
+}: FileManagerScreenProps) {
   const [view, setView] = useState<FileManagerView>('list');
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [previewEntry, setPreviewEntry] = useState<ObjectEntry | null>(null);
@@ -140,7 +148,7 @@ export function FileManagerScreen({ profileId, profileName, onExit, onSelectTran
 
   return (
     <div className="flex h-screen w-full">
-      <Sidebar onSelectConnections={onExit} onSelectTransfers={onSelectTransfers} />
+      <Sidebar onSelectConnections={onExit} onSelectTransfers={onSelectTransfers} onSelectSettings={onSelectSettings} />
       <BucketPanel />
 
       <div className="flex min-w-0 flex-1 flex-col">
