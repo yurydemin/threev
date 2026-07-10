@@ -9,14 +9,15 @@ import (
 )
 
 // minPresignExpiry and maxPresignExpiry bound the TTL of a presigned URL
-// (Stage 2 plan constraint 2): 60 seconds is short enough to be safe for a
-// short-lived preview/"copy URL" action, 1 hour is a generous upper bound
-// that still limits how long a leaked URL remains valid. Stage 4
-// (FR-BULK-005, 1 min - 7 days) will widen this range without changing
-// GetPresignedURL's signature.
+// (Stage 2 plan constraint 2, widened in Stage 4 per FR-BULK-005/
+// docs/02-tech-spec.md section 4.4): 1 minute is short enough to be safe for
+// a short-lived preview/"copy URL" action, 7 days is a generous upper bound
+// that still limits how long a leaked URL remains valid. Widening this range
+// in Stage 4 did not require changing GetPresignedURL's signature, as
+// designed back in Stage 2.
 const (
-	minPresignExpiry = 60 * time.Second
-	maxPresignExpiry = time.Hour
+	minPresignExpiry = time.Minute
+	maxPresignExpiry = 7 * 24 * time.Hour
 )
 
 // defaultPresignExpiry is used whenever the caller passes a non-positive or

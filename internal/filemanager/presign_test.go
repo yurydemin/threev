@@ -68,7 +68,7 @@ func TestFileManagerServiceGetPresignedURLClampsExpiry(t *testing.T) {
 		wantSeconds   int64
 	}{
 		{name: "below minimum clamps up to 60s", expirySeconds: 10, wantSeconds: 60},
-		{name: "above maximum clamps down to 3600s", expirySeconds: 99999, wantSeconds: 3600},
+		{name: "above maximum clamps down to 604800s", expirySeconds: 8 * 24 * 3600, wantSeconds: 7 * 24 * 3600},
 		{name: "zero falls back to the 300s default", expirySeconds: 0, wantSeconds: 300},
 		{name: "negative falls back to the 300s default", expirySeconds: -5, wantSeconds: 300},
 		{name: "within range is left untouched", expirySeconds: 900, wantSeconds: 900},
@@ -101,7 +101,7 @@ func TestClampPresignExpiry(t *testing.T) {
 		{name: "zero uses default", expirySeconds: 0, want: 300},
 		{name: "negative uses default", expirySeconds: -1, want: 300},
 		{name: "below floor clamps to 60", expirySeconds: 1, want: 60},
-		{name: "above ceiling clamps to 3600", expirySeconds: 7 * 24 * 3600, want: 3600},
+		{name: "above ceiling clamps to 604800", expirySeconds: 8 * 24 * 3600, want: 7 * 24 * 3600},
 		{name: "in range unchanged", expirySeconds: 120, want: 120},
 	}
 

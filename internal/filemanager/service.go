@@ -3,6 +3,8 @@ package filemanager
 import (
 	"context"
 	"fmt"
+	"sync"
+	"sync/atomic"
 
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 
@@ -12,9 +14,10 @@ import (
 )
 
 // FileManagerService implements the Wails-bound API described in
-// docs/02-tech-spec.md section 9.2: bucket/object listing plus (in later
-// stages of this package) metadata, presigned URLs, and text preview, for a
-// profile's S3-compatible storage.
+// docs/02-tech-spec.md section 9.2: bucket/object listing, metadata,
+// presigned URLs, text preview, and (Этап 4, суб-этап 4.1) bulk
+// delete/copy/move/create-folder operations for a profile's S3-compatible
+// storage.
 //
 // It deliberately does not depend on connection.ConnectionService (that
 // would create a service->service dependency also needed by
@@ -27,18 +30,56 @@ type FileManagerService struct {
 	repo          *storage.ProfileRepository
 	encryptionKey [32]byte
 	cache         *listCache
+
+	// connMgr/breaker back the bulk delete/copy/move operations (bulkops.go,
+	// delete.go, copymove.go): unlike resolveClient (used by the pre-Stage-4
+	// listing/metadata/preview methods above, which build a fresh, one-off
+	// *s3.Client per call), a bulk operation over potentially hundreds or
+	// thousands of keys reuses the same pooled/fresh clients and per-host
+	// circuit breaker the Transfer Engine (Stage 3) already relies on -
+	// breaker is, deliberately, the exact same *s3client.CircuitBreaker
+	// instance app.go's newApp() constructs for TransferService (not a new
+	// one), so retry/failure bookkeeping for a given host is shared across
+	// both transfers and bulk operations rather than tracked twice.
+	connMgr *s3client.ConnectionManager
+	breaker *s3client.CircuitBreaker
+
+	// wailsCtx holds ctxHolder (see its own doc comment in bulkops.go),
+	// installed once via SetContext from App.startup, enabling
+	// emitBulkProgressEvent/emitObjectChangeEvent to actually publish Wails
+	// events. Until then (including every test in this package, which never
+	// calls SetContext), both are no-ops - the exact same contract
+	// transfer.TransferService.wailsCtx documents.
+	wailsCtx atomic.Value
+
+	// mu guards running (the set of in-flight bulk operations) and is never
+	// held for the duration of a bulk operation's own network I/O - only
+	// while running is read/written (see bulkops.go).
+	mu      sync.Mutex
+	running map[int64]*runningBulkOp
+
+	// nextOpID hands out unique domain.BulkOperationProgressEvent.OperationID
+	// values, starting at 1 (atomic.Int64's zero value is 0, so the first
+	// Add(1) below yields 1 - see bulkops.go's nextOperationID).
+	nextOpID atomic.Int64
 }
 
 // NewFileManagerService returns a FileManagerService backed by repo, using
 // encryptionKey to decrypt profile credentials on demand (see
 // connection.ResolveProfile). encryptionKey is expected to be derived once
 // at application startup (see crypto.DeriveKey) and passed in already
-// computed, mirroring NewConnectionService.
-func NewFileManagerService(repo *storage.ProfileRepository, encryptionKey [32]byte) *FileManagerService {
+// computed, mirroring NewConnectionService. connMgr/breaker back the bulk
+// operations added in Этап 4 (see the connMgr/breaker fields' doc comment) -
+// breaker is expected to be the same instance passed to
+// transfer.NewTransferService.
+func NewFileManagerService(repo *storage.ProfileRepository, encryptionKey [32]byte, connMgr *s3client.ConnectionManager, breaker *s3client.CircuitBreaker) *FileManagerService {
 	return &FileManagerService{
 		repo:          repo,
 		encryptionKey: encryptionKey,
 		cache:         newListCache(),
+		connMgr:       connMgr,
+		breaker:       breaker,
+		running:       make(map[int64]*runningBulkOp),
 	}
 }
 

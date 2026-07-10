@@ -10,13 +10,16 @@ import (
 
 	"threev/internal/connection"
 	"threev/internal/domain"
+	"threev/internal/s3client"
 	"threev/internal/storage"
 )
 
 // newTestFileManagerService opens a fresh migrated SQLite database backed by
 // a temporary file and returns a FileManagerService over it, using a fixed
 // (test-only) 32-byte encryption key - mirroring
-// connection.newTestConnectionService.
+// connection.newTestConnectionService. connMgr/breaker are freshly
+// constructed per call (never shared across tests), mirroring
+// transfer.newTestTransferService's identical setup.
 func newTestFileManagerService(t *testing.T) (*FileManagerService, *storage.ProfileRepository, [32]byte) {
 	t.Helper()
 
@@ -39,7 +42,10 @@ func newTestFileManagerService(t *testing.T) (*FileManagerService, *storage.Prof
 		key[i] = byte(i)
 	}
 
-	return NewFileManagerService(repo, key), repo, key
+	connMgr := s3client.NewConnectionManager(repo, key)
+	breaker := s3client.NewCircuitBreaker()
+
+	return NewFileManagerService(repo, key, connMgr, breaker), repo, key
 }
 
 // saveTestProfile persists (via ConnectionService, so credentials are

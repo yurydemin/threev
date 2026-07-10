@@ -115,7 +115,7 @@ func newApp() (*App, error) {
 	return &App{
 		db:                 db,
 		connectionService:  connection.NewConnectionService(repo, key),
-		fileManagerService: filemanager.NewFileManagerService(repo, key),
+		fileManagerService: filemanager.NewFileManagerService(repo, key, connMgr, breaker),
 		transferService:    transferService,
 	}, nil
 }
@@ -166,6 +166,7 @@ func deriveEncryptionKey(db *sql.DB) ([32]byte, error) {
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 	a.transferService.SetContext(ctx)
+	a.fileManagerService.SetContext(ctx)
 }
 
 // shutdown is called when the app terminates, releasing the database
