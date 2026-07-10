@@ -182,3 +182,20 @@ export interface ObjectChangeEvent {
   prefix: string;
   type: string; // "create" | "delete"
 }
+
+/**
+ * Payload of the Wails "bulk:progress" event, mirrors
+ * `domain.BulkOperationProgressEvent`. NOT part of the generated wailsjs
+ * bindings (`wails generate module` only scans bound service method
+ * signatures, not `runtime.EventsEmit` payloads) - received in
+ * `hooks/useBulkOperationEvents.ts` as a raw PascalCase object and mapped
+ * manually.
+ */
+export interface BulkOperationProgressEvent {
+  operationId: number;
+  type: string; // "delete" | "copy" | "move"
+  total: number;
+  completed: number;
+  failedCount: number;
+  status: string; // "running" | "completed" | "cancelled"
+}

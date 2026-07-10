@@ -13,11 +13,18 @@
  * module instead.
  */
 import {
+  CancelBulkOperation,
+  CopyObjects,
+  CreateFolder,
+  DeleteObjects,
   GetPresignedURL,
   GetTextPreview,
   HeadObject,
   ListBuckets,
   ListObjects,
+  MoveObjects,
+  RenameObject,
+  UpdateMetadata,
 } from '../../../wailsjs/go/filemanager/FileManagerService';
 import { domain } from '../../../wailsjs/go/models';
 import type {
@@ -114,4 +121,122 @@ export async function getTextPreview(
   key: string,
 ): Promise<TextPreviewResult> {
   return call(async () => fromTextPreviewResult(await GetTextPreview(profileId, bucket, key)));
+}
+
+/** Deletes `keys` (async, bulk) — returns the new operation's id (`domain.BulkOperationProgressEvent.operationId`). */
+export async function deleteObjects(profileId: number, bucket: string, keys: string[]): Promise<number> {
+  return call(() =>
+    DeleteObjects(domain.DeleteObjectsRequest.createFrom({ ProfileID: profileId, Bucket: bucket, Keys: keys })),
+  );
+}
+
+/**
+ * Copies `keys` (async, bulk) into `destBucket`/`destPrefix`, each keeping
+ * its own basename (`destPrefix + basename(key)` — see
+ * `internal/filemanager/copymove.go`, no destination renaming). Returns the
+ * new operation's id.
+ */
+export async function copyObjects(
+  profileId: number,
+  sourceBucket: string,
+  keys: string[],
+  destBucket: string,
+  destPrefix: string,
+): Promise<number> {
+  return call(() =>
+    CopyObjects(
+      domain.BulkCopyRequest.createFrom({
+        ProfileID: profileId,
+        SourceBucket: sourceBucket,
+        Keys: keys,
+        DestBucket: destBucket,
+        DestPrefix: destPrefix,
+      }),
+    ),
+  );
+}
+
+/** Same contract as `copyObjects`, but removes each source key after a successful copy. */
+export async function moveObjects(
+  profileId: number,
+  sourceBucket: string,
+  keys: string[],
+  destBucket: string,
+  destPrefix: string,
+): Promise<number> {
+  return call(() =>
+    MoveObjects(
+      domain.BulkMoveRequest.createFrom({
+        ProfileID: profileId,
+        SourceBucket: sourceBucket,
+        Keys: keys,
+        DestBucket: destBucket,
+        DestPrefix: destPrefix,
+      }),
+    ),
+  );
+}
+
+/** Cancels the in-flight bulk operation identified by `operationId` (see `useBulkOperationStore`). */
+export async function cancelBulkOperation(operationId: number): Promise<void> {
+  return call(() => CancelBulkOperation(operationId));
+}
+
+/**
+ * Overwrites `key`'s `Content-Type`/`Cache-Control` headers and user
+ * metadata (`userMetadata` has no `x-amz-meta-` prefix — see
+ * `domain.ObjectMeta.Metadata`), synchronously (no operation id / progress
+ * event — see `internal/filemanager/metadata.go`).
+ */
+export async function updateMetadata(
+  profileId: number,
+  bucket: string,
+  key: string,
+  contentType: string,
+  cacheControl: string,
+  userMetadata: Record<string, string>,
+): Promise<void> {
+  return call(() =>
+    UpdateMetadata(
+      domain.UpdateMetadataRequest.createFrom({
+        ProfileID: profileId,
+        Bucket: bucket,
+        Key: key,
+        ContentType: contentType,
+        CacheControl: cacheControl,
+        UserMetadata: userMetadata,
+      }),
+    ),
+  );
+}
+
+/** Creates a zero-byte "folder marker" object at `prefix + name + "/"` (synchronous, no operation id). */
+export async function createFolder(
+  profileId: number,
+  bucket: string,
+  prefix: string,
+  name: string,
+): Promise<void> {
+  return call(() =>
+    CreateFolder(domain.CreateFolderRequest.createFrom({ ProfileID: profileId, Bucket: bucket, Prefix: prefix, Name: name })),
+  );
+}
+
+/**
+ * Renames a single object in place (same folder, new basename — server-side
+ * copy + delete of the old key, synchronous, no operation id). NOT the same
+ * as `moveObjects`: `BulkMoveRequest`/`BulkCopyRequest` always derive the
+ * destination key as `destPrefix + basename(sourceKey)`, so they can change
+ * an object's *location* but can never change its basename — only
+ * `RenameObject` can do that.
+ */
+export async function renameObject(
+  profileId: number,
+  bucket: string,
+  oldKey: string,
+  newKey: string,
+): Promise<void> {
+  return call(() =>
+    RenameObject(domain.RenameObjectRequest.createFrom({ ProfileID: profileId, Bucket: bucket, OldKey: oldKey, NewKey: newKey })),
+  );
 }

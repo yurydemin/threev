@@ -9,10 +9,18 @@ import { FileGrid } from '../components/file-manager/FileGrid';
 import { ObjectContextMenu } from '../components/file-manager/ObjectContextMenu';
 import { ObjectPreviewModal } from '../components/file-manager/ObjectPreviewModal';
 import { DropOverlay } from '../components/file-manager/DropOverlay';
+import { BulkProgressOverlay } from '../components/file-manager/BulkProgressOverlay';
+import { DeleteConfirmModal } from '../components/file-manager/DeleteConfirmModal';
+import { DestinationPickerModal } from '../components/file-manager/DestinationPickerModal';
+import { RenameModal } from '../components/file-manager/RenameModal';
+import { PropertiesModal } from '../components/file-manager/PropertiesModal';
+import { PresignedUrlModal } from '../components/file-manager/PresignedUrlModal';
 import { useFileManagerStore } from '../stores/useFileManagerStore';
 import { useTransferStore } from '../stores/useTransferStore';
+import { useBulkOperationStore } from '../stores/useBulkOperationStore';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import { useFileDropUpload } from '../hooks/useFileDropUpload';
+import { useBulkOperationEvents } from '../hooks/useBulkOperationEvents';
 import { filterEntriesByQuery } from '../lib/utils';
 import { isPreviewSupported } from '../lib/preview';
 import type { ObjectEntry } from '../types';
@@ -23,6 +31,23 @@ interface ContextMenuState {
   x: number;
   y: number;
 }
+
+/**
+ * Local shape for the currently open bulk/single-object modal (`null` =
+ * none open). A single union rather than one boolean flag per modal: at
+ * most one of these is ever meaningfully open at a time, so a union keeps
+ * "which modal, with what payload" as one piece of state instead of six
+ * booleans plus six separately-tracked payloads that would need to stay in
+ * sync with each other.
+ */
+type ActiveModalState =
+  | { kind: 'delete'; keys: string[] }
+  | { kind: 'copy'; keys: string[] }
+  | { kind: 'move'; keys: string[] }
+  | { kind: 'rename'; entry: ObjectEntry }
+  | { kind: 'metadata'; entry: ObjectEntry }
+  | { kind: 'presignedUrl'; entry: ObjectEntry }
+  | null;
 
 export interface FileManagerScreenProps {
   profileId: number;
@@ -55,6 +80,7 @@ export function FileManagerScreen({ profileId, profileName, onExit, onSelectTran
   const [view, setView] = useState<FileManagerView>('list');
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [previewEntry, setPreviewEntry] = useState<ObjectEntry | null>(null);
+  const [activeModal, setActiveModal] = useState<ActiveModalState>(null);
   const activeProfileId = useFileManagerStore((state) => state.activeProfileId);
   const selectedBucket = useFileManagerStore((state) => state.selectedBucket);
   const entries = useFileManagerStore((state) => state.entries);
@@ -66,7 +92,27 @@ export function FileManagerScreen({ profileId, profileName, onExit, onSelectTran
   const clearSelection = useFileManagerStore((state) => state.clearSelection);
   const queueCount = useTransferStore((state) => state.queue.length);
 
-  useKeyboardShortcuts({ onRefresh: refresh, onSelectAll: selectAll, onClearSelection: clearSelection });
+  useBulkOperationEvents();
+
+  function handleDeleteSelected() {
+    if (selectedKeys.size === 0) return;
+    setActiveModal({ kind: 'delete', keys: Array.from(selectedKeys) });
+  }
+
+  function handleRenameSelected() {
+    if (selectedKeys.size !== 1) return;
+    const [key] = Array.from(selectedKeys);
+    const entry = entries.find((candidate) => candidate.key === key);
+    if (entry) setActiveModal({ kind: 'rename', entry });
+  }
+
+  useKeyboardShortcuts({
+    onRefresh: refresh,
+    onSelectAll: selectAll,
+    onClearSelection: clearSelection,
+    onDeleteSelected: handleDeleteSelected,
+    onRenameSelected: handleRenameSelected,
+  });
 
   const { isDraggingOver, dragHandlers } = useFileDropUpload(activeProfileId, selectedBucket, currentPrefix);
 
@@ -122,6 +168,7 @@ export function FileManagerScreen({ profileId, profileName, onExit, onSelectTran
             </div>
           )}
           {isDraggingOver && <DropOverlay />}
+          <BulkProgressOverlay />
         </main>
 
         <StatusBar left={statusLeft} right={<TransferIndicator count={queueCount} onClick={onSelectTransfers} />} />
@@ -134,6 +181,12 @@ export function FileManagerScreen({ profileId, profileName, onExit, onSelectTran
           y={contextMenu.y}
           onClose={() => setContextMenu(null)}
           onOpenPreview={setPreviewEntry}
+          onDelete={(keys) => setActiveModal({ kind: 'delete', keys })}
+          onCopy={(keys) => setActiveModal({ kind: 'copy', keys })}
+          onMove={(keys) => setActiveModal({ kind: 'move', keys })}
+          onRename={(entry) => setActiveModal({ kind: 'rename', entry })}
+          onEditMetadata={(entry) => setActiveModal({ kind: 'metadata', entry })}
+          onGetPresignedUrl={(entry) => setActiveModal({ kind: 'presignedUrl', entry })}
         />
       )}
 
@@ -142,6 +195,71 @@ export function FileManagerScreen({ profileId, profileName, onExit, onSelectTran
         isOpen={previewEntry !== null}
         onClose={() => setPreviewEntry(null)}
       />
+
+      {activeModal?.kind === 'delete' && activeProfileId && selectedBucket && (
+        <DeleteConfirmModal
+          isOpen
+          onClose={() => setActiveModal(null)}
+          keys={activeModal.keys}
+          onConfirm={() =>
+            void useBulkOperationStore.getState().startDelete(activeProfileId, selectedBucket, activeModal.keys)
+          }
+        />
+      )}
+
+      {(activeModal?.kind === 'copy' || activeModal?.kind === 'move') && activeProfileId && selectedBucket && (
+        <DestinationPickerModal
+          isOpen
+          onClose={() => setActiveModal(null)}
+          mode={activeModal.kind}
+          keys={activeModal.keys}
+          profileId={activeProfileId}
+          sourceBucket={selectedBucket}
+          onConfirm={(destBucket, destPrefix) => {
+            const { keys } = activeModal;
+            if (activeModal.kind === 'copy') {
+              void useBulkOperationStore
+                .getState()
+                .startCopy(activeProfileId, selectedBucket, keys, destBucket, destPrefix);
+            } else {
+              void useBulkOperationStore
+                .getState()
+                .startMove(activeProfileId, selectedBucket, keys, destBucket, destPrefix);
+            }
+          }}
+        />
+      )}
+
+      {activeModal?.kind === 'rename' && activeProfileId && selectedBucket && (
+        <RenameModal
+          isOpen
+          onClose={() => setActiveModal(null)}
+          profileId={activeProfileId}
+          bucket={selectedBucket}
+          entry={activeModal.entry}
+          currentPrefix={currentPrefix}
+        />
+      )}
+
+      {activeModal?.kind === 'metadata' && activeProfileId && selectedBucket && (
+        <PropertiesModal
+          isOpen
+          onClose={() => setActiveModal(null)}
+          profileId={activeProfileId}
+          bucket={selectedBucket}
+          entry={activeModal.entry}
+        />
+      )}
+
+      {activeModal?.kind === 'presignedUrl' && activeProfileId && selectedBucket && (
+        <PresignedUrlModal
+          isOpen
+          onClose={() => setActiveModal(null)}
+          profileId={activeProfileId}
+          bucket={selectedBucket}
+          objectKey={activeModal.entry.key}
+        />
+      )}
     </div>
   );
 }

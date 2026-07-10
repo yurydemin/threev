@@ -95,6 +95,19 @@ type UpdateMetadataRequest struct {
 	UserMetadata map[string]string
 }
 
+// RenameObjectRequest is the input to FileManagerService.RenameObject - a
+// single-object, synchronous rename within the same bucket (FR-BULK-003's
+// "Rename (F2)" case, per the Этап 4 plan's "Согласованные решения" -
+// technically a copy-then-delete-to-a-different-basename, which
+// CopyObjects/MoveObjects cannot express since their DestPrefix+basename(
+// sourceKey) formula always preserves the source's own basename).
+type RenameObjectRequest struct {
+	ProfileID int64
+	Bucket    string
+	OldKey    string
+	NewKey    string
+}
+
 // CreateFolderRequest is the input to FileManagerService.CreateFolder.
 type CreateFolderRequest struct {
 	ProfileID int64

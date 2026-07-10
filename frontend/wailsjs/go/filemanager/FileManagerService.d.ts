@@ -23,6 +23,8 @@ export function ListObjects(arg1:domain.ListObjectsRequest):Promise<domain.ListO
 
 export function MoveObjects(arg1:domain.BulkMoveRequest):Promise<number>;
 
+export function RenameObject(arg1:domain.RenameObjectRequest):Promise<void>;
+
 export function SetContext(arg1:context.Context):Promise<void>;
 
 export function UpdateMetadata(arg1:domain.UpdateMetadataRequest):Promise<void>;

@@ -42,6 +42,10 @@ export function MoveObjects(arg1) {
   return window['go']['filemanager']['FileManagerService']['MoveObjects'](arg1);
 }
 
+export function RenameObject(arg1) {
+  return window['go']['filemanager']['FileManagerService']['RenameObject'](arg1);
+}
+
 export function SetContext(arg1) {
   return window['go']['filemanager']['FileManagerService']['SetContext'](arg1);
 }

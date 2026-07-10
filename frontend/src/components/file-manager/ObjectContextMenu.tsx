@@ -1,10 +1,22 @@
-import { Copy, Download, Eye, FolderOpen, Link } from 'lucide-react';
+import {
+  Copy,
+  CopyPlus,
+  Download,
+  Eye,
+  FolderInput,
+  FolderOpen,
+  Link,
+  Link2,
+  Pencil,
+  Settings2,
+  Trash2,
+} from 'lucide-react';
 import { ContextMenu, type ContextMenuItem } from '../ui/ContextMenu';
 import { getPresignedUrl } from '../../lib/wails/fileManager';
 import { pickDownloadDestination, pickDownloadDirectory } from '../../lib/wails/transfer';
 import { useTransferStore } from '../../stores/useTransferStore';
 import { getPreviewKind } from '../../lib/preview';
-import { getEntryDisplayName } from '../../lib/utils';
+import { copyToClipboard, getEntryDisplayName } from '../../lib/utils';
 import { useFileManagerStore } from '../../stores/useFileManagerStore';
 import type { ObjectEntry } from '../../types';
 
@@ -18,53 +30,61 @@ export interface ObjectContextMenuProps {
   onClose: () => void;
   /** Called for files whose type supports preview (see `lib/preview.ts`). */
   onOpenPreview: (entry: ObjectEntry) => void;
-}
-
-async function copyToClipboard(text: string): Promise<void> {
-  try {
-    await navigator.clipboard.writeText(text);
-  } catch (err) {
-    // No toast system yet (Stage 4, docs/03-ux-ui-spec.md section 4.8) — a
-    // failed clipboard write (e.g. denied permission) fails silently rather
-    // than crashing the menu interaction.
-    console.error('[ObjectContextMenu] clipboard write failed:', err);
-  }
+  /** Bulk or single delete — `keys` is `[entry.key]` outside a multi-selection context. */
+  onDelete: (keys: string[]) => void;
+  /** Bulk or single copy — opens `DestinationPickerModal` mode="copy". */
+  onCopy: (keys: string[]) => void;
+  /** Bulk or single move — opens `DestinationPickerModal` mode="move". */
+  onMove: (keys: string[]) => void;
+  /** Single-object rename (never offered in the bulk branch — rename only makes sense for one object at a time). */
+  onRename: (entry: ObjectEntry) => void;
+  /** Opens `PropertiesModal` for a single object. */
+  onEditMetadata: (entry: ObjectEntry) => void;
+  /** Opens `PresignedUrlModal` for a single object. */
+  onGetPresignedUrl: (entry: ObjectEntry) => void;
 }
 
 /**
  * ПКМ context menu for a single object, per docs/03-ux-ui-spec.md section
- * 5.4.5 — trimmed to the Stage 2 constraint 6 subset plus "Скачать" (Stage
- * 3 Block J, now that `TransferService` exists): "Скачать...", "Открыть /
- * Предпросмотр" (only if the type is previewable), "Копировать URL",
- * "Скопировать имя", "Скопировать путь". "Изменить метаданные...",
- * "Удалить" are still not shown (those services don't exist yet — Stage 4).
+ * 5.4.5, extended in Stage 4 Block D with bulk actions (delete/copy/move)
+ * and the previously-missing single-object actions (copy/move/rename/edit
+ * metadata/delete) now that their backing services exist.
  *
- * Reads `activeProfileId`/`selectedBucket`/`currentPrefix` directly from
- * `useFileManagerStore`, same convention as `Toolbar`/`BucketPanel`/
- * `FileList`, so the only props are the ones that vary per invocation
- * (which entry, where to render, how to open a preview).
+ * Reads `activeProfileId`/`selectedBucket`/`currentPrefix`/`selectedKeys`
+ * directly from `useFileManagerStore`, same convention as `Toolbar`/
+ * `BucketPanel`/`FileList`, so the only props are the ones that vary per
+ * invocation (which entry, where to render, how to open a preview/modal).
  *
- * For folders, the menu is reduced to a single "Открыть" item (navigates via
- * the store directly — no separate `onNavigate` prop) for consistency with
- * common file managers; double-click already covers the same action, but a
- * folder right-click with an empty menu would look broken. None of the
- * file-only items (copy URL/name/path) apply: folders aren't S3 objects
- * with their own presigned URL, and "copy name/path" wasn't asked for on
- * folders in the reduced constraint-6 set.
+ * Modal-opening actions (delete/copy/move/rename/metadata/presigned URL) are
+ * all routed through callback props rather than rendered from inside this
+ * component — `ObjectContextMenu` does not own modal state, the same
+ * established pattern `onOpenPreview` already follows (modals live in
+ * `FileManagerScreen`).
  *
- * The underlying `ContextMenu` primitive already calls `onClose()`
- * synchronously before `item.onClick()` (see `components/ui/ContextMenu.tsx`),
- * so the menu is gone before an async action like "Копировать URL" even
- * resolves — there is no window to swap the clicked item's label to a
- * "Скопировано!" confirmation. Absent a toast system (Stage 4), closing the
- * menu immediately *is* the feedback; clipboard failures are logged, not
- * surfaced, per the same reasoning as above.
+ * `isBulkContext` (right-clicking a file that's part of a ≥2-item
+ * multi-selection) swaps in a reduced bulk-only item set operating on
+ * `selectedKeys` rather than the single right-clicked `entry`. Folders are
+ * never part of a multi-selection (`useFileManagerStore.toggleSelect` is a
+ * no-op for folder entries), so the bulk branch only ever applies to files.
  */
-export function ObjectContextMenu({ entry, x, y, onClose, onOpenPreview }: ObjectContextMenuProps) {
+export function ObjectContextMenu({
+  entry,
+  x,
+  y,
+  onClose,
+  onOpenPreview,
+  onDelete,
+  onCopy,
+  onMove,
+  onRename,
+  onEditMetadata,
+  onGetPresignedUrl,
+}: ObjectContextMenuProps) {
   const activeProfileId = useFileManagerStore((state) => state.activeProfileId);
   const selectedBucket = useFileManagerStore((state) => state.selectedBucket);
   const currentPrefix = useFileManagerStore((state) => state.currentPrefix);
   const navigateToPrefix = useFileManagerStore((state) => state.navigateToPrefix);
+  const selectedKeys = useFileManagerStore((state) => state.selectedKeys);
 
   if (!entry) return null;
 
@@ -90,6 +110,58 @@ export function ObjectContextMenu({ entry, x, y, onClose, onOpenPreview }: Objec
         label: 'Открыть',
         icon: <FolderOpen className="h-4 w-4" aria-hidden="true" />,
         onClick: () => navigateToPrefix(entry.key),
+      },
+    ];
+    return <ContextMenu x={x} y={y} items={items} onClose={onClose} />;
+  }
+
+  const isBulkContext = selectedKeys.size > 1 && selectedKeys.has(entry.key);
+
+  if (isBulkContext) {
+    const keys = Array.from(selectedKeys);
+    const items: ContextMenuItem[] = [
+      {
+        label: 'Скачать выбранные',
+        icon: <Download className="h-4 w-4" aria-hidden="true" />,
+        disabled: !activeProfileId || !selectedBucket,
+        onClick: () => {
+          if (!activeProfileId || !selectedBucket) return;
+          void pickDownloadDirectory()
+            .then((dir) => {
+              if (!dir) return;
+              // Each `queueDownload` swallows its own errors internally
+              // (`useTransferStore.queueDownload` catches and returns `null`
+              // rather than rejecting), so one failing key never stops the
+              // rest of the loop from being queued.
+              for (const key of keys) {
+                void useTransferStore.getState().queueDownload({
+                  profileId: activeProfileId,
+                  bucket: selectedBucket,
+                  key,
+                  localPath: `${dir}/${key.split('/').pop()}`,
+                  priority: 0,
+                });
+              }
+            })
+            .catch((err) => console.error('[ObjectContextMenu] pickDownloadDirectory failed:', err));
+        },
+      },
+      {
+        label: 'Копировать...',
+        icon: <CopyPlus className="h-4 w-4" aria-hidden="true" />,
+        onClick: () => onCopy(keys),
+      },
+      {
+        label: 'Переместить...',
+        icon: <FolderInput className="h-4 w-4" aria-hidden="true" />,
+        onClick: () => onMove(keys),
+      },
+      { separator: true },
+      {
+        label: `Удалить ${keys.length} объектов`,
+        icon: <Trash2 className="h-4 w-4" aria-hidden="true" />,
+        destructive: true,
+        onClick: () => onDelete(keys),
       },
     ];
     return <ContextMenu x={x} y={y} items={items} onClose={onClose} />;
@@ -141,6 +213,40 @@ export function ObjectContextMenu({ entry, x, y, onClose, onOpenPreview }: Objec
     },
   });
 
+  items.push({
+    label: 'Получить presigned URL...',
+    icon: <Link2 className="h-4 w-4" aria-hidden="true" />,
+    onClick: () => onGetPresignedUrl(entry),
+  });
+
+  items.push({ separator: true });
+
+  items.push({
+    label: 'Копировать...',
+    icon: <CopyPlus className="h-4 w-4" aria-hidden="true" />,
+    onClick: () => onCopy([entry.key]),
+  });
+
+  items.push({
+    label: 'Переместить...',
+    icon: <FolderInput className="h-4 w-4" aria-hidden="true" />,
+    onClick: () => onMove([entry.key]),
+  });
+
+  items.push({
+    label: 'Переименовать',
+    icon: <Pencil className="h-4 w-4" aria-hidden="true" />,
+    onClick: () => onRename(entry),
+  });
+
+  items.push({ separator: true });
+
+  items.push({
+    label: 'Изменить метаданные...',
+    icon: <Settings2 className="h-4 w-4" aria-hidden="true" />,
+    onClick: () => onEditMetadata(entry),
+  });
+
   items.push({ separator: true });
 
   items.push({
@@ -157,6 +263,15 @@ export function ObjectContextMenu({ entry, x, y, onClose, onOpenPreview }: Objec
       if (!selectedBucket) return;
       void copyToClipboard(`s3://${selectedBucket}/${entry.key}`);
     },
+  });
+
+  items.push({ separator: true });
+
+  items.push({
+    label: 'Удалить',
+    icon: <Trash2 className="h-4 w-4" aria-hidden="true" />,
+    destructive: true,
+    onClick: () => onDelete([entry.key]),
   });
 
   return <ContextMenu x={x} y={y} items={items} onClose={onClose} />;

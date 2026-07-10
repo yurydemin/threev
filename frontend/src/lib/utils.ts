@@ -70,6 +70,22 @@ export function getEntryDisplayName(key: string, currentPrefix: string): string 
 }
 
 /**
+ * Writes `text` to the system clipboard, logging (not throwing/surfacing) on
+ * failure — there is no toast system yet (Stage 4), so a denied permission
+ * or unsupported environment fails silently rather than crashing the
+ * caller's interaction. Shared by `ObjectContextMenu` ("Скопировать
+ * имя"/"Скопировать путь"/"Копировать URL") and `PresignedUrlModal`
+ * ("Копировать" button).
+ */
+export async function copyToClipboard(text: string): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch (err) {
+    console.error('[copyToClipboard] clipboard write failed:', err);
+  }
+}
+
+/**
  * Client-side search filter (FR-FM-006 / Stage 2 plan): matches `query`
  * case-insensitively against each entry's *display name* (not its full
  * key), so searching inside a nested folder doesn't match on ancestor path

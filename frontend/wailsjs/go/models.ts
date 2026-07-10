@@ -386,6 +386,24 @@ export namespace domain {
 		    return a;
 		}
 	}
+	export class RenameObjectRequest {
+	    ProfileID: number;
+	    Bucket: string;
+	    OldKey: string;
+	    NewKey: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new RenameObjectRequest(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.ProfileID = source["ProfileID"];
+	        this.Bucket = source["Bucket"];
+	        this.OldKey = source["OldKey"];
+	        this.NewKey = source["NewKey"];
+	    }
+	}
 	export class TextPreviewResult {
 	    Content: string;
 	    Truncated: boolean;

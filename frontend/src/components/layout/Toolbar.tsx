@@ -3,6 +3,7 @@ import {
   ChevronLeft,
   ChevronRight,
   FileUp,
+  FolderPlus,
   FolderUp,
   LayoutGrid,
   List,
@@ -18,6 +19,7 @@ import { pickAndQueueUploadFiles } from '../../lib/uploadFiles';
 import { Button } from '../ui/Button';
 import { ContextMenu, type ContextMenuItem } from '../ui/ContextMenu';
 import { Breadcrumbs } from '../file-manager/Breadcrumbs';
+import { CreateFolderModal } from '../file-manager/CreateFolderModal';
 
 export type FileManagerView = 'list' | 'grid';
 
@@ -57,6 +59,7 @@ export function Toolbar({ view, onViewChange }: ToolbarProps) {
   const setSearchQuery = useFileManagerStore((state) => state.setSearchQuery);
 
   const [uploadMenu, setUploadMenu] = useState<{ x: number; y: number } | null>(null);
+  const [isCreateFolderOpen, setIsCreateFolderOpen] = useState(false);
 
   const canGoBack = historyIndex > 0;
   const canGoForward = historyIndex < history.length - 1;
@@ -163,6 +166,15 @@ export function Toolbar({ view, onViewChange }: ToolbarProps) {
         </div>
 
         <Button
+          variant="secondary"
+          disabled={!selectedBucket}
+          onClick={() => setIsCreateFolderOpen(true)}
+        >
+          <FolderPlus className="h-4 w-4" aria-hidden="true" />
+          Создать папку
+        </Button>
+
+        <Button
           variant="primary"
           disabled={!selectedBucket}
           onClick={(event) => {
@@ -181,6 +193,16 @@ export function Toolbar({ view, onViewChange }: ToolbarProps) {
           y={uploadMenu.y}
           items={uploadMenuItems}
           onClose={() => setUploadMenu(null)}
+        />
+      )}
+
+      {activeProfileId && selectedBucket && (
+        <CreateFolderModal
+          isOpen={isCreateFolderOpen}
+          onClose={() => setIsCreateFolderOpen(false)}
+          profileId={activeProfileId}
+          bucket={selectedBucket}
+          prefix={currentPrefix}
         />
       )}
     </div>
