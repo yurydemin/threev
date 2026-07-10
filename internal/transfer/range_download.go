@@ -197,8 +197,9 @@ func removeProgressSidecar(localPath string) {
 // downloadSegmentPlan is one Range GET this download's worker pool will
 // issue: read [offset, offset+size) of the remote object and write it to
 // the local file starting at byte offset. Built by planDownloadSegments
-// from the full-file segment layout (PartSize(totalBytes)) and the set of
-// segment offsets already recorded as completed in the resume-progress
+// from the full-file segment layout (PartSize(totalBytes), or
+// DownloadParams.PartSizeOverride if set - Этап 4 суб-этап 4.3) and the set
+// of segment offsets already recorded as completed in the resume-progress
 // sidecar file (readCompletedSegmentOffsets) - a segment whose offset is in
 // that set is dropped from the plan entirely; every other segment is kept
 // UNCHANGED (never shrunk to a partial tail - see progressSidecarSuffix's
@@ -227,7 +228,8 @@ type downloadSegmentPlan struct {
 //     adaptive table multipart_upload.go uses for uploads
 //     (docs/02-tech-spec.md section 10.3: "default 16 МБ", which PartSize's
 //     table already produces for files in the relevant size range - see
-//     partsize.go's doc comment for the full table), dropping any segment
+//     partsize.go's doc comment for the full table), or p.PartSizeOverride
+//     verbatim when it is set (> 0, Этап 4 суб-этап 4.3), dropping any segment
 //     already recorded as completed (planDownloadSegments). If every
 //     segment was already completed on a prior run, the plan is empty:
 //     downloadRange removes the now-redundant sidecar file and returns
@@ -265,7 +267,7 @@ func downloadRange(ctx context.Context, p DownloadParams, totalBytes int64) erro
 		return fmt.Errorf("truncate %s to %d bytes: %w", p.LocalPath, totalBytes, err)
 	}
 
-	segments := planDownloadSegments(totalBytes, completed)
+	segments := planDownloadSegments(totalBytes, p.PartSizeOverride, completed)
 
 	if len(segments) == 0 {
 		// Every segment the current plan calls for is already recorded as
@@ -322,23 +324,33 @@ func downloadRange(ctx context.Context, p DownloadParams, totalBytes int64) erro
 	return nil
 }
 
-// planDownloadSegments lays totalBytes out into PartSize(totalBytes)-sized
-// segments (the same full-file layout a from-scratch download would use),
-// then drops any segment whose starting offset is present in completed (a
-// set of segment offsets already recorded as durably finished in the
-// resume-progress sidecar file, from readCompletedSegmentOffsets) - so it
-// is never re-requested, which is what makes resume not re-download
+// planDownloadSegments lays totalBytes out into fixed-size segments (the
+// same full-file layout a from-scratch download would use), then drops any
+// segment whose starting offset is present in completed (a set of segment
+// offsets already recorded as durably finished in the resume-progress
+// sidecar file, from readCompletedSegmentOffsets) - so it is never
+// re-requested, which is what makes resume not re-download
 // already-completed segments. Every other segment is returned UNCHANGED
 // (start/size are never adjusted to a partial tail): resume tracking here
 // is whole-segment granularity, not byte granularity - see
 // progressSidecarSuffix's doc comment for why.
 //
+// partSizeOverride, when > 0, is used verbatim as the segment size instead
+// of PartSize(totalBytes)'s adaptive table - see
+// DownloadParams.PartSizeOverride's doc comment (Этап 4 суб-этап 4.3).
+// Passing 0 reproduces the original, override-less adaptive behavior every
+// caller used before this parameter existed.
+//
 // The returned segments are always ordered by ascending offset, though
 // downloadRange's worker pool does not depend on that ordering itself
 // (segments run concurrently, each independently WriteAt-ing its own
 // range).
-func planDownloadSegments(totalBytes int64, completed map[int64]struct{}) []downloadSegmentPlan {
-	segmentSize := PartSize(totalBytes)
+func planDownloadSegments(totalBytes, partSizeOverride int64, completed map[int64]struct{}) []downloadSegmentPlan {
+	segmentSize := partSizeOverride
+	if segmentSize <= 0 {
+		segmentSize = PartSize(totalBytes)
+	}
+
 	segmentCount := PartCount(totalBytes, segmentSize)
 
 	segments := make([]downloadSegmentPlan, 0, segmentCount)

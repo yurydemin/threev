@@ -72,6 +72,14 @@ type DownloadParams struct {
 	// LocalPath as given.
 	LocalPath string
 
+	// PartSizeOverride, when > 0, is used verbatim as the range-download
+	// segment size instead of PartSize(totalBytes)'s adaptive table (Этап 4
+	// суб-этап 4.3, TransferService.SetPartSizeOverrideMB - see
+	// planDownloadSegments' use of this field). 0 (the zero value) means
+	// "use the adaptive table" - identical semantics to
+	// UploadParams.PartSizeOverride.
+	PartSizeOverride int64
+
 	// Concurrency is the number of segments transferred in parallel. 0
 	// means DefaultPartConcurrency; any value is clamped to
 	// MaxPartConcurrency and additionally to the download's actual

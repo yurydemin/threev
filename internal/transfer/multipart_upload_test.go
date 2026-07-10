@@ -361,6 +361,43 @@ func TestUploadMultipartSuccess(t *testing.T) {
 	}
 }
 
+// TestUploadMultipartRespectsPartSizeOverride verifies UploadParams.
+// PartSizeOverride (Этап 4 суб-этап 4.3, TransferService.
+// SetPartSizeOverrideMB's effect on the actual part boundaries
+// uploadMultipart computes) bypasses PartSize's adaptive table entirely
+// when set: mpuTestFileSize (11MB) normally splits into 3 parts under the
+// unmodified table (5MB, 5MB, 1MB - see mpuTestFileSize's own doc comment),
+// but with a 4MB override it must split into 3 different-sized parts
+// instead (4MB, 4MB, 3MB) - same COUNT here would be a weak assertion, so
+// this additionally confirms against a size where the counts differ (a 2MB
+// override yields 6 parts).
+func TestUploadMultipartRespectsPartSizeOverride(t *testing.T) {
+	t.Parallel()
+
+	mock := newMPUMock("upload-id-override")
+	server := httptest.NewServer(http.HandlerFunc(mock.handler))
+	t.Cleanup(server.Close)
+
+	localPath := createSparseFile(t, mpuTestFileSize)
+
+	p := newTestUploadParams(t, server.URL)
+	p.LocalPath = localPath
+	p.TotalBytes = mpuTestFileSize
+	p.PartSizeOverride = 2 * 1024 * 1024 // 2MB, well below the adaptive table's 5MB answer for an 11MB file
+
+	_, err := Upload(context.Background(), p)
+	if err != nil {
+		t.Fatalf("Upload() returned error: %v", err)
+	}
+
+	// ceil(11MB / 2MB) = 6 parts, vs the 3 parts the unmodified adaptive
+	// table would have produced for the same file size (see
+	// TestUploadMultipartSuccess).
+	if got := mock.totalUploadPartRequests(); got != 6 {
+		t.Errorf("total UploadPart requests = %d, want 6 (PartSizeOverride must override the adaptive table)", got)
+	}
+}
+
 func TestUploadMultipartResumeSkipsExistingParts(t *testing.T) {
 	t.Parallel()
 

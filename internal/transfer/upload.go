@@ -105,6 +105,15 @@ type UploadParams struct {
 	// single-PutObject vs multipart path and to size/count parts.
 	TotalBytes int64
 
+	// PartSizeOverride, when > 0, is used verbatim as the multipart part
+	// size instead of PartSize(TotalBytes)'s adaptive table (Этап 4
+	// суб-этап 4.3, TransferService.SetPartSizeOverrideMB - see
+	// uploadMultipart's use of this field). 0 (the zero value, and what
+	// every caller gets unless it explicitly sets one) means "use the
+	// adaptive table", identical in spirit to Limiter's nil-means-unlimited
+	// convention above.
+	PartSizeOverride int64
+
 	// ExistingUploadID, when non-empty, resumes a previously created
 	// multipart upload (its S3 UploadId) instead of starting a new one:
 	// uploadMultipart skips CreateMultipartUpload and instead calls

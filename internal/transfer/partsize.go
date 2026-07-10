@@ -51,6 +51,15 @@ const (
 	// PartSize rounds its computed part size up to, so the clamp never
 	// returns an oddly-precise byte count.
 	clampRoundingUnit = 1024 * 1024 // 1 MB
+
+	// partSizeOverrideMinMB/partSizeOverrideMaxMB are the bounds
+	// TransferService.SetPartSizeOverrideMB clamps a user-configured fixed
+	// part size to (Этап 4 суб-этап 4.3, UX-спека 5.7): the same [5,128] MB
+	// range PartSize's own adaptive table ever produces (minPartSize's 5MB
+	// floor through maxPartSize's 128MB ceiling), so an override can never
+	// pick a part size the adaptive table itself would never have chosen.
+	partSizeOverrideMinMB = 5
+	partSizeOverrideMaxMB = 128
 )
 
 // PartSize returns the adaptive part size, in bytes, to use for a

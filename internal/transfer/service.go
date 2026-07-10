@@ -54,20 +54,38 @@ type TransferService struct {
 
 	connMgr *s3client.ConnectionManager
 	breaker *s3client.CircuitBreaker
-	// limiter is nil by default (docs/02-tech-spec.md section 10.6: "По
-	// умолчанию лимит выключен") - NewTransferService never sets it; a
-	// future Settings screen (Этап 4) is expected to call a not-yet-written
-	// setter to install one, without needing any other change here (every
-	// UploadParams/DownloadParams.Limiter already tolerates nil, see
-	// ratelimit.go).
-	limiter *BandwidthLimiter
+	// limiter is nil (the atomic.Pointer[BandwidthLimiter] zero value) by
+	// default (docs/02-tech-spec.md section 10.6: "По умолчанию лимит
+	// выключен") - NewTransferService never sets it. SetBandwidthLimits
+	// (Этап 4 суб-этап 4.3, internal/appsettings.SettingsService.
+	// ApplySettings) installs one at runtime. It is an atomic.Pointer,
+	// exactly like wailsCtx above, rather than a plain *BandwidthLimiter
+	// field, because it can now be replaced (Store) concurrently with
+	// task.go's runUploadTask/runDownloadTask reading it (Load) for an
+	// already in-flight task - a plain pointer read/write pair would be a
+	// data race under -race. Load() on a never-Store'd atomic.Pointer
+	// returns nil, which is already nil-safe for every
+	// WrapUploadReader/WrapDownloadReader call site (see ratelimit.go), so
+	// no additional initialization is needed in NewTransferService.
+	limiter atomic.Pointer[BandwidthLimiter]
 
+	// partSizeOverride is the fixed part/segment size (in bytes) SetPartSizeOverrideMB
+	// installs, or 0 for PartSize's adaptive table (the default - see
+	// multipart_upload.go/range_download.go's override-or-adaptive checks).
+	// An atomic.Int64 for the same reason limiter is an atomic.Pointer: it
+	// can be changed (SettingsService.ApplySettings) concurrently with an
+	// in-flight task reading it.
+	partSizeOverride atomic.Int64
+
+	// maxConcurrentTasks is guarded by mu (below) - see SetMaxConcurrentTasks
+	// and dispatch's own doc comment for why a plain int, not an atomic,
+	// suffices: every read/write already happens inside a mu critical
+	// section.
 	maxConcurrentTasks int
 
-	// mu guards running - the set of tasks currently executing. It is NOT
-	// held for the duration of a task's own network I/O (see runTask/
-	// dispatch's own doc comments for exactly which critical sections it
-	// covers).
+	// mu guards running and maxConcurrentTasks. It is NOT held for the
+	// duration of a task's own network I/O (see runTask/dispatch's own doc
+	// comments for exactly which critical sections it covers).
 	mu      sync.Mutex
 	running map[int64]*runningTask
 
@@ -95,10 +113,13 @@ type ctxHolder struct {
 // encryptionKey (for resolving profiles), queueRepo/historyRepo (for
 // transfer_queue/transfer_history persistence), connMgr (for pooled/fresh
 // S3 clients per profile), and breaker (the shared, per-process circuit
-// breaker every task's retries coordinate through). maxConcurrentTasks is
-// fixed to DefaultMaxConcurrentTasks (FR-QUEUE-004) and the bandwidth
-// limiter starts out nil/unlimited (see the limiter field's doc comment) -
-// neither has a constructor parameter yet.
+// breaker every task's retries coordinate through). maxConcurrentTasks
+// starts at DefaultMaxConcurrentTasks (FR-QUEUE-004), the bandwidth limiter
+// starts out nil/unlimited, and partSizeOverride starts out 0/adaptive (see
+// the limiter/partSizeOverride fields' own doc comments) - none of the
+// three has a constructor parameter; each has its own setter
+// (SetMaxConcurrentTasks/SetBandwidthLimits/SetPartSizeOverrideMB) instead,
+// called by internal/appsettings.SettingsService.ApplySettings.
 func NewTransferService(
 	profileRepo *storage.ProfileRepository,
 	encryptionKey [32]byte,
@@ -125,6 +146,83 @@ func NewTransferService(
 // idempotent/safe to call repeatedly regardless (e.g. from a test).
 func (s *TransferService) SetContext(ctx context.Context) {
 	s.wailsCtx.Store(ctxHolder{ctx: ctx})
+}
+
+// SetBandwidthLimits installs a new BandwidthLimiter configured for
+// uploadBytesPerSec/downloadBytesPerSec (<= 0 means unlimited for that
+// direction - see NewBandwidthLimiter's doc comment), replacing whatever
+// limiter was previously in effect. Safe to call at any time, including
+// concurrently with in-flight tasks: task.go's runUploadTask/
+// runDownloadTask each Load() a fresh *BandwidthLimiter from s.limiter once
+// per attempt, so an already-running task keeps using whatever limiter was
+// in effect when it started until its next retry attempt, rather than being
+// interrupted - this is the same "no forced disruption of running work"
+// philosophy SetMaxConcurrentTasks documents for reducing the concurrency
+// limit.
+//
+// Called by internal/appsettings.SettingsService.ApplySettings (Этап 4
+// суб-этап 4.3) - there is no other production caller yet.
+func (s *TransferService) SetBandwidthLimits(uploadBytesPerSec, downloadBytesPerSec int64) {
+	s.limiter.Store(NewBandwidthLimiter(uploadBytesPerSec, downloadBytesPerSec))
+}
+
+// SetMaxConcurrentTasks changes the scheduler's concurrency limit
+// (FR-QUEUE-004) to n, clamping n up to 1 if it is less (a limit of 0 or
+// negative would stop dispatch from ever starting anything at all, which is
+// never an intended outcome of a Settings change). It then calls dispatch()
+// so that RAISING the limit immediately tries to fill the newly available
+// slot(s) with pending tasks, without waiting for some other event (a task
+// finishing, a new QueueUpload/QueueDownload call, ...) to trigger it.
+//
+// LOWERING the limit never forcibly stops or pauses any task already
+// running past the new, smaller limit - dispatch() only ever refuses to
+// START new tasks once len(s.running) reaches maxConcurrentTasks; it does
+// not evict existing entries from s.running. This is a deliberate,
+// unobtrusive choice: a user narrowing the concurrency slider mid-transfer
+// should not have an already-in-flight upload/download abruptly interrupted
+// as a side effect.
+//
+// Called by internal/appsettings.SettingsService.ApplySettings (Этап 4
+// суб-этап 4.3) - there is no other production caller yet.
+func (s *TransferService) SetMaxConcurrentTasks(n int) {
+	if n < 1 {
+		n = 1
+	}
+
+	s.mu.Lock()
+	s.maxConcurrentTasks = n
+	s.mu.Unlock()
+
+	s.dispatch()
+}
+
+// SetPartSizeOverrideMB installs (or clears) a fixed part/segment size that
+// bypasses PartSize's adaptive table (multipart_upload.go/
+// range_download.go). mb <= 0 clears any override, reverting to the
+// adaptive default. Any other value is clamped to [5,128] (the same bounds
+// internal/appsettings.SettingsService.SaveSettings already enforces before
+// ever calling this) - TransferService deliberately does not trust its
+// caller to have applied that clamp itself, since a part size outside
+// S3's [5MB, ...] protocol floor (or an unreasonably large one) could
+// otherwise reach multipart_upload.go/range_download.go directly were this
+// method ever called from anywhere else in the future.
+//
+// Called by internal/appsettings.SettingsService.ApplySettings (Этап 4
+// суб-этап 4.3) - there is no other production caller yet.
+func (s *TransferService) SetPartSizeOverrideMB(mb int) {
+	if mb <= 0 {
+		s.partSizeOverride.Store(0)
+		return
+	}
+
+	if mb < partSizeOverrideMinMB {
+		mb = partSizeOverrideMinMB
+	}
+	if mb > partSizeOverrideMaxMB {
+		mb = partSizeOverrideMaxMB
+	}
+
+	s.partSizeOverride.Store(int64(mb) * 1024 * 1024)
 }
 
 // emitProgressEvent publishes a domain.TransferProgressEvent on
@@ -799,11 +897,22 @@ func (s *TransferService) ClearHistory() error {
 // callers - opening the database is fatal to the whole application
 // (app.go's newApp), while a failure reconciling the queue here is not (see
 // its call site's own doc comment for why it only logs and continues).
-func (s *TransferService) RecoverOrphanedTasks() error {
+//
+// It returns the ids of every task this call itself just moved from
+// "running" to "paused" - never every "paused" row already sitting in
+// transfer_queue (which may include tasks the user paused deliberately, on
+// a previous run, and which must never be silently resumed on their
+// behalf). This is what lets AutoResumeIfEnabled (Этап 4 суб-этап 4.3)
+// resume ONLY the crash-orphaned tasks this exact call reconciled, when the
+// user has opted into FR-SET-001's "auto-resume queue" setting, without
+// ever touching a task the user paused themselves.
+func (s *TransferService) RecoverOrphanedTasks() ([]int64, error) {
 	tasks, err := s.queueRepo.GetAll(context.Background())
 	if err != nil {
-		return fmt.Errorf("list transfer queue: %w", err)
+		return nil, fmt.Errorf("list transfer queue: %w", err)
 	}
+
+	var recovered []int64
 
 	for _, task := range tasks {
 		if task.Status != "running" {
@@ -811,9 +920,36 @@ func (s *TransferService) RecoverOrphanedTasks() error {
 		}
 
 		if err := s.queueRepo.UpdateStatus(context.Background(), task.ID, "paused", ""); err != nil {
-			return fmt.Errorf("reset orphaned task %d to paused: %w", task.ID, err)
+			return recovered, fmt.Errorf("reset orphaned task %d to paused: %w", task.ID, err)
 		}
+
+		recovered = append(recovered, task.ID)
 	}
 
-	return nil
+	return recovered, nil
+}
+
+// AutoResumeIfEnabled resumes every task in recoveredIDs (the result of a
+// just-completed RecoverOrphanedTasks call) via ResumeTask, but only if
+// enabled is true (domain.AppSettings.AutoResumeQueue, per FR-SET-001 and
+// the Этап 3 plan's constraint 4: a reconciled task is Paused by default,
+// requiring an explicit user Resume, UNLESS the user has separately opted
+// into auto-resume via the Settings screen). If enabled is false, this is a
+// no-op.
+//
+// Each ResumeTask failure is logged and skipped, never propagated or
+// aborting the rest of recoveredIDs - resuming N-1 out of N recovered tasks
+// is strictly better than resuming none of them because task N-1's own
+// ResumeTask call happened to fail (e.g. a task already left "paused" via
+// some other concurrent path by the time this runs).
+func (s *TransferService) AutoResumeIfEnabled(recoveredIDs []int64, enabled bool) {
+	if !enabled {
+		return
+	}
+
+	for _, id := range recoveredIDs {
+		if err := s.ResumeTask(id); err != nil {
+			log.Printf("transfer: auto-resume recovered task %d: %v", id, err)
+		}
+	}
 }

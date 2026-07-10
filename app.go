@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 
+	"threev/internal/appsettings"
 	"threev/internal/config"
 	"threev/internal/connection"
 	"threev/internal/crypto"
@@ -42,6 +43,11 @@ type App struct {
 	// (docs/02-tech-spec.md sections 9.3/9.5) and is bound directly to the
 	// frontend (see main.go's options.App.Bind).
 	transferService *transfer.TransferService
+
+	// settingsService exposes the Settings screen's General/Appearance/
+	// Transfers backend (FR-SET-001, Этап 4 суб-этап 4.3) and is bound
+	// directly to the frontend (see main.go's options.App.Bind).
+	settingsService *appsettings.SettingsService
 }
 
 // NewApp creates a new App application struct, eagerly opening the SQLite
@@ -100,6 +106,30 @@ func newApp() (*App, error) {
 
 	transferService := transfer.NewTransferService(repo, key, queueRepo, historyRepo, connMgr, breaker)
 
+	// Read and apply persisted Settings (FR-SET-001, Этап 4 суб-этап 4.3)
+	// before RecoverOrphanedTasks below, since AutoResumeIfEnabled needs
+	// settings.AutoResumeQueue and the recovered task ids from the very
+	// same startup sequence. This is an apply-only step - GetSettings' own
+	// result is never written back via SaveSettings here, matching
+	// ApplySettings' documented contract (only SaveSettings persists).
+	//
+	// A GetSettings failure is not fatal (same reasoning as
+	// RecoverOrphanedTasks below): the freshly constructed transferService
+	// already has every one of its own defaults (DefaultMaxConcurrentTasks,
+	// unlimited bandwidth, adaptive part sizing), so simply skipping
+	// ApplySettings leaves it exactly as if no Settings screen existed yet.
+	// settings itself stays its zero value in that case, so the
+	// AutoResumeIfEnabled call below safely defaults to
+	// AutoResumeQueue == false.
+	settingsService := appsettings.NewSettingsService(db, transferService)
+
+	settings, err := settingsService.GetSettings()
+	if err != nil {
+		log.Printf("threev: read persisted settings: %v", err)
+	} else {
+		settingsService.ApplySettings(settings)
+	}
+
 	// Reconcile any transfer_queue row left "running" by a process that was
 	// killed mid-transfer (see RecoverOrphanedTasks' own doc comment) before
 	// anything else - including the frontend, once it starts calling
@@ -108,15 +138,19 @@ func newApp() (*App, error) {
 	// still browse/connect/transfer normally, they would simply need to
 	// notice and manually Resume any task left Paused by this step instead
 	// of it having been done for them automatically.
-	if err := transferService.RecoverOrphanedTasks(); err != nil {
+	recoveredIDs, err := transferService.RecoverOrphanedTasks()
+	if err != nil {
 		log.Printf("threev: recover orphaned transfer tasks: %v", err)
 	}
+
+	transferService.AutoResumeIfEnabled(recoveredIDs, settings.AutoResumeQueue)
 
 	return &App{
 		db:                 db,
 		connectionService:  connection.NewConnectionService(repo, key),
 		fileManagerService: filemanager.NewFileManagerService(repo, key, connMgr, breaker),
 		transferService:    transferService,
+		settingsService:    settingsService,
 	}, nil
 }
 

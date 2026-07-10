@@ -19,7 +19,7 @@ import (
 // KDF salt under the "crypto_salt" key, without depending on a full
 // settings layer.
 func GetOrCreateSetting(ctx context.Context, db *sql.DB, key string, generate func() (string, error)) (string, error) {
-	value, err := getSetting(ctx, db, key)
+	value, err := GetSetting(ctx, db, key)
 	if err == nil {
 		return value, nil
 	}
@@ -32,16 +32,23 @@ func GetOrCreateSetting(ctx context.Context, db *sql.DB, key string, generate fu
 		return "", fmt.Errorf("generate setting %q: %w", key, err)
 	}
 
-	if err := setSetting(ctx, db, key, generated); err != nil {
+	if err := SetSetting(ctx, db, key, generated); err != nil {
 		return "", err
 	}
 
 	return generated, nil
 }
 
-// getSetting returns the value stored under key, or sql.ErrNoRows if no
+// GetSetting returns the value stored under key, or sql.ErrNoRows if no
 // such row exists.
-func getSetting(ctx context.Context, db *sql.DB, key string) (string, error) {
+//
+// Exported (rather than the package-private getSetting it started out as)
+// so callers outside this package - namely internal/appsettings.
+// SettingsService.GetSettings, which reads each of its own settings keys
+// individually and applies a per-field default on sql.ErrNoRows rather than
+// GetOrCreateSetting's eager persist-on-first-read behavior - can read a
+// single key without going through a generate callback.
+func GetSetting(ctx context.Context, db *sql.DB, key string) (string, error) {
 	var value sql.NullString
 
 	err := db.QueryRowContext(ctx, `SELECT value FROM settings WHERE key = ?`, key).Scan(&value)
@@ -56,8 +63,10 @@ func getSetting(ctx context.Context, db *sql.DB, key string) (string, error) {
 	return value.String, nil
 }
 
-// setSetting upserts key/value into the "settings" table.
-func setSetting(ctx context.Context, db *sql.DB, key, value string) error {
+// SetSetting upserts key/value into the "settings" table. Exported for the
+// same reason as GetSetting - internal/appsettings.SettingsService.
+// SaveSettings writes each of its settings keys individually.
+func SetSetting(ctx context.Context, db *sql.DB, key, value string) error {
 	const query = `
 INSERT INTO settings (key, value) VALUES (?, ?)
 ON CONFLICT (key) DO UPDATE SET value = excluded.value`

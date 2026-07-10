@@ -471,8 +471,12 @@ func TestRecoverOrphanedTasksResetsRunningToPaused(t *testing.T) {
 		t.Fatalf("queueRepo.Create() returned error: %v", err)
 	}
 
-	if err := deps.svc.RecoverOrphanedTasks(); err != nil {
+	recovered, err := deps.svc.RecoverOrphanedTasks()
+	if err != nil {
 		t.Fatalf("RecoverOrphanedTasks() returned error: %v", err)
+	}
+	if len(recovered) != 1 || recovered[0] != created.ID {
+		t.Errorf("RecoverOrphanedTasks() returned ids %v, want [%d]", recovered, created.ID)
 	}
 
 	task, err := deps.svc.queueRepo.GetByID(ctx, created.ID)
@@ -528,8 +532,12 @@ func TestRecoverOrphanedTasksLeavesOtherStatusesAlone(t *testing.T) {
 		t.Fatalf("queueRepo.Create() returned error: %v", err)
 	}
 
-	if err := deps.svc.RecoverOrphanedTasks(); err != nil {
+	recovered, err := deps.svc.RecoverOrphanedTasks()
+	if err != nil {
 		t.Fatalf("RecoverOrphanedTasks() returned error: %v", err)
+	}
+	if len(recovered) != 0 {
+		t.Errorf("RecoverOrphanedTasks() returned ids %v, want none (only \"running\" rows are ever recovered)", recovered)
 	}
 
 	task, err := deps.svc.queueRepo.GetByID(ctx, created.ID)

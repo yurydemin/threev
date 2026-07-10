@@ -205,13 +205,15 @@ func (s *TransferService) runUploadTask(ctx context.Context, task domain.Transfe
 		Fresh:   fresh,
 		Breaker: s.breaker,
 		Host:    host,
-		Limiter: s.limiter,
+		Limiter: s.limiter.Load(),
 
 		Bucket:      bucket,
 		Key:         key,
 		LocalPath:   task.SourcePath,
 		ContentType: mimetype.ContentTypeForKey(key),
 		TotalBytes:  task.TotalBytes,
+
+		PartSizeOverride: s.partSizeOverride.Load(),
 
 		ExistingUploadID: task.MultipartUploadID,
 		Concurrency:      DefaultPartConcurrency,
@@ -286,11 +288,13 @@ func (s *TransferService) runDownloadTask(ctx context.Context, task domain.Trans
 		Fresh:   fresh,
 		Breaker: s.breaker,
 		Host:    host,
-		Limiter: s.limiter,
+		Limiter: s.limiter.Load(),
 
 		Bucket:    bucket,
 		Key:       key,
 		LocalPath: task.DestinationPath,
+
+		PartSizeOverride: s.partSizeOverride.Load(),
 
 		Concurrency: DefaultPartConcurrency,
 

@@ -50,7 +50,11 @@ func uploadMultipart(ctx context.Context, p UploadParams) (etag string, err erro
 		return "", fmt.Errorf("list existing parts (resume): %w", err)
 	}
 
-	partSize := PartSize(p.TotalBytes)
+	partSize := p.PartSizeOverride
+	if partSize <= 0 {
+		partSize = PartSize(p.TotalBytes)
+	}
+
 	partCount := PartCount(p.TotalBytes, partSize)
 
 	file, err := os.Open(p.LocalPath)
@@ -71,7 +75,22 @@ func uploadMultipart(ctx context.Context, p UploadParams) (etag string, err erro
 		// field type, and what UploadPartInput.PartNumber requires.
 		partNumber := int32(n) //nolint:gosec // see comment above
 
-		if _, alreadyUploaded := partETags[partNumber]; alreadyUploaded {
+		// Guarded by mu even though this loop's own goroutine is the only
+		// writer of NEW entries into partETags so far (via listCompletedParts,
+		// finished before this loop starts) - a previously group.Go'd
+		// goroutine may already be running concurrently with this very
+		// iteration (group.SetLimit bounds how many run at once, but Go()
+		// itself only blocks once that limit is reached, not on every call),
+		// and that goroutine's own `partETags[partNumber] = partETag` write
+		// below is otherwise a plain, unsynchronized-with-this-read Go map
+		// access - a genuine data race (on the map's internal structure, not
+		// merely "the same key"), caught by `go test -race` once enough
+		// parts/concurrency make the timing window likely enough to hit.
+		mu.Lock()
+		_, alreadyUploaded := partETags[partNumber]
+		mu.Unlock()
+
+		if alreadyUploaded {
 			continue
 		}
 

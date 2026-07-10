@@ -695,7 +695,7 @@ func TestPlanDownloadSegments(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got := planDownloadSegments(totalBytes, tt.completed)
+			got := planDownloadSegments(totalBytes, 0, tt.completed)
 
 			if len(got) != len(tt.want) {
 				t.Fatalf("planDownloadSegments(%d, %v) = %+v, want %+v", totalBytes, tt.completed, got, tt.want)
@@ -707,6 +707,66 @@ func TestPlanDownloadSegments(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// TestPlanDownloadSegmentsWithOverride verifies planDownloadSegments'
+// partSizeOverride parameter (Этап 4 суб-этап 4.3, DownloadParams.
+// PartSizeOverride) bypasses PartSize's adaptive table when > 0, laying out
+// completely different segment boundaries than the same totalBytes would
+// get with partSizeOverride == 0 (TestPlanDownloadSegments' "from scratch"
+// case, which produces 5MB/5MB/1MB for this exact totalBytes).
+func TestPlanDownloadSegmentsWithOverride(t *testing.T) {
+	t.Parallel()
+
+	const totalBytes = downloadTestFileSize // 11MB
+
+	got := planDownloadSegments(totalBytes, 4*1024*1024, map[int64]struct{}{})
+
+	want := []downloadSegmentPlan{
+		{offset: 0, size: 4 * 1024 * 1024},
+		{offset: 4 * 1024 * 1024, size: 4 * 1024 * 1024},
+		{offset: 8 * 1024 * 1024, size: 3 * 1024 * 1024},
+	}
+
+	if len(got) != len(want) {
+		t.Fatalf("planDownloadSegments(%d, 4MB override, {}) = %+v, want %+v", totalBytes, got, want)
+	}
+
+	for i := range got {
+		if got[i] != want[i] {
+			t.Errorf("planDownloadSegments(%d, 4MB override, {})[%d] = %+v, want %+v", totalBytes, i, got[i], want[i])
+		}
+	}
+}
+
+// TestPlanDownloadSegmentsZeroOverrideUsesAdaptiveTable verifies that
+// passing partSizeOverride == 0 reproduces the exact same, override-less
+// adaptive-table layout as before this parameter existed - a direct
+// regression guard for every existing planDownloadSegments call site
+// (downloadRange) that always passes p.PartSizeOverride, which is 0 unless
+// a caller explicitly sets it.
+func TestPlanDownloadSegmentsZeroOverrideUsesAdaptiveTable(t *testing.T) {
+	t.Parallel()
+
+	const totalBytes = downloadTestFileSize // 11MB -> 5MB, 5MB, 1MB segments
+
+	got := planDownloadSegments(totalBytes, 0, map[int64]struct{}{})
+
+	want := []downloadSegmentPlan{
+		{offset: 0, size: 5 * 1024 * 1024},
+		{offset: 5 * 1024 * 1024, size: 5 * 1024 * 1024},
+		{offset: 10 * 1024 * 1024, size: 1 * 1024 * 1024},
+	}
+
+	if len(got) != len(want) {
+		t.Fatalf("planDownloadSegments(%d, 0, {}) = %+v, want %+v", totalBytes, got, want)
+	}
+
+	for i := range got {
+		if got[i] != want[i] {
+			t.Errorf("planDownloadSegments(%d, 0, {})[%d] = %+v, want %+v", totalBytes, i, got[i], want[i])
+		}
 	}
 }
 
