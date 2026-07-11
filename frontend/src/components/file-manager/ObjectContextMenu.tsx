@@ -18,6 +18,7 @@ import { useTransferStore } from '../../stores/useTransferStore';
 import { getPreviewKind } from '../../lib/preview';
 import { copyToClipboard, getEntryDisplayName } from '../../lib/utils';
 import { toast } from '../../lib/toast';
+import { ApiError } from '../../lib/wails/errors';
 import { useFileManagerStore } from '../../stores/useFileManagerStore';
 import type { ObjectEntry } from '../../types';
 
@@ -106,7 +107,10 @@ export function ObjectContextMenu({
             })
             .catch((err) => {
               console.error('[ObjectContextMenu] pickDownloadDirectory failed:', err);
-              toast.error('Не удалось выбрать папку для скачивания');
+              toast.error(
+                err instanceof ApiError ? err.message : 'Не удалось выбрать папку для скачивания',
+                err instanceof ApiError ? err.raw : undefined,
+              );
             });
         },
       },
@@ -149,7 +153,10 @@ export function ObjectContextMenu({
             })
             .catch((err) => {
               console.error('[ObjectContextMenu] pickDownloadDirectory failed:', err);
-              toast.error('Не удалось выбрать папку для скачивания');
+              toast.error(
+                err instanceof ApiError ? err.message : 'Не удалось выбрать папку для скачивания',
+                err instanceof ApiError ? err.raw : undefined,
+              );
             });
         },
       },
@@ -198,7 +205,10 @@ export function ObjectContextMenu({
         })
         .catch((err) => {
           console.error('[ObjectContextMenu] pickDownloadDestination failed:', err);
-          toast.error('Не удалось выбрать место для скачивания');
+          toast.error(
+            err instanceof ApiError ? err.message : 'Не удалось выбрать место для скачивания',
+            err instanceof ApiError ? err.raw : undefined,
+          );
         });
     },
   });
@@ -221,7 +231,10 @@ export function ObjectContextMenu({
         .then((url) => copyToClipboard(url))
         .catch((err) => {
           console.error('[ObjectContextMenu] getPresignedUrl failed:', err);
-          toast.error('Не удалось получить presigned URL');
+          toast.error(
+            err instanceof ApiError ? err.message : 'Не удалось получить presigned URL',
+            err instanceof ApiError ? err.raw : undefined,
+          );
         });
     },
   });

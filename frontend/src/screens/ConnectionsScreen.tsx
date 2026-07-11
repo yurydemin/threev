@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Sidebar } from '../components/layout/Sidebar';
 import { ConnectionForm } from '../components/connection/ConnectionForm';
 import { ConnectionList } from '../components/connection/ConnectionList';
@@ -45,6 +45,27 @@ export function ConnectionsScreen({ onConnect, onSelectTransfers, onSelectSettin
   function openCreate() {
     setFormState({ open: true, initialValues: undefined });
   }
+
+  // UX-004: Ctrl/Cmd+N opens the "new connection" form. Scoped to this
+  // screen's own `useEffect` rather than `useKeyboardShortcuts` — that hook
+  // is documented as File Manager-specific (different shortcut set, mounted
+  // only in `FileManagerScreen`), and adding a second, unrelated options
+  // object to it for one screen's one shortcut isn't worth the coupling.
+  // Same text-field guard as `useKeyboardShortcuts` (Stage 4 Block D): skips
+  // entirely while the target is an `<input>`/`<textarea>`, e.g. so Ctrl/Cmd+N
+  // while typing in `ConnectionForm`'s fields doesn't re-open a fresh form
+  // out from under the one already open.
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) return;
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'n') {
+        event.preventDefault();
+        openCreate();
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   async function openEdit(summary: ConnectionSummary) {
     const full = await getConnection(summary.id);

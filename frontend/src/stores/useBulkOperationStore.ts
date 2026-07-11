@@ -72,7 +72,10 @@ export const useBulkOperationStore = create<BulkOperationState>()((set, get) => 
         operationId = await deleteObjects(profileId, bucket, keys);
       } catch (err) {
         console.error('[useBulkOperationStore] deleteObjects failed:', err);
-        toast.error('Не удалось начать удаление объектов');
+        toast.error(
+          err instanceof ApiError ? err.message : 'Не удалось начать удаление объектов',
+          err instanceof ApiError ? err.raw : undefined,
+        );
         return;
       }
       set({
@@ -93,7 +96,10 @@ export const useBulkOperationStore = create<BulkOperationState>()((set, get) => 
         operationId = await copyObjects(profileId, sourceBucket, keys, destBucket, destPrefix);
       } catch (err) {
         console.error('[useBulkOperationStore] copyObjects failed:', err);
-        toast.error('Не удалось начать копирование объектов');
+        toast.error(
+          err instanceof ApiError ? err.message : 'Не удалось начать копирование объектов',
+          err instanceof ApiError ? err.raw : undefined,
+        );
         return;
       }
       set({
@@ -114,7 +120,10 @@ export const useBulkOperationStore = create<BulkOperationState>()((set, get) => 
         operationId = await moveObjects(profileId, sourceBucket, keys, destBucket, destPrefix);
       } catch (err) {
         console.error('[useBulkOperationStore] moveObjects failed:', err);
-        toast.error('Не удалось начать перемещение объектов');
+        toast.error(
+          err instanceof ApiError ? err.message : 'Не удалось начать перемещение объектов',
+          err instanceof ApiError ? err.raw : undefined,
+        );
         return;
       }
       set({
@@ -136,7 +145,10 @@ export const useBulkOperationStore = create<BulkOperationState>()((set, get) => 
         await cancelBulkOperation(active.operationId);
       } catch (err) {
         console.error('[useBulkOperationStore] cancelBulkOperation failed:', err);
-        toast.error(err instanceof ApiError ? err.message : 'Не удалось отменить операцию');
+        toast.error(
+          err instanceof ApiError ? err.message : 'Не удалось отменить операцию',
+          err instanceof ApiError ? err.raw : undefined,
+        );
       }
     },
 

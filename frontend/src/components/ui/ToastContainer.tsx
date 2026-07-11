@@ -33,7 +33,14 @@ export function ToastContainer() {
   return createPortal(
     <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2">
       {toasts.map((item) => (
-        <Toast key={item.id} id={item.id} type={item.type} message={item.message} onDismiss={dismiss} />
+        <Toast
+          key={item.id}
+          id={item.id}
+          type={item.type}
+          message={item.message}
+          details={item.details}
+          onDismiss={dismiss}
+        />
       ))}
     </div>,
     document.body,

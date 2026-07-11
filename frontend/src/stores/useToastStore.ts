@@ -6,11 +6,13 @@ export interface ToastItem {
   id: number;
   type: ToastType;
   message: string;
+  /** Technical details behind `message` (UX-007's "Скопировать детали") — only ever set for `type === 'error'`. */
+  details?: string;
 }
 
 interface ToastState {
   toasts: ToastItem[];
-  show: (type: ToastType, message: string) => void;
+  show: (type: ToastType, message: string, details?: string) => void;
   dismiss: (id: number) => void;
 }
 
@@ -37,9 +39,9 @@ export const useToastStore = create<ToastState>()((set, get) => {
   return {
     toasts: [],
 
-    show: (type, message) => {
+    show: (type, message, details) => {
       const id = nextId++;
-      set((state) => ({ toasts: [...state.toasts, { id, type, message }] }));
+      set((state) => ({ toasts: [...state.toasts, { id, type, message, details }] }));
       // `warning` is grouped with `error` (10s) rather than `success`/`info`
       // (5s): the spec only explicitly calls out 5s for success/info and 10s
       // for error, but a warning — like an error — flags something the user

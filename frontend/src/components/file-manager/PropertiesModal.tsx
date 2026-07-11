@@ -3,9 +3,11 @@ import { X } from 'lucide-react';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
+import { Tooltip } from '../ui/Tooltip';
 import { headObject, updateMetadata } from '../../lib/wails/fileManager';
 import { formatBytes } from '../../lib/utils';
 import { toast } from '../../lib/toast';
+import { ApiError } from '../../lib/wails/errors';
 import type { ObjectEntry, ObjectMeta } from '../../types';
 
 export interface PropertiesModalProps {
@@ -69,7 +71,10 @@ export function PropertiesModal({ isOpen, onClose, profileId, bucket, entry }: P
       })
       .catch((err) => {
         console.error('[PropertiesModal] headObject failed:', err);
-        toast.error('Не удалось загрузить свойства объекта');
+        toast.error(
+          err instanceof ApiError ? err.message : 'Не удалось загрузить свойства объекта',
+          err instanceof ApiError ? err.raw : undefined,
+        );
       })
       .finally(() => {
         if (!cancelled) setIsLoading(false);
@@ -99,7 +104,10 @@ export function PropertiesModal({ isOpen, onClose, profileId, bucket, entry }: P
       onClose();
     } catch (err) {
       console.error('[PropertiesModal] updateMetadata failed:', err);
-      toast.error('Не удалось сохранить метаданные');
+      toast.error(
+        err instanceof ApiError ? err.message : 'Не удалось сохранить метаданные',
+        err instanceof ApiError ? err.raw : undefined,
+      );
     } finally {
       setIsSaving(false);
     }
@@ -171,9 +179,11 @@ export function PropertiesModal({ isOpen, onClose, profileId, bucket, entry }: P
                   onChange={(event) => updatePair(index, 'value', event.target.value)}
                   className="flex-1"
                 />
-                <Button iconOnly variant="ghost" aria-label="Удалить пару" onClick={() => removePair(index)}>
-                  <X className="h-4 w-4" aria-hidden="true" />
-                </Button>
+                <Tooltip content="Удалить пару">
+                  <Button iconOnly variant="ghost" aria-label="Удалить пару" onClick={() => removePair(index)}>
+                    <X className="h-4 w-4" aria-hidden="true" />
+                  </Button>
+                </Tooltip>
               </div>
             ))}
           </div>

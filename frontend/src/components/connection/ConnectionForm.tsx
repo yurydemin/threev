@@ -8,6 +8,7 @@ import { Button } from '../ui/Button';
 import { Checkbox } from '../ui/Checkbox';
 import { Input } from '../ui/Input';
 import { Modal } from '../ui/Modal';
+import { Tooltip } from '../ui/Tooltip';
 
 export interface ConnectionFormProps {
   isOpen: boolean;
@@ -265,18 +266,20 @@ export function ConnectionForm({ isOpen, onClose, initialValues, onSaved }: Conn
                 'focus:border-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-subtle',
               )}
             />
-            <button
-              type="button"
-              onClick={() => setShowSecret((prev) => !prev)}
-              aria-label={showSecret ? 'Скрыть секретный ключ' : 'Показать секретный ключ'}
-              className="absolute right-1 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-sm text-fg-secondary transition-colors duration-fast hover:bg-bg-tertiary"
-            >
-              {showSecret ? (
-                <EyeOff className="h-4 w-4" aria-hidden="true" />
-              ) : (
-                <Eye className="h-4 w-4" aria-hidden="true" />
-              )}
-            </button>
+            <Tooltip content={showSecret ? 'Скрыть секретный ключ' : 'Показать секретный ключ'}>
+              <button
+                type="button"
+                onClick={() => setShowSecret((prev) => !prev)}
+                aria-label={showSecret ? 'Скрыть секретный ключ' : 'Показать секретный ключ'}
+                className="absolute right-1 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-sm text-fg-secondary transition-colors duration-fast hover:bg-bg-tertiary"
+              >
+                {showSecret ? (
+                  <EyeOff className="h-4 w-4" aria-hidden="true" />
+                ) : (
+                  <Eye className="h-4 w-4" aria-hidden="true" />
+                )}
+              </button>
+            </Tooltip>
           </div>
         </div>
 

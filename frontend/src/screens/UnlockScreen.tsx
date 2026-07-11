@@ -4,6 +4,7 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { unlock } from '../lib/wails/appsettings';
 import { toast } from '../lib/toast';
+import { ApiError } from '../lib/wails/errors';
 
 export interface UnlockScreenProps {
   onUnlocked: () => void;
@@ -43,8 +44,9 @@ export function UnlockScreen({ onUnlocked }: UnlockScreenProps) {
       }
     } catch (err) {
       console.error('[UnlockScreen] unlock failed:', err);
-      setError('Не удалось выполнить разблокировку');
-      toast.error('Не удалось выполнить разблокировку');
+      const message = err instanceof ApiError ? err.message : 'Не удалось выполнить разблокировку';
+      setError(message);
+      toast.error(message, err instanceof ApiError ? err.raw : undefined);
     } finally {
       setIsLoading(false);
     }

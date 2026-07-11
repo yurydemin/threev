@@ -1,6 +1,7 @@
 import { pickUploadFiles } from './wails/transfer';
 import { useTransferStore } from '../stores/useTransferStore';
 import { toast } from './toast';
+import { ApiError } from './wails/errors';
 
 /**
  * Opens the native "pick files" dialog and, if the user selected at least
@@ -28,6 +29,9 @@ export async function pickAndQueueUploadFiles(
     await useTransferStore.getState().queueUploadPaths(profileId, bucket, prefix, paths);
   } catch (err) {
     console.error('[uploadFiles] pickAndQueueUploadFiles failed:', err);
-    toast.error('Не удалось начать загрузку файлов');
+    toast.error(
+      err instanceof ApiError ? err.message : 'Не удалось начать загрузку файлов',
+      err instanceof ApiError ? err.raw : undefined,
+    );
   }
 }

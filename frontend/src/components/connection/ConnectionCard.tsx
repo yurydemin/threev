@@ -2,6 +2,7 @@ import { Menu, MenuButton, MenuItem, MenuItems } from '@headlessui/react';
 import { Copy, MoreHorizontal, Pencil, Trash2, Zap } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { Button } from '../ui/Button';
+import { Tooltip } from '../ui/Tooltip';
 import type { ConnectionSummary } from '../../types';
 
 export interface ConnectionCardProps {
@@ -59,16 +60,18 @@ export function ConnectionCard({
           </Button>
 
           <Menu as="div" className="relative shrink-0">
-            <MenuButton
-              aria-label="Действия с подключением"
-              className={cn(
-                'flex h-8 w-8 items-center justify-center rounded-sm text-fg-secondary',
-                'transition-colors duration-fast hover:bg-bg-tertiary',
-                'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
-              )}
-            >
-              <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
-            </MenuButton>
+            <Tooltip content="Действия с подключением">
+              <MenuButton
+                aria-label="Действия с подключением"
+                className={cn(
+                  'flex h-8 w-8 items-center justify-center rounded-sm text-fg-secondary',
+                  'transition-colors duration-fast hover:bg-bg-tertiary',
+                  'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
+                )}
+              >
+                <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
+              </MenuButton>
+            </Tooltip>
             <MenuItems
               transition
               anchor={{ to: 'bottom end', gap: 4 }}

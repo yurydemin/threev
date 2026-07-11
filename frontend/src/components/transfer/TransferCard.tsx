@@ -1,6 +1,7 @@
 import { Pause, Play, RotateCcw, X } from 'lucide-react';
 import { cn, formatETA, formatSpeed } from '../../lib/utils';
 import { Button } from '../ui/Button';
+import { Tooltip } from '../ui/Tooltip';
 import { ProgressBar } from '../ui/ProgressBar';
 import { useTransferStore } from '../../stores/useTransferStore';
 import { getProgressPercent, getTransferDisplayName, getTransferPathLine, getTypeLabel, getTypeTagClasses } from './transferDisplay';
@@ -57,21 +58,29 @@ export function TransferCard({ task, onPause, onResume, onCancel, onRetry }: Tra
 
         <div className="flex shrink-0 items-center gap-1">
           {isFailed ? (
-            <Button variant="secondary" iconOnly aria-label="Повторить" title="Повторить" onClick={() => onRetry(task.id)}>
-              <RotateCcw className="h-4 w-4" aria-hidden="true" />
-            </Button>
+            <Tooltip content="Повторить">
+              <Button variant="secondary" iconOnly aria-label="Повторить" onClick={() => onRetry(task.id)}>
+                <RotateCcw className="h-4 w-4" aria-hidden="true" />
+              </Button>
+            </Tooltip>
           ) : isPaused ? (
-            <Button variant="secondary" iconOnly aria-label="Возобновить" title="Возобновить" onClick={() => onResume(task.id)}>
-              <Play className="h-4 w-4" aria-hidden="true" />
-            </Button>
+            <Tooltip content="Возобновить">
+              <Button variant="secondary" iconOnly aria-label="Возобновить" onClick={() => onResume(task.id)}>
+                <Play className="h-4 w-4" aria-hidden="true" />
+              </Button>
+            </Tooltip>
           ) : (
-            <Button variant="secondary" iconOnly aria-label="Пауза" title="Пауза" onClick={() => onPause(task.id)}>
-              <Pause className="h-4 w-4" aria-hidden="true" />
-            </Button>
+            <Tooltip content="Пауза">
+              <Button variant="secondary" iconOnly aria-label="Пауза" onClick={() => onPause(task.id)}>
+                <Pause className="h-4 w-4" aria-hidden="true" />
+              </Button>
+            </Tooltip>
           )}
-          <Button variant="secondary" iconOnly aria-label="Отменить" title="Отменить" onClick={() => onCancel(task.id)}>
-            <X className="h-4 w-4" aria-hidden="true" />
-          </Button>
+          <Tooltip content="Отменить">
+            <Button variant="secondary" iconOnly aria-label="Отменить" onClick={() => onCancel(task.id)}>
+              <X className="h-4 w-4" aria-hidden="true" />
+            </Button>
+          </Tooltip>
         </div>
       </div>
 

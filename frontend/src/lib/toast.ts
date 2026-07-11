@@ -11,7 +11,13 @@ import { useToastStore } from '../stores/useToastStore';
  */
 export const toast = {
   success: (message: string) => useToastStore.getState().show('success', message),
-  error: (message: string) => useToastStore.getState().show('error', message),
+  /**
+   * `details`, when given, is the technical `ApiError.raw` behind `message`
+   * (UX-007) — `Toast.tsx` renders a "Скопировать детали" button for it.
+   * Not offered on `success`/`warning`/`info`: only `ApiError`-driven
+   * failures ever have technical details worth copying.
+   */
+  error: (message: string, details?: string) => useToastStore.getState().show('error', message, details),
   warning: (message: string) => useToastStore.getState().show('warning', message),
   info: (message: string) => useToastStore.getState().show('info', message),
 };

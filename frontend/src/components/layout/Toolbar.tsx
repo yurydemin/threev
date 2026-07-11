@@ -17,7 +17,9 @@ import { useTransferStore } from '../../stores/useTransferStore';
 import { pickUploadDirectory } from '../../lib/wails/transfer';
 import { pickAndQueueUploadFiles } from '../../lib/uploadFiles';
 import { toast } from '../../lib/toast';
+import { ApiError } from '../../lib/wails/errors';
 import { Button } from '../ui/Button';
+import { Tooltip } from '../ui/Tooltip';
 import { ContextMenu, type ContextMenuItem } from '../ui/ContextMenu';
 import { Breadcrumbs } from '../file-manager/Breadcrumbs';
 import { CreateFolderModal } from '../file-manager/CreateFolderModal';
@@ -75,7 +77,10 @@ export function Toolbar({ view, onViewChange }: ToolbarProps) {
         .queueUploadPaths(activeProfileId, selectedBucket, currentPrefix, [path]);
     } catch (err) {
       console.error('[Toolbar] pickUploadDirectory failed:', err);
-      toast.error('Не удалось выбрать папку для загрузки');
+      toast.error(
+        err instanceof ApiError ? err.message : 'Не удалось выбрать папку для загрузки',
+        err instanceof ApiError ? err.raw : undefined,
+      );
     }
   }
 
@@ -95,27 +100,33 @@ export function Toolbar({ view, onViewChange }: ToolbarProps) {
   return (
     <div className="flex h-header shrink-0 items-center justify-between gap-4 border-b border-border bg-bg-secondary px-4">
       <div className="flex min-w-0 items-center gap-2">
-        <Button
-          iconOnly
-          variant="ghost"
-          disabled={!canGoBack}
-          onClick={() => goBack()}
-          aria-label="Назад"
-        >
-          <ChevronLeft className="h-5 w-5" aria-hidden="true" />
-        </Button>
-        <Button
-          iconOnly
-          variant="ghost"
-          disabled={!canGoForward}
-          onClick={() => goForward()}
-          aria-label="Вперёд"
-        >
-          <ChevronRight className="h-5 w-5" aria-hidden="true" />
-        </Button>
-        <Button iconOnly variant="ghost" onClick={() => refresh()} aria-label="Обновить">
-          <RotateCcw className="h-5 w-5" aria-hidden="true" />
-        </Button>
+        <Tooltip content="Назад">
+          <Button
+            iconOnly
+            variant="ghost"
+            disabled={!canGoBack}
+            onClick={() => goBack()}
+            aria-label="Назад"
+          >
+            <ChevronLeft className="h-5 w-5" aria-hidden="true" />
+          </Button>
+        </Tooltip>
+        <Tooltip content="Вперёд">
+          <Button
+            iconOnly
+            variant="ghost"
+            disabled={!canGoForward}
+            onClick={() => goForward()}
+            aria-label="Вперёд"
+          >
+            <ChevronRight className="h-5 w-5" aria-hidden="true" />
+          </Button>
+        </Tooltip>
+        <Tooltip content="Обновить">
+          <Button iconOnly variant="ghost" onClick={() => refresh()} aria-label="Обновить">
+            <RotateCcw className="h-5 w-5" aria-hidden="true" />
+          </Button>
+        </Tooltip>
 
         <div className="mx-1 h-6 w-px shrink-0 bg-border" aria-hidden="true" />
 
@@ -145,26 +156,30 @@ export function Toolbar({ view, onViewChange }: ToolbarProps) {
         </div>
 
         <div className="flex items-center gap-0.5 rounded-sm border border-border p-0.5">
-          <Button
-            iconOnly
-            variant={view === 'list' ? 'secondary' : 'ghost'}
-            className={cn('h-7 w-7', view === 'list' && 'border-none bg-bg-tertiary')}
-            onClick={() => onViewChange('list')}
-            aria-label="Список"
-            aria-pressed={view === 'list'}
-          >
-            <List className="h-4 w-4" aria-hidden="true" />
-          </Button>
-          <Button
-            iconOnly
-            variant={view === 'grid' ? 'secondary' : 'ghost'}
-            className={cn('h-7 w-7', view === 'grid' && 'border-none bg-bg-tertiary')}
-            onClick={() => onViewChange('grid')}
-            aria-label="Сетка"
-            aria-pressed={view === 'grid'}
-          >
-            <LayoutGrid className="h-4 w-4" aria-hidden="true" />
-          </Button>
+          <Tooltip content="Список">
+            <Button
+              iconOnly
+              variant={view === 'list' ? 'secondary' : 'ghost'}
+              className={cn('h-7 w-7', view === 'list' && 'border-none bg-bg-tertiary')}
+              onClick={() => onViewChange('list')}
+              aria-label="Список"
+              aria-pressed={view === 'list'}
+            >
+              <List className="h-4 w-4" aria-hidden="true" />
+            </Button>
+          </Tooltip>
+          <Tooltip content="Сетка">
+            <Button
+              iconOnly
+              variant={view === 'grid' ? 'secondary' : 'ghost'}
+              className={cn('h-7 w-7', view === 'grid' && 'border-none bg-bg-tertiary')}
+              onClick={() => onViewChange('grid')}
+              aria-label="Сетка"
+              aria-pressed={view === 'grid'}
+            >
+              <LayoutGrid className="h-4 w-4" aria-hidden="true" />
+            </Button>
+          </Tooltip>
         </div>
 
         <Button

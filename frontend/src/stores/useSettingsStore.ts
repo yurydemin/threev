@@ -55,7 +55,7 @@ export const useSettingsStore = create<SettingsState>()((set) => ({
     } catch (err) {
       const message = errorMessage(err);
       set({ error: message, isLoading: false });
-      toast.error(message || 'Не удалось сохранить настройки');
+      toast.error(message || 'Не удалось сохранить настройки', err instanceof ApiError ? err.raw : undefined);
       return false;
     }
   },

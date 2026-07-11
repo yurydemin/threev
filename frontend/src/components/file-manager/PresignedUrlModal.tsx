@@ -5,6 +5,7 @@ import { Input } from '../ui/Input';
 import { getPresignedUrl } from '../../lib/wails/fileManager';
 import { copyToClipboard } from '../../lib/utils';
 import { toast } from '../../lib/toast';
+import { ApiError } from '../../lib/wails/errors';
 
 export interface PresignedUrlModalProps {
   isOpen: boolean;
@@ -55,7 +56,10 @@ export function PresignedUrlModal({ isOpen, onClose, profileId, bucket, objectKe
       })
       .catch((err) => {
         console.error('[PresignedUrlModal] getPresignedUrl failed:', err);
-        toast.error('Не удалось получить presigned URL');
+        toast.error(
+          err instanceof ApiError ? err.message : 'Не удалось получить presigned URL',
+          err instanceof ApiError ? err.raw : undefined,
+        );
       })
       .finally(() => {
         if (!cancelled) setIsLoading(false);

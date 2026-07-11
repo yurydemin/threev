@@ -3,6 +3,7 @@ import { Dialog, DialogBackdrop, DialogPanel, DialogTitle } from '@headlessui/re
 import { X } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { Button } from './Button';
+import { Tooltip } from './Tooltip';
 
 export interface ModalProps {
   isOpen: boolean;
@@ -51,15 +52,17 @@ export function Modal({ isOpen, onClose, title, children, footer, size = 'defaul
             <DialogTitle as="h2" className="text-[13px] font-semibold text-fg-primary">
               {title}
             </DialogTitle>
-            <Button
-              iconOnly
-              variant="ghost"
-              onClick={onClose}
-              aria-label="Закрыть"
-              className="-mr-1 -mt-1"
-            >
-              <X className="h-4 w-4" aria-hidden="true" />
-            </Button>
+            <Tooltip content="Закрыть">
+              <Button
+                iconOnly
+                variant="ghost"
+                onClick={onClose}
+                aria-label="Закрыть"
+                className="-mr-1 -mt-1"
+              >
+                <X className="h-4 w-4" aria-hidden="true" />
+              </Button>
+            </Tooltip>
           </div>
           <div className={cn('pt-2', size === 'preview' && 'min-h-0 flex-1 overflow-y-auto')}>
             {children}

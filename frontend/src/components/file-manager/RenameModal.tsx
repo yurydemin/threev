@@ -5,6 +5,7 @@ import { Input } from '../ui/Input';
 import { renameObject } from '../../lib/wails/fileManager';
 import { getEntryDisplayName } from '../../lib/utils';
 import { toast } from '../../lib/toast';
+import { ApiError } from '../../lib/wails/errors';
 import type { ObjectEntry } from '../../types';
 
 export interface RenameModalProps {
@@ -47,7 +48,10 @@ export function RenameModal({ isOpen, onClose, profileId, bucket, entry, current
       onClose();
     } catch (err) {
       console.error('[RenameModal] renameObject failed:', err);
-      toast.error('Не удалось переименовать объект');
+      toast.error(
+        err instanceof ApiError ? err.message : 'Не удалось переименовать объект',
+        err instanceof ApiError ? err.raw : undefined,
+      );
     } finally {
       setIsLoading(false);
     }
