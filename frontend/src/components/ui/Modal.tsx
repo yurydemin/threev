@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Dialog, DialogBackdrop, DialogPanel, DialogTitle } from '@headlessui/react';
 import { X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
 import { Button } from './Button';
 import { Tooltip } from './Tooltip';
@@ -26,6 +27,7 @@ export interface ModalProps {
  * rather than a separate `<Transition>` wrapper).
  */
 export function Modal({ isOpen, onClose, title, children, footer, size = 'default' }: ModalProps) {
+  const { t } = useTranslation();
   return (
     <Dialog open={isOpen} onClose={onClose} className="relative z-50">
       <DialogBackdrop
@@ -52,12 +54,12 @@ export function Modal({ isOpen, onClose, title, children, footer, size = 'defaul
             <DialogTitle as="h2" className="text-[13px] font-semibold text-fg-primary">
               {title}
             </DialogTitle>
-            <Tooltip content="Закрыть">
+            <Tooltip content={t('common.close')}>
               <Button
                 iconOnly
                 variant="ghost"
                 onClick={onClose}
-                aria-label="Закрыть"
+                aria-label={t('common.close')}
                 className="-mr-1 -mt-1"
               >
                 <X className="h-4 w-4" aria-hidden="true" />

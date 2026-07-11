@@ -1,4 +1,5 @@
 import { AlertTriangle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { useFileManagerStore } from '../../stores/useFileManagerStore';
@@ -20,6 +21,7 @@ export interface DeleteConfirmModalProps {
  * `ObjectContextMenu` already uses.
  */
 export function DeleteConfirmModal({ isOpen, onClose, keys, onConfirm }: DeleteConfirmModalProps) {
+  const { t } = useTranslation();
   const currentPrefix = useFileManagerStore((state) => state.currentPrefix);
 
   const isSingle = keys.length === 1;
@@ -29,11 +31,11 @@ export function DeleteConfirmModal({ isOpen, onClose, keys, onConfirm }: DeleteC
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Удалить объекты"
+      title={t('fileManager.deleteConfirmModal.title')}
       footer={
         <>
           <Button variant="secondary" autoFocus onClick={onClose}>
-            Отмена
+            {t('common.cancel')}
           </Button>
           <Button
             variant="danger"
@@ -42,7 +44,7 @@ export function DeleteConfirmModal({ isOpen, onClose, keys, onConfirm }: DeleteC
               onClose();
             }}
           >
-            Удалить
+            {t('common.delete')}
           </Button>
         </>
       }
@@ -52,8 +54,8 @@ export function DeleteConfirmModal({ isOpen, onClose, keys, onConfirm }: DeleteC
         <div className="min-w-0 flex-1">
           <p className="text-[13px] text-fg-primary">
             {isSingle
-              ? `Вы уверены, что хотите удалить объект «${singleName}»?`
-              : `Вы уверены, что хотите удалить ${keys.length} объектов?`}
+              ? t('fileManager.deleteConfirmModal.confirmSingle', { name: singleName })
+              : t('fileManager.deleteConfirmModal.confirmMultiple', { count: keys.length })}
           </p>
           {!isSingle && (
             <ul className="mt-2 max-h-[200px] overflow-y-auto rounded border border-border bg-bg-secondary p-2">

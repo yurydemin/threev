@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Modal } from '../ui/Modal';
 import { getPresignedUrl, getTextPreview } from '../../lib/wails/fileManager';
 import { getPreviewKind } from '../../lib/preview';
 import { formatBytes, getEntryDisplayName } from '../../lib/utils';
 import { ApiError } from '../../lib/wails/errors';
 import { useFileManagerStore } from '../../stores/useFileManagerStore';
+import i18n from '../../i18n';
 import type { ObjectEntry, TextPreviewResult } from '../../types';
 
 /** Same fixed TTL as "Копировать URL" — Stage 2 constraint 2. */
@@ -19,7 +21,7 @@ export interface ObjectPreviewModalProps {
 function errorMessage(err: unknown): string {
   if (err instanceof ApiError) return err.message;
   if (err instanceof Error) return err.message;
-  return 'Не удалось загрузить предпросмотр';
+  return i18n.t('fileManager.objectPreviewModal.genericError');
 }
 
 /**
@@ -37,6 +39,7 @@ function errorMessage(err: unknown): string {
  * makes sense to render outside the currently browsed bucket anyway.
  */
 export function ObjectPreviewModal({ entry, isOpen, onClose }: ObjectPreviewModalProps) {
+  const { t } = useTranslation();
   const activeProfileId = useFileManagerStore((state) => state.activeProfileId);
   const selectedBucket = useFileManagerStore((state) => state.selectedBucket);
   const currentPrefix = useFileManagerStore((state) => state.currentPrefix);
@@ -91,13 +94,13 @@ export function ObjectPreviewModal({ entry, isOpen, onClose }: ObjectPreviewModa
     // in principle, no two distinct entries share a key.
   }, [entry, previewKind, activeProfileId, selectedBucket]);
 
-  const title = entry ? getEntryDisplayName(entry.key, currentPrefix) : 'Предпросмотр';
+  const title = entry ? getEntryDisplayName(entry.key, currentPrefix) : t('fileManager.objectPreviewModal.defaultTitle');
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={title} size="preview">
       {!entry ? null : isLoading ? (
         <div className="flex h-full items-center justify-center text-sm text-fg-muted">
-          Загрузка предпросмотра…
+          {t('fileManager.objectPreviewModal.loading')}
         </div>
       ) : error ? (
         <p className="p-4 text-center text-sm text-danger">{error}</p>
@@ -111,7 +114,7 @@ export function ObjectPreviewModal({ entry, isOpen, onClose }: ObjectPreviewModa
         <div>
           {textResult.truncated && (
             <p className="mb-2 text-xs text-fg-muted">
-              Показаны первые 100 КБ из {formatBytes(textResult.totalSize)}
+              {t('fileManager.objectPreviewModal.truncatedNotice', { size: formatBytes(textResult.totalSize) })}
             </p>
           )}
           <pre className="overflow-auto whitespace-pre-wrap font-mono text-xs text-fg-primary">
@@ -119,7 +122,7 @@ export function ObjectPreviewModal({ entry, isOpen, onClose }: ObjectPreviewModa
           </pre>
         </div>
       ) : (
-        <p className="p-4 text-center text-sm text-fg-muted">Предпросмотр недоступен для этого типа файла.</p>
+        <p className="p-4 text-center text-sm text-fg-muted">{t('fileManager.objectPreviewModal.unsupported')}</p>
       )}
     </Modal>
   );

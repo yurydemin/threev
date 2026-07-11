@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
@@ -31,6 +32,7 @@ export interface SetPasswordModalProps {
  * reason, see its own doc comment.
  */
 export function SetPasswordModal({ isOpen, onClose, mode }: SetPasswordModalProps) {
+  const { t } = useTranslation();
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [fieldError, setFieldError] = useState<string | null>(null);
@@ -51,11 +53,11 @@ export function SetPasswordModal({ isOpen, onClose, mode }: SetPasswordModalProp
     setConfirmFieldError(null);
 
     if (password.length < MIN_PASSWORD_LENGTH) {
-      setFieldError(`Пароль должен содержать не менее ${MIN_PASSWORD_LENGTH} символов`);
+      setFieldError(t('settings.setPasswordModal.tooShortError', { min: MIN_PASSWORD_LENGTH }));
       return;
     }
     if (password !== confirmPassword) {
-      setConfirmFieldError('Пароли не совпадают');
+      setConfirmFieldError(t('settings.setPasswordModal.mismatchError'));
       return;
     }
 
@@ -65,7 +67,7 @@ export function SetPasswordModal({ isOpen, onClose, mode }: SetPasswordModalProp
     if (ok) {
       onClose();
     } else {
-      setFieldError(useSecurityStore.getState().error ?? 'Не удалось сохранить мастер-пароль');
+      setFieldError(useSecurityStore.getState().error ?? t('settings.setPasswordModal.genericError'));
     }
   }
 
@@ -73,21 +75,21 @@ export function SetPasswordModal({ isOpen, onClose, mode }: SetPasswordModalProp
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={mode === 'set' ? 'Установить мастер-пароль' : 'Сменить мастер-пароль'}
+      title={mode === 'set' ? t('settings.setPasswordModal.titleSet') : t('settings.setPasswordModal.titleChange')}
       footer={
         <>
           <Button variant="secondary" onClick={onClose} disabled={isLoading}>
-            Отмена
+            {t('common.cancel')}
           </Button>
           <Button variant="primary" isLoading={isLoading} onClick={() => void handleSubmit()}>
-            {mode === 'set' ? 'Установить' : 'Сменить'}
+            {mode === 'set' ? t('settings.setPasswordModal.submitSet') : t('settings.setPasswordModal.submitChange')}
           </Button>
         </>
       }
     >
       <div className="flex flex-col gap-3">
         <Input
-          label="Новый пароль"
+          label={t('settings.setPasswordModal.newPasswordLabel')}
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
@@ -95,7 +97,7 @@ export function SetPasswordModal({ isOpen, onClose, mode }: SetPasswordModalProp
           autoFocus
         />
         <Input
-          label="Повторите пароль"
+          label={t('settings.setPasswordModal.confirmPasswordLabel')}
           type="password"
           value={confirmPassword}
           onChange={(e) => setConfirmPassword(e.target.value)}

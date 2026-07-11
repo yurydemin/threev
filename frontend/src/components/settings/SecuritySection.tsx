@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '../ui/Button';
 import { SettingField } from './SettingField';
 import { SettingGroup } from './SettingGroup';
@@ -21,6 +22,7 @@ import { useSecurityStore } from '../../stores/useSecurityStore';
  * mechanism yet.
  */
 export function SecuritySection() {
+  const { t } = useTranslation();
   const hasMasterPassword = useSecurityStore((state) => state.hasMasterPassword);
   const [setModalMode, setSetModalMode] = useState<'set' | 'change' | null>(null);
   const [isRemoveModalOpen, setIsRemoveModalOpen] = useState(false);
@@ -30,7 +32,7 @@ export function SecuritySection() {
   }, []);
 
   if (hasMasterPassword === null) {
-    return <p className="text-sm text-fg-muted">Загрузка…</p>;
+    return <p className="text-sm text-fg-muted">{t('common.loading')}</p>;
   }
 
   return (
@@ -38,25 +40,25 @@ export function SecuritySection() {
       <SettingGroup>
         {hasMasterPassword ? (
           <SettingField
-            label="Мастер-пароль"
-            description="Мастер-пароль установлен. Дополнительно защищает сохранённые учётные данные паролем."
+            label={t('settings.security.masterPasswordLabel')}
+            description={t('settings.security.setDescription')}
           >
             <div className="flex items-center gap-2">
               <Button variant="secondary" onClick={() => setSetModalMode('change')}>
-                Сменить пароль
+                {t('settings.security.changePassword')}
               </Button>
               <Button variant="danger" onClick={() => setIsRemoveModalOpen(true)}>
-                Удалить мастер-пароль
+                {t('settings.security.removePassword')}
               </Button>
             </div>
           </SettingField>
         ) : (
           <SettingField
-            label="Мастер-пароль"
-            description="Мастер-пароль не установлен. Сохранённые учётные данные защищены только ключом, привязанным к этому компьютеру."
+            label={t('settings.security.masterPasswordLabel')}
+            description={t('settings.security.unsetDescription')}
           >
             <Button variant="primary" onClick={() => setSetModalMode('set')}>
-              Установить мастер-пароль
+              {t('settings.security.setPassword')}
             </Button>
           </SettingField>
         )}

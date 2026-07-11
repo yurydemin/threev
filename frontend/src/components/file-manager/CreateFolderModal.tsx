@@ -1,9 +1,11 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { createFolder } from '../../lib/wails/fileManager';
 import { ApiError } from '../../lib/wails/errors';
+import i18n from '../../i18n';
 
 export interface CreateFolderModalProps {
   isOpen: boolean;
@@ -15,8 +17,8 @@ export interface CreateFolderModalProps {
 
 /** Client-side validation, mirrors the backend's own rejection (`internal/filemanager/createfolder.go`) so obviously-invalid input never round-trips. */
 function validateName(name: string): string | undefined {
-  if (name.trim() === '') return 'Введите имя папки';
-  if (name.includes('/')) return 'Имя не может содержать «/»';
+  if (name.trim() === '') return i18n.t('fileManager.createFolderModal.nameEmptyError');
+  if (name.includes('/')) return i18n.t('fileManager.createFolderModal.nameSlashError');
   return undefined;
 }
 
@@ -25,6 +27,7 @@ function validateName(name: string): string | undefined {
  * zero-byte "folder marker" object at `prefix + name + "/"`.
  */
 export function CreateFolderModal({ isOpen, onClose, profileId, bucket, prefix }: CreateFolderModalProps) {
+  const { t } = useTranslation();
   const [name, setName] = useState('');
   const [error, setError] = useState<string | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(false);
@@ -42,7 +45,7 @@ export function CreateFolderModal({ isOpen, onClose, profileId, bucket, prefix }
       setName('');
       onClose();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Не удалось создать папку');
+      setError(err instanceof ApiError ? err.message : t('fileManager.createFolderModal.genericError'));
     } finally {
       setIsLoading(false);
     }
@@ -52,20 +55,20 @@ export function CreateFolderModal({ isOpen, onClose, profileId, bucket, prefix }
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Создать папку"
+      title={t('fileManager.createFolderModal.title')}
       footer={
         <>
           <Button variant="secondary" onClick={onClose} disabled={isLoading}>
-            Отмена
+            {t('common.cancel')}
           </Button>
           <Button variant="primary" isLoading={isLoading} onClick={() => void handleCreate()}>
-            Создать
+            {t('fileManager.createFolderModal.create')}
           </Button>
         </>
       }
     >
       <Input
-        label="Имя папки"
+        label={t('fileManager.createFolderModal.nameLabel')}
         value={name}
         onChange={(event) => {
           setName(event.target.value);

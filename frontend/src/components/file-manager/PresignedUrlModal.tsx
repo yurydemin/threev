@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
@@ -20,18 +22,18 @@ const MIN_EXPIRY_SECONDS = 60;
 const MAX_EXPIRY_SECONDS = 604_800; // 7 days — matches the backend clamp (internal/filemanager/presign.go).
 const DEFAULT_EXPIRY_SECONDS = 3600; // 1 hour.
 
-/** Human-readable, not grammatically exhaustive, duration label (e.g. "5 минут", "3 дня"). */
-function formatDuration(seconds: number): string {
+/** Human-readable, not grammatically exhaustive, duration label (e.g. "5 мин.", "3 дн."). */
+function formatDuration(seconds: number, t: TFunction): string {
   if (seconds < 3600) {
     const minutes = Math.round(seconds / 60);
-    return `${minutes} мин.`;
+    return t('units.minutesShort', { count: minutes });
   }
   if (seconds < 86_400) {
     const hours = Math.round(seconds / 3600);
-    return `${hours} ч.`;
+    return t('units.hoursShort', { count: hours });
   }
   const days = Math.round(seconds / 86_400);
-  return `${days} дн.`;
+  return t('units.daysShort', { count: days });
 }
 
 /**
@@ -42,6 +44,7 @@ function formatDuration(seconds: number): string {
  * minimally rather than pixel-matched to the spec.
  */
 export function PresignedUrlModal({ isOpen, onClose, profileId, bucket, objectKey }: PresignedUrlModalProps) {
+  const { t } = useTranslation();
   const [expirySeconds, setExpirySeconds] = useState(DEFAULT_EXPIRY_SECONDS);
   const [url, setUrl] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -57,7 +60,7 @@ export function PresignedUrlModal({ isOpen, onClose, profileId, bucket, objectKe
       .catch((err) => {
         console.error('[PresignedUrlModal] getPresignedUrl failed:', err);
         toast.error(
-          err instanceof ApiError ? err.message : 'Не удалось получить presigned URL',
+          err instanceof ApiError ? err.message : t('fileManager.presignedUrlModal.genericError'),
           err instanceof ApiError ? err.raw : undefined,
         );
       })
@@ -73,18 +76,18 @@ export function PresignedUrlModal({ isOpen, onClose, profileId, bucket, objectKe
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Получить presigned URL"
+      title={t('fileManager.presignedUrlModal.title')}
       footer={
         <Button variant="secondary" onClick={onClose}>
-          Закрыть
+          {t('common.close')}
         </Button>
       }
     >
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-1.5">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-fg-secondary">Срок действия</span>
-            <span className="text-xs text-fg-primary">{formatDuration(expirySeconds)}</span>
+            <span className="text-xs font-medium text-fg-secondary">{t('fileManager.presignedUrlModal.expiryLabel')}</span>
+            <span className="text-xs text-fg-primary">{formatDuration(expirySeconds, t)}</span>
           </div>
           <input
             type="range"
@@ -99,9 +102,9 @@ export function PresignedUrlModal({ isOpen, onClose, profileId, bucket, objectKe
 
         <div className="flex items-end gap-2">
           <Input
-            label="URL"
+            label={t('fileManager.presignedUrlModal.urlLabel')}
             readOnly
-            value={isLoading ? 'Загрузка…' : url}
+            value={isLoading ? t('common.loading') : url}
             className="flex-1 font-mono text-xs"
           />
           <Button
@@ -109,7 +112,7 @@ export function PresignedUrlModal({ isOpen, onClose, profileId, bucket, objectKe
             disabled={isLoading || !url}
             onClick={() => void copyToClipboard(url)}
           >
-            Копировать
+            {t('fileManager.presignedUrlModal.copy')}
           </Button>
         </div>
       </div>

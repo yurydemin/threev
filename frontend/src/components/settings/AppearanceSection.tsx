@@ -1,14 +1,9 @@
+import { useTranslation } from 'react-i18next';
 import { SegmentedControl, type SegmentedOption } from './SegmentedControl';
 import { SettingField } from './SettingField';
 import { SettingGroup } from './SettingGroup';
 import type { ThemePreference } from '../../stores/useAppStore';
 import type { AppSettings } from '../../types';
-
-const THEME_OPTIONS: SegmentedOption<ThemePreference>[] = [
-  { value: 'system', label: 'Системная' },
-  { value: 'light', label: 'Светлая' },
-  { value: 'dark', label: 'Тёмная' },
-];
 
 /** Fixed set of supported UI scale levels — no free-form input, per the task spec. */
 const SCALE_OPTIONS: SegmentedOption<'90' | '100' | '110' | '125'>[] = [
@@ -32,12 +27,19 @@ export interface AppearanceSectionProps {
  * already hit on earlier stages).
  */
 export function AppearanceSection({ value, onChange }: AppearanceSectionProps) {
+  const { t } = useTranslation();
+  const themeOptions: SegmentedOption<ThemePreference>[] = [
+    { value: 'system', label: t('settings.appearance.themeSystem') },
+    { value: 'light', label: t('settings.appearance.themeLight') },
+    { value: 'dark', label: t('settings.appearance.themeDark') },
+  ];
+
   return (
     <div className="flex flex-col">
       <SettingGroup>
-        <SettingField label="Тема">
+        <SettingField label={t('settings.appearance.themeLabel')}>
           <SegmentedControl
-            options={THEME_OPTIONS}
+            options={themeOptions}
             value={value.theme as ThemePreference}
             onChange={(theme) => onChange({ theme })}
           />
@@ -45,7 +47,7 @@ export function AppearanceSection({ value, onChange }: AppearanceSectionProps) {
       </SettingGroup>
 
       <SettingGroup>
-        <SettingField label="Масштаб интерфейса" description="Применяется сразу после сохранения, без перезапуска приложения.">
+        <SettingField label={t('settings.appearance.scaleLabel')} description={t('settings.appearance.scaleDescription')}>
           <SegmentedControl
             options={SCALE_OPTIONS}
             value={String(value.uiScalePercent) as '90' | '100' | '110' | '125'}

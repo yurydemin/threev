@@ -1,5 +1,6 @@
 import { ArrowLeftRight, Cloud, History, Settings } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
 import { APP_VERSION } from '../../lib/appVersion';
 
@@ -49,23 +50,24 @@ export interface SidebarProps {
  * until its own stage lands.
  */
 export function Sidebar({ activeItem, onSelectConnections, onSelectTransfers, onSelectSettings }: SidebarProps) {
+  const { t } = useTranslation();
   const resolvedActiveItem = activeItem ?? 'connections';
   const navItems: NavItem[] = [
     {
-      label: 'Подключения',
+      label: t('sidebar.connections'),
       icon: Cloud,
       active: resolvedActiveItem === 'connections',
       onClick: onSelectConnections,
     },
     {
-      label: 'Передачи',
+      label: t('sidebar.transfers'),
       icon: ArrowLeftRight,
       active: resolvedActiveItem === 'transfers',
       onClick: onSelectTransfers,
     },
-    { label: 'История', icon: History, disabled: true },
+    { label: t('sidebar.history'), icon: History, disabled: true },
     {
-      label: 'Настройки',
+      label: t('sidebar.settings'),
       icon: Settings,
       active: resolvedActiveItem === 'settings',
       onClick: onSelectSettings,
@@ -76,7 +78,7 @@ export function Sidebar({ activeItem, onSelectConnections, onSelectTransfers, on
     <aside className="flex h-full w-sidebar shrink-0 flex-col bg-bg-primary">
       <div className="flex items-center gap-2.5 p-4">
         <Cloud className="h-6 w-6 text-accent" aria-hidden="true" />
-        <span className="text-[13px] font-semibold text-fg-primary">S3 Client</span>
+        <span className="text-[13px] font-semibold text-fg-primary">{t('sidebar.appName')}</span>
       </div>
 
       <div className="border-t border-border" />

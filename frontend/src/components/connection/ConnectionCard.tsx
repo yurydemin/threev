@@ -1,5 +1,6 @@
 import { Menu, MenuButton, MenuItem, MenuItems } from '@headlessui/react';
 import { Copy, MoreHorizontal, Pencil, Trash2, Zap } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
 import { Button } from '../ui/Button';
 import { Tooltip } from '../ui/Tooltip';
@@ -37,6 +38,7 @@ export function ConnectionCard({
   onDelete,
   onTest,
 }: ConnectionCardProps) {
+  const { t } = useTranslation();
   return (
     <div
       className={cn(
@@ -49,20 +51,20 @@ export function ConnectionCard({
           <span
             className="h-2 w-2 shrink-0 rounded-full bg-fg-muted"
             aria-hidden="true"
-            title="Не проверялось"
+            title={t('connections.card.notChecked')}
           />
           <span className="truncate text-sm font-semibold text-fg-primary">{connection.name}</span>
         </div>
 
         <div className="flex shrink-0 items-center gap-1">
           <Button variant="primary" onClick={() => onConnect(connection)}>
-            Подключиться
+            {t('connections.card.connect')}
           </Button>
 
           <Menu as="div" className="relative shrink-0">
-            <Tooltip content="Действия с подключением">
+            <Tooltip content={t('connections.card.actionsMenu')}>
               <MenuButton
-                aria-label="Действия с подключением"
+                aria-label={t('connections.card.actionsMenu')}
                 className={cn(
                   'flex h-8 w-8 items-center justify-center rounded-sm text-fg-secondary',
                   'transition-colors duration-fast hover:bg-bg-tertiary',
@@ -84,19 +86,19 @@ export function ConnectionCard({
               <MenuItem>
                 <button type="button" className={MENU_ITEM_CLASSES} onClick={() => onEdit(connection)}>
                   <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
-                  Редактировать
+                  {t('connections.card.edit')}
                 </button>
               </MenuItem>
               <MenuItem>
                 <button type="button" className={MENU_ITEM_CLASSES} onClick={() => onDuplicate(connection)}>
                   <Copy className="h-3.5 w-3.5" aria-hidden="true" />
-                  Дублировать
+                  {t('connections.card.duplicate')}
                 </button>
               </MenuItem>
               <MenuItem>
                 <button type="button" className={MENU_ITEM_CLASSES} onClick={() => onTest(connection)}>
                   <Zap className="h-3.5 w-3.5" aria-hidden="true" />
-                  Тестировать
+                  {t('connections.card.test')}
                 </button>
               </MenuItem>
               <div className="my-1 border-t border-border" />
@@ -107,7 +109,7 @@ export function ConnectionCard({
                   onClick={() => onDelete(connection)}
                 >
                   <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-                  Удалить
+                  {t('common.delete')}
                 </button>
               </MenuItem>
             </MenuItems>

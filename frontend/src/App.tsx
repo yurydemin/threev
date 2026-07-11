@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTheme } from './hooks/useTheme';
 import { useUIScale } from './hooks/useUIScale';
+import { useLanguageSync } from './hooks/useLanguageSync';
 import { useTransferEvents } from './hooks/useTransferEvents';
 import { useSettingsSync } from './hooks/useSettingsSync';
 import { useConnectionStore } from './stores/useConnectionStore';
@@ -41,6 +42,7 @@ type Screen =
 function App() {
     useTheme();
     useUIScale();
+    useLanguageSync();
 
     // Mounted unconditionally, once, at the root — regardless of which
     // `screen` is active — so `useTransferStore`'s `queue` (read by the

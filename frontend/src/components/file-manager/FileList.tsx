@@ -1,5 +1,7 @@
 import type { MouseEvent } from 'react';
 import { ChevronDown, ChevronUp, Folder as FolderIcon } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { cn } from '../../lib/utils';
 import { useFileManagerStore } from '../../stores/useFileManagerStore';
 import { pickAndQueueUploadFiles } from '../../lib/uploadFiles';
@@ -12,12 +14,14 @@ const SKELETON_ROWS = 5;
 
 type SortColumn = 'name' | 'size' | 'type' | 'modified';
 
-const COLUMNS: { key: SortColumn; label: string; flexClass: string; alignRight?: boolean }[] = [
-  { key: 'name', label: 'Имя', flexClass: 'flex-[3]' },
-  { key: 'size', label: 'Размер', flexClass: 'flex-1', alignRight: true },
-  { key: 'type', label: 'Тип', flexClass: 'flex-1' },
-  { key: 'modified', label: 'Изменён', flexClass: 'flex-1' },
-];
+function getColumns(t: TFunction): { key: SortColumn; label: string; flexClass: string; alignRight?: boolean }[] {
+  return [
+    { key: 'name', label: t('fileManager.fileList.columnName'), flexClass: 'flex-[3]' },
+    { key: 'size', label: t('fileManager.fileList.columnSize'), flexClass: 'flex-1', alignRight: true },
+    { key: 'type', label: t('fileManager.fileList.columnType'), flexClass: 'flex-1' },
+    { key: 'modified', label: t('fileManager.fileList.columnModified'), flexClass: 'flex-1' },
+  ];
+}
 
 export interface FileListProps {
   /**
@@ -41,6 +45,8 @@ export interface FileListProps {
  * Block I owns their real implementation).
  */
 export function FileList({ entries, onOpenFile, onContextMenu }: FileListProps) {
+  const { t } = useTranslation();
+  const COLUMNS = getColumns(t);
   const rawEntryCount = useFileManagerStore((state) => state.entries.length);
   const currentPrefix = useFileManagerStore((state) => state.currentPrefix);
   const searchQuery = useFileManagerStore((state) => state.searchQuery);
@@ -112,7 +118,7 @@ export function FileList({ entries, onOpenFile, onContextMenu }: FileListProps) 
               handleHeaderCheckboxClick();
             }}
             onChange={() => {}}
-            aria-label="Выбрать все"
+            aria-label={t('fileManager.fileList.selectAll')}
           />
         </div>
         {COLUMNS.map((column) => (
@@ -172,7 +178,7 @@ export function FileList({ entries, onOpenFile, onContextMenu }: FileListProps) 
             {isTruncated && (
               <div className="flex justify-center py-3">
                 <Button variant="secondary" isLoading={isLoadingEntries} onClick={() => loadMore()}>
-                  Загрузить ещё
+                  {t('fileManager.fileList.loadMore')}
                 </Button>
               </div>
             )}
@@ -184,6 +190,7 @@ export function FileList({ entries, onOpenFile, onContextMenu }: FileListProps) 
 }
 
 function EmptyListState({ hasSearchQuery }: { hasSearchQuery: boolean }) {
+  const { t } = useTranslation();
   const activeProfileId = useFileManagerStore((state) => state.activeProfileId);
   const selectedBucket = useFileManagerStore((state) => state.selectedBucket);
   const currentPrefix = useFileManagerStore((state) => state.currentPrefix);
@@ -191,14 +198,14 @@ function EmptyListState({ hasSearchQuery }: { hasSearchQuery: boolean }) {
   return (
     <div className="flex flex-col items-center justify-center gap-2 py-16 text-center">
       <FolderIcon className="h-12 w-12 text-fg-muted" aria-hidden="true" />
-      <p className="text-sm text-fg-primary">{hasSearchQuery ? 'Ничего не найдено' : 'Эта папка пуста'}</p>
+      <p className="text-sm text-fg-primary">{hasSearchQuery ? t('fileManager.fileList.noResults') : t('fileManager.fileList.emptyFolder')}</p>
       {!hasSearchQuery && (
         <Button
           variant="primary"
           className="mt-2"
           onClick={() => void pickAndQueueUploadFiles(activeProfileId, selectedBucket, currentPrefix)}
         >
-          Загрузить файлы
+          {t('fileManager.fileList.uploadFiles')}
         </Button>
       )}
     </div>

@@ -6,6 +6,7 @@ import {
 } from '../lib/wails/appsettings';
 import { ApiError } from '../lib/wails/errors';
 import { toast } from '../lib/toast';
+import i18n from '../i18n';
 
 interface SecurityState {
   /** `null` = not fetched yet (see `SecuritySection`'s loading state). */
@@ -57,7 +58,7 @@ export const useSecurityStore = create<SecurityState>()((set) => ({
     try {
       await apiSetMasterPassword(password);
       set({ hasMasterPassword: true, isLoading: false });
-      toast.success('Мастер-пароль сохранён');
+      toast.success(i18n.t('settings.setPasswordModal.saved'));
       return true;
     } catch (err) {
       const message = errorMessage(err);
@@ -75,7 +76,7 @@ export const useSecurityStore = create<SecurityState>()((set) => ({
     try {
       await apiRemoveMasterPassword(currentPassword);
       set({ hasMasterPassword: false, isLoading: false });
-      toast.success('Мастер-пароль удалён');
+      toast.success(i18n.t('settings.removePasswordModal.removed'));
       return true;
     } catch (err) {
       const message = errorMessage(err);

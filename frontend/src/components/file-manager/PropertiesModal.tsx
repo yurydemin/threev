@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
@@ -45,6 +46,7 @@ function metaToPairs(metadata: Record<string, string>): MetadataPair[] {
  * and `UserMetadata`.
  */
 export function PropertiesModal({ isOpen, onClose, profileId, bucket, entry }: PropertiesModalProps) {
+  const { t } = useTranslation();
   const [meta, setMeta] = useState<ObjectMeta | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -72,7 +74,7 @@ export function PropertiesModal({ isOpen, onClose, profileId, bucket, entry }: P
       .catch((err) => {
         console.error('[PropertiesModal] headObject failed:', err);
         toast.error(
-          err instanceof ApiError ? err.message : 'Не удалось загрузить свойства объекта',
+          err instanceof ApiError ? err.message : t('fileManager.propertiesModal.loadError'),
           err instanceof ApiError ? err.raw : undefined,
         );
       })
@@ -105,7 +107,7 @@ export function PropertiesModal({ isOpen, onClose, profileId, bucket, entry }: P
     } catch (err) {
       console.error('[PropertiesModal] updateMetadata failed:', err);
       toast.error(
-        err instanceof ApiError ? err.message : 'Не удалось сохранить метаданные',
+        err instanceof ApiError ? err.message : t('fileManager.propertiesModal.saveError'),
         err instanceof ApiError ? err.raw : undefined,
       );
     } finally {
@@ -117,70 +119,70 @@ export function PropertiesModal({ isOpen, onClose, profileId, bucket, entry }: P
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Свойства объекта"
+      title={t('fileManager.propertiesModal.title')}
       size="large"
       footer={
         <>
           <Button variant="secondary" onClick={onClose} disabled={isSaving}>
-            Отмена
+            {t('common.cancel')}
           </Button>
           <Button variant="primary" isLoading={isSaving} disabled={isLoading} onClick={() => void handleSave()}>
-            Сохранить
+            {t('common.save')}
           </Button>
         </>
       }
     >
       {isLoading || !meta ? (
-        <p className="text-[13px] text-fg-muted">Загрузка…</p>
+        <p className="text-[13px] text-fg-muted">{t('common.loading')}</p>
       ) : (
         <div className="flex flex-col gap-4">
           <dl className="grid grid-cols-[120px_1fr] gap-x-3 gap-y-1.5 text-[13px]">
-            <dt className="text-fg-muted">Имя</dt>
+            <dt className="text-fg-muted">{t('fileManager.propertiesModal.name')}</dt>
             <dd className="truncate text-fg-primary" title={meta.key}>
               {meta.key}
             </dd>
-            <dt className="text-fg-muted">Размер</dt>
+            <dt className="text-fg-muted">{t('fileManager.propertiesModal.size')}</dt>
             <dd className="text-fg-primary">{formatBytes(meta.size)}</dd>
-            <dt className="text-fg-muted">Тип</dt>
+            <dt className="text-fg-muted">{t('fileManager.propertiesModal.type')}</dt>
             <dd className="truncate text-fg-primary">{meta.contentType || '—'}</dd>
-            <dt className="text-fg-muted">ETag</dt>
+            <dt className="text-fg-muted">{t('fileManager.propertiesModal.etag')}</dt>
             <dd className="truncate text-fg-primary">{meta.etag || '—'}</dd>
-            <dt className="text-fg-muted">Изменён</dt>
+            <dt className="text-fg-muted">{t('fileManager.propertiesModal.modified')}</dt>
             <dd className="text-fg-primary">{meta.lastModified || '—'}</dd>
           </dl>
 
           <div className="flex flex-col gap-3 border-t border-border pt-3">
-            <Input label="Content-Type" value={contentType} onChange={(event) => setContentType(event.target.value)} />
-            <Input label="Cache-Control" value={cacheControl} onChange={(event) => setCacheControl(event.target.value)} />
+            <Input label={t('fileManager.propertiesModal.contentTypeLabel')} value={contentType} onChange={(event) => setContentType(event.target.value)} />
+            <Input label={t('fileManager.propertiesModal.cacheControlLabel')} value={cacheControl} onChange={(event) => setCacheControl(event.target.value)} />
           </div>
 
           <div className="flex flex-col gap-2 border-t border-border pt-3">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-fg-secondary">Метаданные</span>
+              <span className="text-xs font-medium text-fg-secondary">{t('fileManager.propertiesModal.metadataLabel')}</span>
               <Button
                 variant="ghost"
                 onClick={() => setPairs((prev) => [...prev, { key: '', value: '' }])}
               >
-                + Добавить
+                {t('fileManager.propertiesModal.addPair')}
               </Button>
             </div>
             {pairs.map((pair, index) => (
               // eslint-disable-next-line react/no-array-index-key
               <div key={index} className="flex items-center gap-2">
                 <Input
-                  placeholder="Ключ"
+                  placeholder={t('fileManager.propertiesModal.keyPlaceholder')}
                   value={pair.key}
                   onChange={(event) => updatePair(index, 'key', event.target.value)}
                   className="flex-1"
                 />
                 <Input
-                  placeholder="Значение"
+                  placeholder={t('fileManager.propertiesModal.valuePlaceholder')}
                   value={pair.value}
                   onChange={(event) => updatePair(index, 'value', event.target.value)}
                   className="flex-1"
                 />
-                <Tooltip content="Удалить пару">
-                  <Button iconOnly variant="ghost" aria-label="Удалить пару" onClick={() => removePair(index)}>
+                <Tooltip content={t('fileManager.propertiesModal.removePair')}>
+                  <Button iconOnly variant="ghost" aria-label={t('fileManager.propertiesModal.removePair')} onClick={() => removePair(index)}>
                     <X className="h-4 w-4" aria-hidden="true" />
                   </Button>
                 </Tooltip>

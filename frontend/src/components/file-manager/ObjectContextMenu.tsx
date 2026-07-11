@@ -11,6 +11,7 @@ import {
   Settings2,
   Trash2,
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { ContextMenu, type ContextMenuItem } from '../ui/ContextMenu';
 import { getPresignedUrl } from '../../lib/wails/fileManager';
 import { pickDownloadDestination, pickDownloadDirectory } from '../../lib/wails/transfer';
@@ -82,6 +83,7 @@ export function ObjectContextMenu({
   onEditMetadata,
   onGetPresignedUrl,
 }: ObjectContextMenuProps) {
+  const { t } = useTranslation();
   const activeProfileId = useFileManagerStore((state) => state.activeProfileId);
   const selectedBucket = useFileManagerStore((state) => state.selectedBucket);
   const currentPrefix = useFileManagerStore((state) => state.currentPrefix);
@@ -93,7 +95,7 @@ export function ObjectContextMenu({
   if (entry.isFolder) {
     const items: ContextMenuItem[] = [
       {
-        label: 'Скачать',
+        label: t('fileManager.objectContextMenu.download'),
         icon: <Download className="h-4 w-4" aria-hidden="true" />,
         disabled: !activeProfileId || !selectedBucket,
         onClick: () => {
@@ -108,14 +110,14 @@ export function ObjectContextMenu({
             .catch((err) => {
               console.error('[ObjectContextMenu] pickDownloadDirectory failed:', err);
               toast.error(
-                err instanceof ApiError ? err.message : 'Не удалось выбрать папку для скачивания',
+                err instanceof ApiError ? err.message : t('fileManager.objectContextMenu.pickDownloadDirError'),
                 err instanceof ApiError ? err.raw : undefined,
               );
             });
         },
       },
       {
-        label: 'Открыть',
+        label: t('fileManager.objectContextMenu.open'),
         icon: <FolderOpen className="h-4 w-4" aria-hidden="true" />,
         onClick: () => navigateToPrefix(entry.key),
       },
@@ -129,7 +131,7 @@ export function ObjectContextMenu({
     const keys = Array.from(selectedKeys);
     const items: ContextMenuItem[] = [
       {
-        label: 'Скачать выбранные',
+        label: t('fileManager.objectContextMenu.downloadSelected'),
         icon: <Download className="h-4 w-4" aria-hidden="true" />,
         disabled: !activeProfileId || !selectedBucket,
         onClick: () => {
@@ -154,25 +156,25 @@ export function ObjectContextMenu({
             .catch((err) => {
               console.error('[ObjectContextMenu] pickDownloadDirectory failed:', err);
               toast.error(
-                err instanceof ApiError ? err.message : 'Не удалось выбрать папку для скачивания',
+                err instanceof ApiError ? err.message : t('fileManager.objectContextMenu.pickDownloadDirError'),
                 err instanceof ApiError ? err.raw : undefined,
               );
             });
         },
       },
       {
-        label: 'Копировать...',
+        label: t('fileManager.objectContextMenu.copyEllipsis'),
         icon: <CopyPlus className="h-4 w-4" aria-hidden="true" />,
         onClick: () => onCopy(keys),
       },
       {
-        label: 'Переместить...',
+        label: t('fileManager.objectContextMenu.moveEllipsis'),
         icon: <FolderInput className="h-4 w-4" aria-hidden="true" />,
         onClick: () => onMove(keys),
       },
       { separator: true },
       {
-        label: `Удалить ${keys.length} объектов`,
+        label: t('fileManager.objectContextMenu.deleteCount', { count: keys.length }),
         icon: <Trash2 className="h-4 w-4" aria-hidden="true" />,
         destructive: true,
         onClick: () => onDelete(keys),
@@ -187,7 +189,7 @@ export function ObjectContextMenu({
   const items: ContextMenuItem[] = [];
 
   items.push({
-    label: 'Скачать...',
+    label: t('fileManager.objectContextMenu.downloadEllipsis'),
     icon: <Download className="h-4 w-4" aria-hidden="true" />,
     disabled: !activeProfileId || !selectedBucket,
     onClick: () => {
@@ -206,7 +208,7 @@ export function ObjectContextMenu({
         .catch((err) => {
           console.error('[ObjectContextMenu] pickDownloadDestination failed:', err);
           toast.error(
-            err instanceof ApiError ? err.message : 'Не удалось выбрать место для скачивания',
+            err instanceof ApiError ? err.message : t('fileManager.objectContextMenu.pickDownloadDestError'),
             err instanceof ApiError ? err.raw : undefined,
           );
         });
@@ -215,14 +217,14 @@ export function ObjectContextMenu({
 
   if (previewKind) {
     items.push({
-      label: 'Открыть / Предпросмотр',
+      label: t('fileManager.objectContextMenu.openPreview'),
       icon: <Eye className="h-4 w-4" aria-hidden="true" />,
       onClick: () => onOpenPreview(entry),
     });
   }
 
   items.push({
-    label: 'Копировать URL',
+    label: t('fileManager.objectContextMenu.copyUrl'),
     icon: <Link className="h-4 w-4" aria-hidden="true" />,
     disabled: !activeProfileId || !selectedBucket,
     onClick: () => {
@@ -232,7 +234,7 @@ export function ObjectContextMenu({
         .catch((err) => {
           console.error('[ObjectContextMenu] getPresignedUrl failed:', err);
           toast.error(
-            err instanceof ApiError ? err.message : 'Не удалось получить presigned URL',
+            err instanceof ApiError ? err.message : t('fileManager.objectContextMenu.presignedUrlError'),
             err instanceof ApiError ? err.raw : undefined,
           );
         });
@@ -240,7 +242,7 @@ export function ObjectContextMenu({
   });
 
   items.push({
-    label: 'Получить presigned URL...',
+    label: t('fileManager.objectContextMenu.getPresignedUrl'),
     icon: <Link2 className="h-4 w-4" aria-hidden="true" />,
     onClick: () => onGetPresignedUrl(entry),
   });
@@ -248,19 +250,19 @@ export function ObjectContextMenu({
   items.push({ separator: true });
 
   items.push({
-    label: 'Копировать...',
+    label: t('fileManager.objectContextMenu.copyEllipsis'),
     icon: <CopyPlus className="h-4 w-4" aria-hidden="true" />,
     onClick: () => onCopy([entry.key]),
   });
 
   items.push({
-    label: 'Переместить...',
+    label: t('fileManager.objectContextMenu.moveEllipsis'),
     icon: <FolderInput className="h-4 w-4" aria-hidden="true" />,
     onClick: () => onMove([entry.key]),
   });
 
   items.push({
-    label: 'Переименовать',
+    label: t('fileManager.objectContextMenu.rename'),
     icon: <Pencil className="h-4 w-4" aria-hidden="true" />,
     onClick: () => onRename(entry),
   });
@@ -268,7 +270,7 @@ export function ObjectContextMenu({
   items.push({ separator: true });
 
   items.push({
-    label: 'Изменить метаданные...',
+    label: t('fileManager.objectContextMenu.editMetadata'),
     icon: <Settings2 className="h-4 w-4" aria-hidden="true" />,
     onClick: () => onEditMetadata(entry),
   });
@@ -276,13 +278,13 @@ export function ObjectContextMenu({
   items.push({ separator: true });
 
   items.push({
-    label: 'Скопировать имя',
+    label: t('fileManager.objectContextMenu.copyName'),
     icon: <Copy className="h-4 w-4" aria-hidden="true" />,
     onClick: () => void copyToClipboard(displayName),
   });
 
   items.push({
-    label: 'Скопировать путь',
+    label: t('fileManager.objectContextMenu.copyPath'),
     icon: <Copy className="h-4 w-4" aria-hidden="true" />,
     disabled: !selectedBucket,
     onClick: () => {
@@ -294,7 +296,7 @@ export function ObjectContextMenu({
   items.push({ separator: true });
 
   items.push({
-    label: 'Удалить',
+    label: t('common.delete'),
     icon: <Trash2 className="h-4 w-4" aria-hidden="true" />,
     destructive: true,
     onClick: () => onDelete([entry.key]),

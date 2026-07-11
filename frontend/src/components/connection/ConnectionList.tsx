@@ -1,4 +1,5 @@
 import { Cloud } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '../ui/Button';
 import { ConnectionCard } from './ConnectionCard';
 import type { ConnectionSummary } from '../../types';
@@ -43,6 +44,7 @@ export function ConnectionList({
   onDelete,
   onTest,
 }: ConnectionListProps) {
+  const { t } = useTranslation();
   if (isLoading && connections.length === 0) {
     return (
       <div className={GRID_CLASSES}>
@@ -57,9 +59,9 @@ export function ConnectionList({
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-3 py-16 text-center">
         <Cloud className="h-12 w-12 text-fg-muted" aria-hidden="true" />
-        <p className="text-sm text-fg-secondary">Нет сохранённых подключений</p>
+        <p className="text-sm text-fg-secondary">{t('connections.list.empty')}</p>
         <Button variant="primary" onClick={onAdd}>
-          Добавить
+          {t('connections.list.add')}
         </Button>
       </div>
     );

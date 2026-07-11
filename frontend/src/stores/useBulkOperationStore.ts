@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { cancelBulkOperation, copyObjects, deleteObjects, moveObjects } from '../lib/wails/fileManager';
 import { ApiError } from '../lib/wails/errors';
 import { toast } from '../lib/toast';
+import i18n from '../i18n';
 import type { BulkOperationProgressEvent } from '../types';
 
 /** `BulkOperationProgressEvent.status` values that mean "no longer running". */
@@ -73,7 +74,7 @@ export const useBulkOperationStore = create<BulkOperationState>()((set, get) => 
       } catch (err) {
         console.error('[useBulkOperationStore] deleteObjects failed:', err);
         toast.error(
-          err instanceof ApiError ? err.message : 'Не удалось начать удаление объектов',
+          err instanceof ApiError ? err.message : i18n.t('fileManager.bulkOperationStore.deleteStartError'),
           err instanceof ApiError ? err.raw : undefined,
         );
         return;
@@ -97,7 +98,7 @@ export const useBulkOperationStore = create<BulkOperationState>()((set, get) => 
       } catch (err) {
         console.error('[useBulkOperationStore] copyObjects failed:', err);
         toast.error(
-          err instanceof ApiError ? err.message : 'Не удалось начать копирование объектов',
+          err instanceof ApiError ? err.message : i18n.t('fileManager.bulkOperationStore.copyStartError'),
           err instanceof ApiError ? err.raw : undefined,
         );
         return;
@@ -121,7 +122,7 @@ export const useBulkOperationStore = create<BulkOperationState>()((set, get) => 
       } catch (err) {
         console.error('[useBulkOperationStore] moveObjects failed:', err);
         toast.error(
-          err instanceof ApiError ? err.message : 'Не удалось начать перемещение объектов',
+          err instanceof ApiError ? err.message : i18n.t('fileManager.bulkOperationStore.moveStartError'),
           err instanceof ApiError ? err.raw : undefined,
         );
         return;
@@ -146,7 +147,7 @@ export const useBulkOperationStore = create<BulkOperationState>()((set, get) => 
       } catch (err) {
         console.error('[useBulkOperationStore] cancelBulkOperation failed:', err);
         toast.error(
-          err instanceof ApiError ? err.message : 'Не удалось отменить операцию',
+          err instanceof ApiError ? err.message : i18n.t('fileManager.bulkOperationStore.cancelError'),
           err instanceof ApiError ? err.raw : undefined,
         );
       }
@@ -158,7 +159,12 @@ export const useBulkOperationStore = create<BulkOperationState>()((set, get) => 
       if (TERMINAL_STATUSES.has(event.status)) {
         scheduleAutoHide(event.operationId);
         if (event.failedCount > 0) {
-          toast.warning(`${event.failedCount} из ${event.total} объектов не удалось обработать`);
+          toast.warning(
+            i18n.t('fileManager.bulkOperationStore.partialFailure', {
+              failed: event.failedCount,
+              total: event.total,
+            }),
+          );
         }
       }
     },

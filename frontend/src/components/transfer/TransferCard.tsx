@@ -1,4 +1,5 @@
 import { Pause, Play, RotateCcw, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn, formatETA, formatSpeed } from '../../lib/utils';
 import { Button } from '../ui/Button';
 import { Tooltip } from '../ui/Tooltip';
@@ -31,6 +32,7 @@ export interface TransferCardProps {
  * itself, which carries neither field (see `useTransferStore.ts`).
  */
 export function TransferCard({ task, onPause, onResume, onCancel, onRetry }: TransferCardProps) {
+  const { t } = useTranslation();
   const speedBytesPerSec = useTransferStore((state) => state.speedByTaskId[task.id]);
   const etaSeconds = useTransferStore((state) => state.etaByTaskId[task.id]);
 
@@ -58,26 +60,26 @@ export function TransferCard({ task, onPause, onResume, onCancel, onRetry }: Tra
 
         <div className="flex shrink-0 items-center gap-1">
           {isFailed ? (
-            <Tooltip content="Повторить">
-              <Button variant="secondary" iconOnly aria-label="Повторить" onClick={() => onRetry(task.id)}>
+            <Tooltip content={t('transfers.card.retry')}>
+              <Button variant="secondary" iconOnly aria-label={t('transfers.card.retry')} onClick={() => onRetry(task.id)}>
                 <RotateCcw className="h-4 w-4" aria-hidden="true" />
               </Button>
             </Tooltip>
           ) : isPaused ? (
-            <Tooltip content="Возобновить">
-              <Button variant="secondary" iconOnly aria-label="Возобновить" onClick={() => onResume(task.id)}>
+            <Tooltip content={t('transfers.card.resume')}>
+              <Button variant="secondary" iconOnly aria-label={t('transfers.card.resume')} onClick={() => onResume(task.id)}>
                 <Play className="h-4 w-4" aria-hidden="true" />
               </Button>
             </Tooltip>
           ) : (
-            <Tooltip content="Пауза">
-              <Button variant="secondary" iconOnly aria-label="Пауза" onClick={() => onPause(task.id)}>
+            <Tooltip content={t('transfers.card.pause')}>
+              <Button variant="secondary" iconOnly aria-label={t('transfers.card.pause')} onClick={() => onPause(task.id)}>
                 <Pause className="h-4 w-4" aria-hidden="true" />
               </Button>
             </Tooltip>
           )}
-          <Tooltip content="Отменить">
-            <Button variant="secondary" iconOnly aria-label="Отменить" onClick={() => onCancel(task.id)}>
+          <Tooltip content={t('transfers.card.cancel')}>
+            <Button variant="secondary" iconOnly aria-label={t('transfers.card.cancel')} onClick={() => onCancel(task.id)}>
               <X className="h-4 w-4" aria-hidden="true" />
             </Button>
           </Tooltip>
@@ -90,7 +92,7 @@ export function TransferCard({ task, onPause, onResume, onCancel, onRetry }: Tra
 
       {isFailed ? (
         <p className="truncate text-2xs text-danger" title={task.errorMessage || undefined}>
-          {task.errorMessage || 'Не удалось выполнить передачу'}
+          {task.errorMessage || t('transfers.card.genericError')}
         </p>
       ) : (
         <>

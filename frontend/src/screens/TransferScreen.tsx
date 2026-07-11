@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { Sidebar } from '../components/layout/Sidebar';
 import { StatusBar } from '../components/layout/StatusBar';
 import { TransferTabs, type TransferTab } from '../components/transfer/TransferTabs';
@@ -8,11 +10,13 @@ import { HistoryCard } from '../components/transfer/HistoryCard';
 import { EmptyState } from '../components/transfer/EmptyState';
 import { useTransferStore } from '../stores/useTransferStore';
 
-const EMPTY_MESSAGES: Record<TransferTab, string> = {
-  active: 'Нет активных передач',
-  completed: 'Нет завершённых передач',
-  all: 'Нет передач',
-};
+function getEmptyMessages(t: TFunction): Record<TransferTab, string> {
+  return {
+    active: t('transfers.screen.emptyActive'),
+    completed: t('transfers.screen.emptyCompleted'),
+    all: t('transfers.screen.emptyAll'),
+  };
+}
 
 /**
  * "Передачи" screen per docs/03-ux-ui-spec.md section 5.5.
@@ -39,6 +43,7 @@ export interface TransferScreenProps {
 }
 
 export function TransferScreen({ onSelectConnections, onSelectSettings }: TransferScreenProps) {
+  const { t } = useTranslation();
   const [tab, setTab] = useState<TransferTab>('active');
   const queue = useTransferStore((state) => state.queue);
   const history = useTransferStore((state) => state.history);
@@ -72,14 +77,14 @@ export function TransferScreen({ onSelectConnections, onSelectSettings }: Transf
 
       <div className="flex flex-1 flex-col overflow-hidden">
         <header className="flex h-header shrink-0 items-center justify-between border-b border-border bg-bg-secondary px-4">
-          <h1 className="text-[13px] font-semibold text-fg-primary">Передачи</h1>
+          <h1 className="text-[13px] font-semibold text-fg-primary">{t('transfers.screen.title')}</h1>
         </header>
 
         <TransferTabs active={tab} onChange={setTab} activeCount={queue.length} />
 
         <main className="flex flex-1 flex-col overflow-y-auto p-4">
           {isEmpty ? (
-            <EmptyState message={EMPTY_MESSAGES[tab]} />
+            <EmptyState message={getEmptyMessages(t)[tab]} />
           ) : (
             <div className="flex flex-col gap-3">
               {showQueue &&

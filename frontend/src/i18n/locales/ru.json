@@ -1,0 +1,380 @@
+{
+  "common": {
+    "cancel": "Отмена",
+    "save": "Сохранить",
+    "delete": "Удалить",
+    "close": "Закрыть",
+    "loading": "Загрузка…",
+    "retry": "Повторить",
+    "copyToClipboardError": "Не удалось скопировать в буфер обмена"
+  },
+  "sidebar": {
+    "appName": "S3 Client",
+    "connections": "Подключения",
+    "transfers": "Передачи",
+    "history": "История",
+    "settings": "Настройки"
+  },
+  "welcome": {
+    "title": "S3 Desktop Client",
+    "subtitle": "Управляйте облачными хранилищами как локальными",
+    "addConnection": "+ Добавить подключение"
+  },
+  "unlock": {
+    "title": "Приложение заблокировано",
+    "subtitle": "Введите мастер-пароль для доступа к сохранённым подключениям",
+    "passwordPlaceholder": "Мастер-пароль",
+    "unlockButton": "Разблокировать",
+    "wrongPassword": "Неверный пароль",
+    "genericError": "Не удалось выполнить разблокировку",
+    "recoveryHint": "Если вы забыли пароль — восстановление недоступно; сохранённые подключения останутся зашифрованными"
+  },
+  "connections": {
+    "screen": {
+      "title": "Подключения",
+      "newButton": "+ Новое",
+      "addButton": "+ Добавить подключение",
+      "duplicateSuffix": "{{name}} (копия)",
+      "deleteConfirm": "Удалить подключение «{{name}}»?"
+    },
+    "card": {
+      "connect": "Подключиться",
+      "actionsMenu": "Действия с подключением",
+      "notChecked": "Не проверялось",
+      "edit": "Редактировать",
+      "duplicate": "Дублировать",
+      "test": "Тестировать"
+    },
+    "list": {
+      "empty": "Нет сохранённых подключений",
+      "add": "Добавить"
+    },
+    "form": {
+      "titleEdit": "Редактирование подключения",
+      "titleNew": "Новое подключение",
+      "test": "Тестировать",
+      "testGenericError": "Не удалось выполнить проверку",
+      "testSuccess": "Подключение успешно",
+      "testError": "Не удалось подключиться",
+      "hideTechnicalDetails": "Скрыть технические детали",
+      "showTechnicalDetails": "Показать технические детали",
+      "saveError": "Не удалось сохранить подключение",
+      "nameLabel": "Название",
+      "namePlaceholder": "AWS Production",
+      "endpointLabel": "Endpoint URL",
+      "endpointPlaceholder": "https://s3.amazonaws.com",
+      "regionLabel": "Регион",
+      "regionPlaceholder": "us-east-1",
+      "accessKeyLabel": "Access Key ID",
+      "secretKeyLabel": "Secret Access Key",
+      "hideSecret": "Скрыть секретный ключ",
+      "showSecret": "Показать секретный ключ",
+      "sessionTokenLabel": "Session Token",
+      "sessionTokenPlaceholder": "опционально",
+      "advanced": "Advanced",
+      "pathStyleLabel": "Path-style URL",
+      "verifySslLabel": "Проверять SSL-сертификат"
+    }
+  },
+  "fileManager": {
+    "screen": {
+      "selectBucketHint": "Выберите бакет слева, чтобы просмотреть его содержимое",
+      "statusFiltered": "{{filtered}} из {{total}} объектов",
+      "statusAll": "{{total}} объектов",
+      "statusSelectedSuffix": " • {{count}} выбрано"
+    },
+    "toolbar": {
+      "back": "Назад",
+      "forward": "Вперёд",
+      "refresh": "Обновить",
+      "searchPlaceholder": "Поиск в текущей папке…",
+      "listView": "Список",
+      "gridView": "Сетка",
+      "createFolder": "Создать папку",
+      "upload": "Загрузить",
+      "pickFiles": "Выбрать файлы…",
+      "pickFolder": "Выбрать папку…",
+      "pickFolderError": "Не удалось выбрать папку для загрузки"
+    },
+    "bucketPanel": {
+      "empty": "Нет доступных бакетов"
+    },
+    "objectContextMenu": {
+      "download": "Скачать",
+      "open": "Открыть",
+      "downloadSelected": "Скачать выбранные",
+      "copyEllipsis": "Копировать...",
+      "moveEllipsis": "Переместить...",
+      "deleteCount": "Удалить {{count}} объектов",
+      "downloadEllipsis": "Скачать...",
+      "openPreview": "Открыть / Предпросмотр",
+      "copyUrl": "Копировать URL",
+      "getPresignedUrl": "Получить presigned URL...",
+      "rename": "Переименовать",
+      "editMetadata": "Изменить метаданные...",
+      "copyName": "Скопировать имя",
+      "copyPath": "Скопировать путь",
+      "pickDownloadDirError": "Не удалось выбрать папку для скачивания",
+      "pickDownloadDestError": "Не удалось выбрать место для скачивания",
+      "presignedUrlError": "Не удалось получить presigned URL"
+    },
+    "createFolderModal": {
+      "title": "Создать папку",
+      "create": "Создать",
+      "nameLabel": "Имя папки",
+      "nameEmptyError": "Введите имя папки",
+      "nameSlashError": "Имя не может содержать «/»",
+      "genericError": "Не удалось создать папку"
+    },
+    "deleteConfirmModal": {
+      "title": "Удалить объекты",
+      "confirmSingle": "Вы уверены, что хотите удалить объект «{{name}}»?",
+      "confirmMultiple": "Вы уверены, что хотите удалить {{count}} объектов?"
+    },
+    "destinationPickerModal": {
+      "titleCopy": "Копировать объекты",
+      "titleMove": "Переместить объекты",
+      "verbCopy": "Копировать",
+      "verbMove": "Переместить",
+      "gerundCopySingle": "скопирован",
+      "gerundMoveSingle": "перемещён",
+      "gerundCopyMultiple": "скопированы",
+      "gerundMoveMultiple": "перемещены",
+      "bucketLabel": "Бакет назначения",
+      "prefixLabel": "Папка назначения",
+      "prefixPlaceholder": "например, backup/2026/",
+      "resultSingle": "Файл будет",
+      "resultMultiple": "{{count}} файлов будут",
+      "resultSuffix": "с сохранением исходных имён."
+    },
+    "presignedUrlModal": {
+      "title": "Получить presigned URL",
+      "expiryLabel": "Срок действия",
+      "urlLabel": "URL",
+      "copy": "Копировать",
+      "genericError": "Не удалось получить presigned URL"
+    },
+    "propertiesModal": {
+      "title": "Свойства объекта",
+      "name": "Имя",
+      "size": "Размер",
+      "type": "Тип",
+      "etag": "ETag",
+      "modified": "Изменён",
+      "contentTypeLabel": "Content-Type",
+      "cacheControlLabel": "Cache-Control",
+      "metadataLabel": "Метаданные",
+      "addPair": "+ Добавить",
+      "keyPlaceholder": "Ключ",
+      "valuePlaceholder": "Значение",
+      "removePair": "Удалить пару",
+      "loadError": "Не удалось загрузить свойства объекта",
+      "saveError": "Не удалось сохранить метаданные"
+    },
+    "renameModal": {
+      "title": "Переименовать",
+      "nameLabel": "Новое имя",
+      "genericError": "Не удалось переименовать объект"
+    },
+    "objectPreviewModal": {
+      "defaultTitle": "Предпросмотр",
+      "loading": "Загрузка предпросмотра…",
+      "truncatedNotice": "Показаны первые 100 КБ из {{size}}",
+      "unsupported": "Предпросмотр недоступен для этого типа файла.",
+      "genericError": "Не удалось загрузить предпросмотр"
+    },
+    "bulkProgressOverlay": {
+      "verbDelete": "Удаление",
+      "verbCopy": "Копирование",
+      "verbMove": "Перемещение",
+      "verbFallback": "Обработка",
+      "progressLine": "{{verb}} {{total}} объектов…",
+      "failedCount": "{{count}} не удалось"
+    },
+    "fileList": {
+      "columnName": "Имя",
+      "columnSize": "Размер",
+      "columnType": "Тип",
+      "columnModified": "Изменён",
+      "selectAll": "Выбрать все",
+      "loadMore": "Загрузить ещё",
+      "noResults": "Ничего не найдено",
+      "emptyFolder": "Эта папка пуста",
+      "uploadFiles": "Загрузить файлы"
+    },
+    "fileGrid": {
+      "noResults": "Ничего не найдено",
+      "emptyFolder": "Эта папка пуста",
+      "uploadFiles": "Загрузить файлы",
+      "loadMore": "Загрузить ещё"
+    },
+    "fileRow": {
+      "select": "Выбрать {{name}}",
+      "folder": "Папка"
+    },
+    "dropOverlay": {
+      "text": "Отпустите файлы для загрузки"
+    },
+    "uploadFiles": {
+      "genericError": "Не удалось начать загрузку файлов"
+    },
+    "bulkOperationStore": {
+      "deleteStartError": "Не удалось начать удаление объектов",
+      "copyStartError": "Не удалось начать копирование объектов",
+      "moveStartError": "Не удалось начать перемещение объектов",
+      "cancelError": "Не удалось отменить операцию",
+      "partialFailure": "{{failed}} из {{total}} объектов не удалось обработать"
+    }
+  },
+  "transfers": {
+    "screen": {
+      "title": "Передачи",
+      "emptyActive": "Нет активных передач",
+      "emptyCompleted": "Нет завершённых передач",
+      "emptyAll": "Нет передач"
+    },
+    "tabs": {
+      "active": "Активные",
+      "completed": "Завершённые",
+      "all": "Все"
+    },
+    "groupActions": {
+      "pauseAll": "Пауза все",
+      "resumeAll": "Возобновить все",
+      "cancelAll": "Отменить все"
+    },
+    "card": {
+      "retry": "Повторить",
+      "resume": "Возобновить",
+      "pause": "Пауза",
+      "cancel": "Отменить",
+      "genericError": "Не удалось выполнить передачу"
+    },
+    "historyCard": {
+      "completed": "Завершено",
+      "cancelled": "Отменено"
+    },
+    "transferIndicator": {
+      "active": "{{count}} активных передач"
+    }
+  },
+  "settings": {
+    "screen": {
+      "sections": {
+        "general": "Общие",
+        "appearance": "Внешний вид",
+        "transfers": "Передачи",
+        "security": "Безопасность",
+        "network": "Сетевые",
+        "about": "О приложении"
+      },
+      "saveButton": "Сохранить изменения",
+      "networkPlaceholderTitle": "Скоро",
+      "networkPlaceholderDescription": "Настройка HTTP/SOCKS-прокси появится в одном из следующих обновлений."
+    },
+    "sidebar": {
+      "general": "Общие",
+      "appearance": "Внешний вид",
+      "transfers": "Передачи",
+      "security": "Безопасность",
+      "network": "Сетевые",
+      "about": "О приложении"
+    },
+    "general": {
+      "closeBehaviorLabel": "При закрытии окна",
+      "closeBehaviorDescription": "Действие при нажатии на кнопку закрытия окна приложения.",
+      "closeBehaviorExit": "Выйти",
+      "closeBehaviorConfirm": "Спросить подтверждение",
+      "transferQueueLabel": "Очередь передач",
+      "autoResumeLabel": "Автоматически возобновлять передачи при запуске",
+      "languageLabel": "Язык"
+    },
+    "appearance": {
+      "themeLabel": "Тема",
+      "themeSystem": "Системная",
+      "themeLight": "Светлая",
+      "themeDark": "Тёмная",
+      "scaleLabel": "Масштаб интерфейса",
+      "scaleDescription": "Применяется сразу после сохранения, без перезапуска приложения."
+    },
+    "transfers": {
+      "maxConcurrentLabel": "Максимум одновременных передач",
+      "maxConcurrentDescription": "Текущее значение: {{count}}.",
+      "partSizeLabel": "Размер части multipart-загрузки",
+      "partSizeDescription": "Адаптивный подбирает размер по объёму файла.",
+      "partSizeAdaptive": "Адаптивный",
+      "mb": "{{size}} МБ",
+      "bandwidthLabel": "Ограничение скорости, МБ/с",
+      "bandwidthDescription": "Пусто или 0 — без ограничения.",
+      "uploadLabel": "Отдача (upload)",
+      "downloadLabel": "Приём (download)",
+      "unlimitedPlaceholder": "Без ограничения"
+    },
+    "security": {
+      "masterPasswordLabel": "Мастер-пароль",
+      "setDescription": "Мастер-пароль установлен. Дополнительно защищает сохранённые учётные данные паролем.",
+      "unsetDescription": "Мастер-пароль не установлен. Сохранённые учётные данные защищены только ключом, привязанным к этому компьютеру.",
+      "changePassword": "Сменить пароль",
+      "removePassword": "Удалить мастер-пароль",
+      "setPassword": "Установить мастер-пароль"
+    },
+    "setPasswordModal": {
+      "titleSet": "Установить мастер-пароль",
+      "titleChange": "Сменить мастер-пароль",
+      "submitSet": "Установить",
+      "submitChange": "Сменить",
+      "newPasswordLabel": "Новый пароль",
+      "confirmPasswordLabel": "Повторите пароль",
+      "tooShortError": "Пароль должен содержать не менее {{min}} символов",
+      "mismatchError": "Пароли не совпадают",
+      "genericError": "Не удалось сохранить мастер-пароль",
+      "saved": "Мастер-пароль сохранён"
+    },
+    "removePasswordModal": {
+      "title": "Удалить мастер-пароль",
+      "warning": "После удаления сохранённые учётные данные будут защищены только ключом, привязанным к этому компьютеру.",
+      "currentPasswordLabel": "Текущий пароль",
+      "emptyPasswordError": "Введите текущий пароль",
+      "genericError": "Не удалось удалить мастер-пароль",
+      "removed": "Мастер-пароль удалён"
+    },
+    "about": {
+      "versionLabel": "Версия"
+    },
+    "settingsStore": {
+      "saved": "Настройки сохранены",
+      "saveError": "Не удалось сохранить настройки"
+    }
+  },
+  "toast": {
+    "copyDetails": "Скопировать технические детали",
+    "dismiss": "Закрыть уведомление"
+  },
+  "errors": {
+    "bucketNotFound": "Бакет не найден.",
+    "objectNotFound": "Объект не найден.",
+    "invalidCredentials": "Неверные учётные данные для доступа к хранилищу.",
+    "timeout": "Превышено время ожидания ответа от сервера.",
+    "sslError": "Ошибка проверки SSL-сертификата — проверьте адрес endpoint.",
+    "connectionFailed": "Не удалось подключиться к серверу — проверьте адрес и сетевое соединение.",
+    "serverUnavailable": "Сервер временно недоступен — повторите попытку позже.",
+    "appLocked": "Приложение заблокировано — введите мастер-пароль в разделе «Безопасность».",
+    "profileNotFound": "Подключение не найдено — возможно, оно было удалено.",
+    "profileNameExists": "Подключение с таким именем уже существует.",
+    "invalidEndpoint": "Некорректный адрес конечной точки (endpoint URL).",
+    "profileNameEmpty": "Укажите имя подключения.",
+    "incorrectPassword": "Неверный пароль.",
+    "operationNotFound": "Операция уже завершена или не найдена.",
+    "newNameEmpty": "Введите новое имя.",
+    "newNameSame": "Новое имя совпадает с текущим.",
+    "folderNameEmpty": "Введите имя папки.",
+    "folderNameSlash": "Имя папки не может содержать «/».",
+    "noKeysGiven": "Не выбрано ни одного объекта."
+  },
+  "units": {
+    "etaSeconds": "{{count}}с",
+    "minutesShort": "{{count}} мин.",
+    "hoursShort": "{{count}} ч.",
+    "daysShort": "{{count}} дн."
+  }
+}

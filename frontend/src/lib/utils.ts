@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from 'clsx';
 import { toast } from './toast';
+import i18n from '../i18n';
 import type { ObjectEntry } from '../types';
 
 /**
@@ -45,7 +46,7 @@ export function formatSpeed(bytesPerSec: number): string {
 export function formatETA(etaSeconds: number): string {
   if (etaSeconds < 0) return '—';
   if (etaSeconds === 0) return '';
-  if (etaSeconds < 60) return `${Math.round(etaSeconds)}с`;
+  if (etaSeconds < 60) return i18n.t('units.etaSeconds', { count: Math.round(etaSeconds) });
   const totalMinutes = Math.floor(etaSeconds / 60);
   if (totalMinutes < 60) return `${totalMinutes}m`;
   const hours = Math.floor(totalMinutes / 60);
@@ -84,7 +85,7 @@ export async function copyToClipboard(text: string): Promise<void> {
     await navigator.clipboard.writeText(text);
   } catch (err) {
     console.error('[copyToClipboard] clipboard write failed:', err);
-    toast.error('Не удалось скопировать в буфер обмена');
+    toast.error(i18n.t('common.copyToClipboardError'));
   }
 }
 

@@ -1,5 +1,6 @@
 import type { MouseEvent } from 'react';
 import { Folder as FolderIcon } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useFileManagerStore } from '../../stores/useFileManagerStore';
 import { pickAndQueueUploadFiles } from '../../lib/uploadFiles';
 import type { ObjectEntry } from '../../types';
@@ -20,6 +21,7 @@ export interface FileGridProps {
  * Mirrors `FileList`'s state-reading conventions and loading/empty states.
  */
 export function FileGrid({ entries, onOpenFile, onContextMenu }: FileGridProps) {
+  const { t } = useTranslation();
   const rawEntryCount = useFileManagerStore((state) => state.entries.length);
   const activeProfileId = useFileManagerStore((state) => state.activeProfileId);
   const selectedBucket = useFileManagerStore((state) => state.selectedBucket);
@@ -67,14 +69,14 @@ export function FileGrid({ entries, onOpenFile, onContextMenu }: FileGridProps) 
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-2 py-16 text-center">
         <FolderIcon className="h-12 w-12 text-fg-muted" aria-hidden="true" />
-        <p className="text-sm text-fg-primary">{hasSearchQuery ? 'Ничего не найдено' : 'Эта папка пуста'}</p>
+        <p className="text-sm text-fg-primary">{hasSearchQuery ? t('fileManager.fileGrid.noResults') : t('fileManager.fileGrid.emptyFolder')}</p>
         {!hasSearchQuery && (
           <Button
             variant="primary"
             className="mt-2"
             onClick={() => void pickAndQueueUploadFiles(activeProfileId, selectedBucket, currentPrefix)}
           >
-            Загрузить файлы
+            {t('fileManager.fileGrid.uploadFiles')}
           </Button>
         )}
       </div>
@@ -100,7 +102,7 @@ export function FileGrid({ entries, onOpenFile, onContextMenu }: FileGridProps) 
       {isTruncated && (
         <div className="flex justify-center py-4">
           <Button variant="secondary" isLoading={isLoadingEntries} onClick={() => loadMore()}>
-            Загрузить ещё
+            {t('fileManager.fileGrid.loadMore')}
           </Button>
         </div>
       )}

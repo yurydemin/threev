@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Input } from '../ui/Input';
 import { SegmentedControl, type SegmentedOption } from './SegmentedControl';
 import { SettingField } from './SettingField';
@@ -8,15 +9,6 @@ const MIN_CONCURRENCY = 1;
 const MAX_CONCURRENCY = 10;
 
 const BYTES_PER_MB = 1024 * 1024;
-
-/** Fixed part-size choices (MB), `'0'` = adaptive (`transfer.PartSize`'s own table). */
-const PART_SIZE_OPTIONS: SegmentedOption<'0' | '5' | '16' | '64' | '128'>[] = [
-  { value: '0', label: 'Адаптивный' },
-  { value: '5', label: '5 МБ' },
-  { value: '16', label: '16 МБ' },
-  { value: '64', label: '64 МБ' },
-  { value: '128', label: '128 МБ' },
-];
 
 /** `0`/empty means "unlimited" — mirrors `transfer.NewBandwidthLimiter`'s own convention. */
 function bytesPerSecToMbps(bytesPerSec: number): string {
@@ -42,12 +34,23 @@ export interface TransfersSectionProps {
  * draft never has to know about the display unit.
  */
 export function TransfersSection({ value, onChange }: TransfersSectionProps) {
+  const { t } = useTranslation();
+
+  /** Fixed part-size choices (MB), `'0'` = adaptive (`transfer.PartSize`'s own table). */
+  const partSizeOptions: SegmentedOption<'0' | '5' | '16' | '64' | '128'>[] = [
+    { value: '0', label: t('settings.transfers.partSizeAdaptive') },
+    { value: '5', label: t('settings.transfers.mb', { size: 5 }) },
+    { value: '16', label: t('settings.transfers.mb', { size: 16 }) },
+    { value: '64', label: t('settings.transfers.mb', { size: 64 }) },
+    { value: '128', label: t('settings.transfers.mb', { size: 128 }) },
+  ];
+
   return (
     <div className="flex flex-col">
       <SettingGroup>
         <SettingField
-          label="Максимум одновременных передач"
-          description={`Текущее значение: ${value.maxConcurrentTransfers}.`}
+          label={t('settings.transfers.maxConcurrentLabel')}
+          description={t('settings.transfers.maxConcurrentDescription', { count: value.maxConcurrentTransfers })}
         >
           <input
             type="range"
@@ -62,9 +65,9 @@ export function TransfersSection({ value, onChange }: TransfersSectionProps) {
       </SettingGroup>
 
       <SettingGroup>
-        <SettingField label="Размер части multipart-загрузки" description="Адаптивный подбирает размер по объёму файла.">
+        <SettingField label={t('settings.transfers.partSizeLabel')} description={t('settings.transfers.partSizeDescription')}>
           <SegmentedControl
-            options={PART_SIZE_OPTIONS}
+            options={partSizeOptions}
             value={String(value.partSizeOverrideMB) as '0' | '5' | '16' | '64' | '128'}
             onChange={(partSize) => onChange({ partSizeOverrideMB: Number(partSize) })}
           />
@@ -72,14 +75,14 @@ export function TransfersSection({ value, onChange }: TransfersSectionProps) {
       </SettingGroup>
 
       <SettingGroup>
-        <SettingField label="Ограничение скорости, МБ/с" description="Пусто или 0 — без ограничения.">
+        <SettingField label={t('settings.transfers.bandwidthLabel')} description={t('settings.transfers.bandwidthDescription')}>
           <div className="flex max-w-xs gap-3">
             <Input
               type="number"
               min={0}
               step="any"
-              placeholder="Без ограничения"
-              label="Отдача (upload)"
+              placeholder={t('settings.transfers.unlimitedPlaceholder')}
+              label={t('settings.transfers.uploadLabel')}
               value={bytesPerSecToMbps(value.bandwidthLimitUploadBytesPerSec)}
               onChange={(e) => onChange({ bandwidthLimitUploadBytesPerSec: mbpsToBytesPerSec(e.target.value) })}
             />
@@ -87,8 +90,8 @@ export function TransfersSection({ value, onChange }: TransfersSectionProps) {
               type="number"
               min={0}
               step="any"
-              placeholder="Без ограничения"
-              label="Приём (download)"
+              placeholder={t('settings.transfers.unlimitedPlaceholder')}
+              label={t('settings.transfers.downloadLabel')}
               value={bytesPerSecToMbps(value.bandwidthLimitDownloadBytesPerSec)}
               onChange={(e) => onChange({ bandwidthLimitDownloadBytesPerSec: mbpsToBytesPerSec(e.target.value) })}
             />

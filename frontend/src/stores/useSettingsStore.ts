@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { getSettings, saveSettings as apiSaveSettings } from '../lib/wails/appsettings';
 import { ApiError } from '../lib/wails/errors';
 import { toast } from '../lib/toast';
+import i18n from '../i18n';
 import type { AppSettings } from '../types';
 
 interface SettingsState {
@@ -50,12 +51,12 @@ export const useSettingsStore = create<SettingsState>()((set) => ({
     try {
       await apiSaveSettings(settings);
       set({ settings, isLoading: false });
-      toast.success('Настройки сохранены');
+      toast.success(i18n.t('settings.settingsStore.saved'));
       return true;
     } catch (err) {
       const message = errorMessage(err);
       set({ error: message, isLoading: false });
-      toast.error(message || 'Не удалось сохранить настройки', err instanceof ApiError ? err.raw : undefined);
+      toast.error(message || i18n.t('settings.settingsStore.saveError'), err instanceof ApiError ? err.raw : undefined);
       return false;
     }
   },

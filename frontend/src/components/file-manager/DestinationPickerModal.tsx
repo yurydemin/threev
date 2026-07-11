@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { Select } from '../ui/Select';
@@ -47,6 +48,7 @@ export function DestinationPickerModal({
   sourceBucket,
   onConfirm,
 }: DestinationPickerModalProps) {
+  const { t } = useTranslation();
   const buckets = useFileManagerStore((state) => state.buckets);
   const currentPrefix = useFileManagerStore((state) => state.currentPrefix);
 
@@ -63,25 +65,25 @@ export function DestinationPickerModal({
     }
   }, [isOpen, sourceBucket, currentPrefix]);
 
-  const verb = mode === 'copy' ? 'Копировать' : 'Переместить';
+  const verb = mode === 'copy' ? t('fileManager.destinationPickerModal.verbCopy') : t('fileManager.destinationPickerModal.verbMove');
   const isSingle = keys.length === 1;
   const verbGerund = isSingle
     ? mode === 'copy'
-      ? 'скопирован'
-      : 'перемещён'
+      ? t('fileManager.destinationPickerModal.gerundCopySingle')
+      : t('fileManager.destinationPickerModal.gerundMoveSingle')
     : mode === 'copy'
-      ? 'скопированы'
-      : 'перемещены';
+      ? t('fileManager.destinationPickerModal.gerundCopyMultiple')
+      : t('fileManager.destinationPickerModal.gerundMoveMultiple');
 
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={mode === 'copy' ? 'Копировать объекты' : 'Переместить объекты'}
+      title={mode === 'copy' ? t('fileManager.destinationPickerModal.titleCopy') : t('fileManager.destinationPickerModal.titleMove')}
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>
-            Отмена
+            {t('common.cancel')}
           </Button>
           <Button
             variant="primary"
@@ -97,20 +99,22 @@ export function DestinationPickerModal({
     >
       <div className="flex flex-col gap-3">
         <Select
-          label="Бакет назначения"
+          label={t('fileManager.destinationPickerModal.bucketLabel')}
           value={destBucket}
           onChange={setDestBucket}
           options={buckets.map((bucket) => ({ value: bucket.name, label: bucket.name }))}
         />
         <Input
-          label="Папка назначения"
+          label={t('fileManager.destinationPickerModal.prefixLabel')}
           value={destPrefix}
           onChange={(event) => setDestPrefix(event.target.value)}
-          placeholder="например, backup/2026/"
+          placeholder={t('fileManager.destinationPickerModal.prefixPlaceholder')}
         />
         <p className="text-2xs text-fg-muted">
-          {isSingle ? 'Файл будет' : `${keys.length} файлов будут`} {verbGerund} с сохранением исходных
-          имён.
+          {isSingle
+            ? t('fileManager.destinationPickerModal.resultSingle')
+            : t('fileManager.destinationPickerModal.resultMultiple', { count: keys.length })}{' '}
+          {verbGerund} {t('fileManager.destinationPickerModal.resultSuffix')}
         </p>
       </div>
     </Modal>

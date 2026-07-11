@@ -1,4 +1,5 @@
 import { CheckCircle2, XCircle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
 import { getTransferDisplayName, getTransferPathLine, getTypeLabel, getTypeTagClasses } from './transferDisplay';
 import type { TransferHistoryEntry } from '../../types';
@@ -20,6 +21,7 @@ export interface HistoryCardProps {
  * the backend doesn't currently archive to history, but the type allows).
  */
 export function HistoryCard({ entry }: HistoryCardProps) {
+  const { t } = useTranslation();
   const isCompleted = entry.status === 'completed';
 
   return (
@@ -41,7 +43,7 @@ export function HistoryCard({ entry }: HistoryCardProps) {
             <XCircle className="h-4 w-4 text-fg-secondary" aria-hidden="true" />
           )}
           <span className={cn('text-2xs', isCompleted ? 'text-success' : 'text-fg-secondary')}>
-            {isCompleted ? 'Завершено' : entry.status === 'cancelled' ? 'Отменено' : entry.status}
+            {isCompleted ? t('transfers.historyCard.completed') : entry.status === 'cancelled' ? t('transfers.historyCard.cancelled') : entry.status}
           </span>
         </div>
       </div>

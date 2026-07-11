@@ -1,5 +1,7 @@
 import { Info, Lock, Palette, SlidersHorizontal, Wifi, Wrench } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { cn } from '../../lib/utils';
 
 export type SettingsSection = 'general' | 'appearance' | 'transfers' | 'security' | 'network' | 'about';
@@ -10,14 +12,16 @@ interface SectionItem {
   icon: LucideIcon;
 }
 
-const SECTIONS: SectionItem[] = [
-  { id: 'general', label: 'Общие', icon: Wrench },
-  { id: 'appearance', label: 'Внешний вид', icon: Palette },
-  { id: 'transfers', label: 'Передачи', icon: SlidersHorizontal },
-  { id: 'security', label: 'Безопасность', icon: Lock },
-  { id: 'network', label: 'Сетевые', icon: Wifi },
-  { id: 'about', label: 'О приложении', icon: Info },
-];
+function getSections(t: TFunction): SectionItem[] {
+  return [
+    { id: 'general', label: t('settings.sidebar.general'), icon: Wrench },
+    { id: 'appearance', label: t('settings.sidebar.appearance'), icon: Palette },
+    { id: 'transfers', label: t('settings.sidebar.transfers'), icon: SlidersHorizontal },
+    { id: 'security', label: t('settings.sidebar.security'), icon: Lock },
+    { id: 'network', label: t('settings.sidebar.network'), icon: Wifi },
+    { id: 'about', label: t('settings.sidebar.about'), icon: Info },
+  ];
+}
 
 export interface SettingsSidebarProps {
   activeSection: SettingsSection;
@@ -30,6 +34,8 @@ export interface SettingsSidebarProps {
  * (Stage 2, Architectural Decision 6), applied to the Settings screen.
  */
 export function SettingsSidebar({ activeSection, onSelectSection }: SettingsSidebarProps) {
+  const { t } = useTranslation();
+  const SECTIONS = getSections(t);
   return (
     <aside className="flex h-full w-[200px] shrink-0 flex-col border-r border-border bg-bg-secondary py-2">
       {SECTIONS.map(({ id, label, icon: Icon }) => {

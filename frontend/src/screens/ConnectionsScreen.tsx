@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Sidebar } from '../components/layout/Sidebar';
 import { ConnectionForm } from '../components/connection/ConnectionForm';
 import { ConnectionList } from '../components/connection/ConnectionList';
@@ -36,6 +37,7 @@ export interface ConnectionsScreenProps {
  * so routing through the form's own test UI is the honest choice.
  */
 export function ConnectionsScreen({ onConnect, onSelectTransfers, onSelectSettings }: ConnectionsScreenProps) {
+  const { t } = useTranslation();
   const connections = useConnectionStore((state) => state.connections);
   const isLoading = useConnectionStore((state) => state.isLoading);
   const deleteConnection = useConnectionStore((state) => state.deleteConnection);
@@ -77,12 +79,12 @@ export function ConnectionsScreen({ onConnect, onSelectTransfers, onSelectSettin
     await useConnectionStore.getState().saveConnection({
       ...full,
       id: 0,
-      name: `${full.name} (копия)`,
+      name: t('connections.screen.duplicateSuffix', { name: full.name }),
     });
   }
 
   async function handleDelete(summary: ConnectionSummary) {
-    if (!window.confirm(`Удалить подключение «${summary.name}»?`)) return;
+    if (!window.confirm(t('connections.screen.deleteConfirm', { name: summary.name }))) return;
     await deleteConnection(summary.id);
   }
 
@@ -92,9 +94,9 @@ export function ConnectionsScreen({ onConnect, onSelectTransfers, onSelectSettin
 
       <div className="flex flex-1 flex-col overflow-hidden">
         <header className="flex h-header shrink-0 items-center justify-between border-b border-border bg-bg-secondary px-4">
-          <h1 className="text-[13px] font-semibold text-fg-primary">Подключения</h1>
+          <h1 className="text-[13px] font-semibold text-fg-primary">{t('connections.screen.title')}</h1>
           <Button variant="primary" onClick={openCreate}>
-            + Новое
+            {t('connections.screen.newButton')}
           </Button>
         </header>
 
@@ -113,7 +115,7 @@ export function ConnectionsScreen({ onConnect, onSelectTransfers, onSelectSettin
           {connections.length > 0 && (
             <div className="flex justify-center pt-2">
               <Button variant="secondary" onClick={openCreate}>
-                + Добавить подключение
+                {t('connections.screen.addButton')}
               </Button>
             </div>
           )}

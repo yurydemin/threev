@@ -1,0 +1,380 @@
+{
+  "common": {
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "close": "Close",
+    "loading": "Loading…",
+    "retry": "Retry",
+    "copyToClipboardError": "Failed to copy to clipboard"
+  },
+  "sidebar": {
+    "appName": "S3 Client",
+    "connections": "Connections",
+    "transfers": "Transfers",
+    "history": "History",
+    "settings": "Settings"
+  },
+  "welcome": {
+    "title": "S3 Desktop Client",
+    "subtitle": "Manage cloud storage like local files",
+    "addConnection": "+ Add connection"
+  },
+  "unlock": {
+    "title": "Application locked",
+    "subtitle": "Enter the master password to access saved connections",
+    "passwordPlaceholder": "Master password",
+    "unlockButton": "Unlock",
+    "wrongPassword": "Incorrect password",
+    "genericError": "Failed to unlock",
+    "recoveryHint": "If you forgot the password, recovery is not available; saved connections will remain encrypted"
+  },
+  "connections": {
+    "screen": {
+      "title": "Connections",
+      "newButton": "+ New",
+      "addButton": "+ Add connection",
+      "duplicateSuffix": "{{name}} (copy)",
+      "deleteConfirm": "Delete connection \"{{name}}\"?"
+    },
+    "card": {
+      "connect": "Connect",
+      "actionsMenu": "Connection actions",
+      "notChecked": "Not checked",
+      "edit": "Edit",
+      "duplicate": "Duplicate",
+      "test": "Test"
+    },
+    "list": {
+      "empty": "No saved connections",
+      "add": "Add"
+    },
+    "form": {
+      "titleEdit": "Edit connection",
+      "titleNew": "New connection",
+      "test": "Test",
+      "testGenericError": "Failed to run the test",
+      "testSuccess": "Connection successful",
+      "testError": "Failed to connect",
+      "hideTechnicalDetails": "Hide technical details",
+      "showTechnicalDetails": "Show technical details",
+      "saveError": "Failed to save connection",
+      "nameLabel": "Name",
+      "namePlaceholder": "AWS Production",
+      "endpointLabel": "Endpoint URL",
+      "endpointPlaceholder": "https://s3.amazonaws.com",
+      "regionLabel": "Region",
+      "regionPlaceholder": "us-east-1",
+      "accessKeyLabel": "Access Key ID",
+      "secretKeyLabel": "Secret Access Key",
+      "hideSecret": "Hide secret key",
+      "showSecret": "Show secret key",
+      "sessionTokenLabel": "Session Token",
+      "sessionTokenPlaceholder": "optional",
+      "advanced": "Advanced",
+      "pathStyleLabel": "Path-style URL",
+      "verifySslLabel": "Verify SSL certificate"
+    }
+  },
+  "fileManager": {
+    "screen": {
+      "selectBucketHint": "Select a bucket on the left to view its contents",
+      "statusFiltered": "{{filtered}} of {{total}} objects",
+      "statusAll": "{{total}} objects",
+      "statusSelectedSuffix": " • {{count}} selected"
+    },
+    "toolbar": {
+      "back": "Back",
+      "forward": "Forward",
+      "refresh": "Refresh",
+      "searchPlaceholder": "Search current folder…",
+      "listView": "List",
+      "gridView": "Grid",
+      "createFolder": "Create folder",
+      "upload": "Upload",
+      "pickFiles": "Choose files…",
+      "pickFolder": "Choose folder…",
+      "pickFolderError": "Failed to choose a folder to upload"
+    },
+    "bucketPanel": {
+      "empty": "No buckets available"
+    },
+    "objectContextMenu": {
+      "download": "Download",
+      "open": "Open",
+      "downloadSelected": "Download selected",
+      "copyEllipsis": "Copy...",
+      "moveEllipsis": "Move...",
+      "deleteCount": "Delete {{count}} objects",
+      "downloadEllipsis": "Download...",
+      "openPreview": "Open / Preview",
+      "copyUrl": "Copy URL",
+      "getPresignedUrl": "Get presigned URL...",
+      "rename": "Rename",
+      "editMetadata": "Edit metadata...",
+      "copyName": "Copy name",
+      "copyPath": "Copy path",
+      "pickDownloadDirError": "Failed to choose a folder to download to",
+      "pickDownloadDestError": "Failed to choose a download destination",
+      "presignedUrlError": "Failed to get a presigned URL"
+    },
+    "createFolderModal": {
+      "title": "Create folder",
+      "create": "Create",
+      "nameLabel": "Folder name",
+      "nameEmptyError": "Enter a folder name",
+      "nameSlashError": "Name cannot contain \"/\"",
+      "genericError": "Failed to create folder"
+    },
+    "deleteConfirmModal": {
+      "title": "Delete objects",
+      "confirmSingle": "Are you sure you want to delete the object \"{{name}}\"?",
+      "confirmMultiple": "Are you sure you want to delete {{count}} objects?"
+    },
+    "destinationPickerModal": {
+      "titleCopy": "Copy objects",
+      "titleMove": "Move objects",
+      "verbCopy": "Copy",
+      "verbMove": "Move",
+      "gerundCopySingle": "copied",
+      "gerundMoveSingle": "moved",
+      "gerundCopyMultiple": "copied",
+      "gerundMoveMultiple": "moved",
+      "bucketLabel": "Destination bucket",
+      "prefixLabel": "Destination folder",
+      "prefixPlaceholder": "e.g. backup/2026/",
+      "resultSingle": "The file will be",
+      "resultMultiple": "{{count}} files will be",
+      "resultSuffix": "keeping their original names."
+    },
+    "presignedUrlModal": {
+      "title": "Get presigned URL",
+      "expiryLabel": "Expiry",
+      "urlLabel": "URL",
+      "copy": "Copy",
+      "genericError": "Failed to get a presigned URL"
+    },
+    "propertiesModal": {
+      "title": "Object properties",
+      "name": "Name",
+      "size": "Size",
+      "type": "Type",
+      "etag": "ETag",
+      "modified": "Modified",
+      "contentTypeLabel": "Content-Type",
+      "cacheControlLabel": "Cache-Control",
+      "metadataLabel": "Metadata",
+      "addPair": "+ Add",
+      "keyPlaceholder": "Key",
+      "valuePlaceholder": "Value",
+      "removePair": "Remove pair",
+      "loadError": "Failed to load object properties",
+      "saveError": "Failed to save metadata"
+    },
+    "renameModal": {
+      "title": "Rename",
+      "nameLabel": "New name",
+      "genericError": "Failed to rename object"
+    },
+    "objectPreviewModal": {
+      "defaultTitle": "Preview",
+      "loading": "Loading preview…",
+      "truncatedNotice": "Showing the first 100 KB of {{size}}",
+      "unsupported": "Preview is not available for this file type.",
+      "genericError": "Failed to load preview"
+    },
+    "bulkProgressOverlay": {
+      "verbDelete": "Deleting",
+      "verbCopy": "Copying",
+      "verbMove": "Moving",
+      "verbFallback": "Processing",
+      "progressLine": "{{verb}} {{total}} objects…",
+      "failedCount": "{{count}} failed"
+    },
+    "fileList": {
+      "columnName": "Name",
+      "columnSize": "Size",
+      "columnType": "Type",
+      "columnModified": "Modified",
+      "selectAll": "Select all",
+      "loadMore": "Load more",
+      "noResults": "Nothing found",
+      "emptyFolder": "This folder is empty",
+      "uploadFiles": "Upload files"
+    },
+    "fileGrid": {
+      "noResults": "Nothing found",
+      "emptyFolder": "This folder is empty",
+      "uploadFiles": "Upload files",
+      "loadMore": "Load more"
+    },
+    "fileRow": {
+      "select": "Select {{name}}",
+      "folder": "Folder"
+    },
+    "dropOverlay": {
+      "text": "Drop files to upload"
+    },
+    "uploadFiles": {
+      "genericError": "Failed to start uploading files"
+    },
+    "bulkOperationStore": {
+      "deleteStartError": "Failed to start deleting objects",
+      "copyStartError": "Failed to start copying objects",
+      "moveStartError": "Failed to start moving objects",
+      "cancelError": "Failed to cancel operation",
+      "partialFailure": "{{failed}} of {{total}} objects failed to process"
+    }
+  },
+  "transfers": {
+    "screen": {
+      "title": "Transfers",
+      "emptyActive": "No active transfers",
+      "emptyCompleted": "No completed transfers",
+      "emptyAll": "No transfers"
+    },
+    "tabs": {
+      "active": "Active",
+      "completed": "Completed",
+      "all": "All"
+    },
+    "groupActions": {
+      "pauseAll": "Pause all",
+      "resumeAll": "Resume all",
+      "cancelAll": "Cancel all"
+    },
+    "card": {
+      "retry": "Retry",
+      "resume": "Resume",
+      "pause": "Pause",
+      "cancel": "Cancel",
+      "genericError": "Failed to complete transfer"
+    },
+    "historyCard": {
+      "completed": "Completed",
+      "cancelled": "Cancelled"
+    },
+    "transferIndicator": {
+      "active": "{{count}} active transfers"
+    }
+  },
+  "settings": {
+    "screen": {
+      "sections": {
+        "general": "General",
+        "appearance": "Appearance",
+        "transfers": "Transfers",
+        "security": "Security",
+        "network": "Network",
+        "about": "About"
+      },
+      "saveButton": "Save changes",
+      "networkPlaceholderTitle": "Coming soon",
+      "networkPlaceholderDescription": "HTTP/SOCKS proxy settings will be available in a future update."
+    },
+    "sidebar": {
+      "general": "General",
+      "appearance": "Appearance",
+      "transfers": "Transfers",
+      "security": "Security",
+      "network": "Network",
+      "about": "About"
+    },
+    "general": {
+      "closeBehaviorLabel": "On window close",
+      "closeBehaviorDescription": "Action to take when the application window's close button is clicked.",
+      "closeBehaviorExit": "Exit",
+      "closeBehaviorConfirm": "Ask for confirmation",
+      "transferQueueLabel": "Transfer queue",
+      "autoResumeLabel": "Automatically resume transfers on startup",
+      "languageLabel": "Language"
+    },
+    "appearance": {
+      "themeLabel": "Theme",
+      "themeSystem": "System",
+      "themeLight": "Light",
+      "themeDark": "Dark",
+      "scaleLabel": "UI scale",
+      "scaleDescription": "Applied immediately after saving, without restarting the application."
+    },
+    "transfers": {
+      "maxConcurrentLabel": "Maximum concurrent transfers",
+      "maxConcurrentDescription": "Current value: {{count}}.",
+      "partSizeLabel": "Multipart upload part size",
+      "partSizeDescription": "Adaptive picks the part size based on the file size.",
+      "partSizeAdaptive": "Adaptive",
+      "mb": "{{size}} MB",
+      "bandwidthLabel": "Speed limit, MB/s",
+      "bandwidthDescription": "Empty or 0 — no limit.",
+      "uploadLabel": "Upload",
+      "downloadLabel": "Download",
+      "unlimitedPlaceholder": "No limit"
+    },
+    "security": {
+      "masterPasswordLabel": "Master password",
+      "setDescription": "Master password is set. Additionally protects saved credentials with a password.",
+      "unsetDescription": "Master password is not set. Saved credentials are protected only by a key bound to this computer.",
+      "changePassword": "Change password",
+      "removePassword": "Remove master password",
+      "setPassword": "Set master password"
+    },
+    "setPasswordModal": {
+      "titleSet": "Set master password",
+      "titleChange": "Change master password",
+      "submitSet": "Set",
+      "submitChange": "Change",
+      "newPasswordLabel": "New password",
+      "confirmPasswordLabel": "Confirm password",
+      "tooShortError": "Password must be at least {{min}} characters",
+      "mismatchError": "Passwords don't match",
+      "genericError": "Failed to save master password",
+      "saved": "Master password saved"
+    },
+    "removePasswordModal": {
+      "title": "Remove master password",
+      "warning": "After removal, saved credentials will be protected only by a key bound to this computer.",
+      "currentPasswordLabel": "Current password",
+      "emptyPasswordError": "Enter the current password",
+      "genericError": "Failed to remove master password",
+      "removed": "Master password removed"
+    },
+    "about": {
+      "versionLabel": "Version"
+    },
+    "settingsStore": {
+      "saved": "Settings saved",
+      "saveError": "Failed to save settings"
+    }
+  },
+  "toast": {
+    "copyDetails": "Copy technical details",
+    "dismiss": "Dismiss notification"
+  },
+  "errors": {
+    "bucketNotFound": "Bucket not found.",
+    "objectNotFound": "Object not found.",
+    "invalidCredentials": "Invalid credentials for accessing storage.",
+    "timeout": "The server took too long to respond.",
+    "sslError": "SSL certificate verification failed — check the endpoint address.",
+    "connectionFailed": "Failed to connect to the server — check the address and network connection.",
+    "serverUnavailable": "Server temporarily unavailable — try again later.",
+    "appLocked": "The application is locked — enter the master password in the Security section.",
+    "profileNotFound": "Connection not found — it may have been deleted.",
+    "profileNameExists": "A connection with this name already exists.",
+    "invalidEndpoint": "Invalid endpoint URL.",
+    "profileNameEmpty": "Enter a connection name.",
+    "incorrectPassword": "Incorrect password.",
+    "operationNotFound": "The operation has already finished or was not found.",
+    "newNameEmpty": "Enter a new name.",
+    "newNameSame": "The new name is the same as the current one.",
+    "folderNameEmpty": "Enter a folder name.",
+    "folderNameSlash": "Folder name cannot contain \"/\".",
+    "noKeysGiven": "No objects selected."
+  },
+  "units": {
+    "etaSeconds": "{{count}}s",
+    "minutesShort": "{{count}} min",
+    "hoursShort": "{{count}} h",
+    "daysShort": "{{count}} d"
+  }
+}

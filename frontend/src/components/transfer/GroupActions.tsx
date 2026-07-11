@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Button } from '../ui/Button';
 import type { TransferTask } from '../../types';
 
@@ -16,19 +17,20 @@ export interface GroupActionsProps {
  * states from `queue`.
  */
 export function GroupActions({ queue, onPauseAll, onResumeAll, onCancelAll }: GroupActionsProps) {
+  const { t } = useTranslation();
   const hasPausable = queue.some((task) => task.status === 'pending' || task.status === 'running');
   const hasResumable = queue.some((task) => task.status === 'paused');
 
   return (
     <div className="flex shrink-0 items-center gap-2 border-t border-border px-4 py-3">
       <Button variant="secondary" disabled={!hasPausable} onClick={onPauseAll}>
-        Пауза все
+        {t('transfers.groupActions.pauseAll')}
       </Button>
       <Button variant="secondary" disabled={!hasResumable} onClick={onResumeAll}>
-        Возобновить все
+        {t('transfers.groupActions.resumeAll')}
       </Button>
       <Button variant="secondary" disabled={queue.length === 0} onClick={onCancelAll}>
-        Отменить все
+        {t('transfers.groupActions.cancelAll')}
       </Button>
     </div>
   );

@@ -1,4 +1,5 @@
 import { AlertTriangle, Database } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
 import { useFileManagerStore } from '../../stores/useFileManagerStore';
 
@@ -18,6 +19,7 @@ const SKELETON_ROWS = 5;
  * meaningful state or behavior independent of that store.
  */
 export function BucketPanel() {
+  const { t } = useTranslation();
   const activeProfileId = useFileManagerStore((state) => state.activeProfileId);
   const activeProfileName = useFileManagerStore((state) => state.activeProfileName);
   const buckets = useFileManagerStore((state) => state.buckets);
@@ -59,11 +61,11 @@ export function BucketPanel() {
               onClick={handleRetry}
               className="text-xs font-medium text-accent hover:underline"
             >
-              Повторить
+              {t('common.retry')}
             </button>
           </div>
         ) : buckets.length === 0 ? (
-          <p className="px-3 py-2 text-xs text-fg-muted">Нет доступных бакетов</p>
+          <p className="px-3 py-2 text-xs text-fg-muted">{t('fileManager.bucketPanel.empty')}</p>
         ) : (
           buckets.map((bucket) => {
             const active = selectedBucket === bucket.name;

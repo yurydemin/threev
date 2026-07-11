@@ -1,4 +1,5 @@
 import { ArrowLeftRight } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 export interface TransferIndicatorProps {
   /** Number of tasks currently in `useTransferStore`'s `queue`. */
@@ -16,6 +17,7 @@ export interface TransferIndicatorProps {
  * status-bar noise.
  */
 export function TransferIndicator({ count, onClick }: TransferIndicatorProps) {
+  const { t } = useTranslation();
   if (count === 0) return null;
 
   return (
@@ -25,7 +27,7 @@ export function TransferIndicator({ count, onClick }: TransferIndicatorProps) {
       className="flex items-center gap-1.5 text-xs text-fg-secondary transition-colors duration-fast hover:text-accent"
     >
       <ArrowLeftRight className="h-3 w-3 shrink-0" aria-hidden="true" />
-      {count} активных передач
+      {t('transfers.transferIndicator.active', { count })}
     </button>
   );
 }

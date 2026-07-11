@@ -2,6 +2,7 @@ import { pickUploadFiles } from './wails/transfer';
 import { useTransferStore } from '../stores/useTransferStore';
 import { toast } from './toast';
 import { ApiError } from './wails/errors';
+import i18n from '../i18n';
 
 /**
  * Opens the native "pick files" dialog and, if the user selected at least
@@ -30,7 +31,7 @@ export async function pickAndQueueUploadFiles(
   } catch (err) {
     console.error('[uploadFiles] pickAndQueueUploadFiles failed:', err);
     toast.error(
-      err instanceof ApiError ? err.message : 'Не удалось начать загрузку файлов',
+      err instanceof ApiError ? err.message : i18n.t('fileManager.uploadFiles.genericError'),
       err instanceof ApiError ? err.raw : undefined,
     );
   }

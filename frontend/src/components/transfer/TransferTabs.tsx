@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { cn } from '../../lib/utils';
 
 export type TransferTab = 'active' | 'completed' | 'all';
@@ -9,11 +11,13 @@ export interface TransferTabsProps {
   activeCount: number;
 }
 
-const TABS: Array<{ id: TransferTab; label: string }> = [
-  { id: 'active', label: 'Активные' },
-  { id: 'completed', label: 'Завершённые' },
-  { id: 'all', label: 'Все' },
-];
+function getTabs(t: TFunction): Array<{ id: TransferTab; label: string }> {
+  return [
+    { id: 'active', label: t('transfers.tabs.active') },
+    { id: 'completed', label: t('transfers.tabs.completed') },
+    { id: 'all', label: t('transfers.tabs.all') },
+  ];
+}
 
 /**
  * Tab strip for the Transfer screen, per docs/03-ux-ui-spec.md section 5.5.
@@ -21,6 +25,8 @@ const TABS: Array<{ id: TransferTab; label: string }> = [
  * `bg-bg-tertiary` hover highlight.
  */
 export function TransferTabs({ active, onChange, activeCount }: TransferTabsProps) {
+  const { t } = useTranslation();
+  const TABS = getTabs(t);
   return (
     <div className="flex h-9 shrink-0 items-center gap-1 border-b border-border px-4" role="tablist">
       {TABS.map((tab) => (

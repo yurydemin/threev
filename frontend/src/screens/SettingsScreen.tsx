@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { Sidebar } from '../components/layout/Sidebar';
 import { StatusBar } from '../components/layout/StatusBar';
 import { SettingsSidebar, type SettingsSection } from '../components/settings/SettingsSidebar';
@@ -12,14 +14,16 @@ import { Button } from '../components/ui/Button';
 import { useSettingsStore } from '../stores/useSettingsStore';
 import type { AppSettings } from '../types';
 
-const SECTION_TITLES: Record<SettingsSection, string> = {
-  general: 'Общие',
-  appearance: 'Внешний вид',
-  transfers: 'Передачи',
-  security: 'Безопасность',
-  network: 'Сетевые',
-  about: 'О приложении',
-};
+function getSectionTitles(t: TFunction): Record<SettingsSection, string> {
+  return {
+    general: t('settings.screen.sections.general'),
+    appearance: t('settings.screen.sections.appearance'),
+    transfers: t('settings.screen.sections.transfers'),
+    security: t('settings.screen.sections.security'),
+    network: t('settings.screen.sections.network'),
+    about: t('settings.screen.sections.about'),
+  };
+}
 
 export interface SettingsScreenProps {
   /** Navigates to the Connections screen (Sidebar "Подключения"). */
@@ -50,6 +54,8 @@ export interface SettingsScreenProps {
  * edits the user already made in `draft`.
  */
 export function SettingsScreen({ onSelectConnections, onSelectTransfers }: SettingsScreenProps) {
+  const { t } = useTranslation();
+  const SECTION_TITLES = getSectionTitles(t);
   const [section, setSection] = useState<SettingsSection>('general');
   const settings = useSettingsStore((state) => state.settings);
   const [draft, setDraft] = useState<AppSettings | null>(null);
@@ -81,13 +87,13 @@ export function SettingsScreen({ onSelectConnections, onSelectTransfers }: Setti
         <header className="flex h-header shrink-0 items-center justify-between border-b border-border bg-bg-secondary px-6">
           <h1 className="text-[18px] font-semibold text-fg-primary">{SECTION_TITLES[section]}</h1>
           <Button variant="primary" onClick={handleSave} disabled={!draft} isLoading={isSaving}>
-            Сохранить изменения
+            {t('settings.screen.saveButton')}
           </Button>
         </header>
 
         <main className="flex-1 overflow-y-auto px-6 py-4">
           {draft === null ? (
-            <p className="text-sm text-fg-muted">Загрузка…</p>
+            <p className="text-sm text-fg-muted">{t('common.loading')}</p>
           ) : section === 'general' ? (
             <GeneralSection value={draft} onChange={updateDraft} />
           ) : section === 'appearance' ? (
@@ -98,8 +104,8 @@ export function SettingsScreen({ onSelectConnections, onSelectTransfers }: Setti
             <SecuritySection />
           ) : section === 'network' ? (
             <PlaceholderSection
-              title="Скоро"
-              description="Настройка HTTP/SOCKS-прокси появится в одном из следующих обновлений."
+              title={t('settings.screen.networkPlaceholderTitle')}
+              description={t('settings.screen.networkPlaceholderDescription')}
             />
           ) : (
             <AboutSection />

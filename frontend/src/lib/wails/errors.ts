@@ -1,3 +1,5 @@
+import i18n from '../../i18n';
+
 /**
  * Shared error-handling infrastructure for typed wrappers around the
  * generated `wailsjs/go/**` bindings.
@@ -50,35 +52,35 @@ function friendlyMessage(raw: string): string {
   const patterns: [RegExp, string][] = [
     // Already-Russian, backend-classified S3/network failures — unwrap the
     // "<op>: <message> (<category>): <raw>" envelope down to just <message>.
-    [/Бакет не найден/i, 'Бакет не найден.'],
-    [/Объект не найден/i, 'Объект не найден.'],
-    [/Неверные учётные данные/i, 'Неверные учётные данные для доступа к хранилищу.'],
-    [/Превышено время ожидания подключения/i, 'Превышено время ожидания ответа от сервера.'],
-    [/Ошибка проверки SSL-сертификата/i, 'Ошибка проверки SSL-сертификата — проверьте адрес endpoint.'],
-    [/Не удалось подключиться к endpoint/i, 'Не удалось подключиться к серверу — проверьте адрес и сетевое соединение.'],
+    [/Бакет не найден/i, i18n.t('errors.bucketNotFound')],
+    [/Объект не найден/i, i18n.t('errors.objectNotFound')],
+    [/Неверные учётные данные/i, i18n.t('errors.invalidCredentials')],
+    [/Превышено время ожидания подключения/i, i18n.t('errors.timeout')],
+    [/Ошибка проверки SSL-сертификата/i, i18n.t('errors.sslError')],
+    [/Не удалось подключиться к endpoint/i, i18n.t('errors.connectionFailed')],
 
     // Raw Go/network errors from paths that don't go through ClassifyError.
-    [/connection refused|no such host|dial tcp/i, 'Не удалось подключиться к серверу — проверьте адрес и сетевое соединение.'],
-    [/context deadline exceeded|i\/o timeout/i, 'Превышено время ожидания ответа от сервера.'],
-    [/circuit breaker open|temporarily unavailable/i, 'Сервер временно недоступен — повторите попытку позже.'],
-    [/(invalidaccesskeyid|signaturedoesnotmatch|access ?denied)/i, 'Неверные учётные данные для доступа к хранилищу.'],
-    [/nosuchbucket/i, 'Бакет не найден.'],
-    [/nosuchkey/i, 'Объект не найден.'],
+    [/connection refused|no such host|dial tcp/i, i18n.t('errors.connectionFailed')],
+    [/context deadline exceeded|i\/o timeout/i, i18n.t('errors.timeout')],
+    [/circuit breaker open|temporarily unavailable/i, i18n.t('errors.serverUnavailable')],
+    [/(invalidaccesskeyid|signaturedoesnotmatch|access ?denied)/i, i18n.t('errors.invalidCredentials')],
+    [/nosuchbucket/i, i18n.t('errors.bucketNotFound')],
+    [/nosuchkey/i, i18n.t('errors.objectNotFound')],
 
     // `domain.*` sentinel errors (internal/domain/errors.go) and other
     // plain Go validation text.
-    [/application is locked/i, 'Приложение заблокировано — введите мастер-пароль в разделе «Безопасность».'],
-    [/profile not found/i, 'Подключение не найдено — возможно, оно было удалено.'],
-    [/a profile with this name already exists/i, 'Подключение с таким именем уже существует.'],
-    [/invalid endpoint url/i, 'Некорректный адрес конечной точки (endpoint URL).'],
-    [/profile name must not be empty/i, 'Укажите имя подключения.'],
-    [/incorrect password/i, 'Неверный пароль.'],
-    [/bulk operation \d+ not found or already finished/i, 'Операция уже завершена или не найдена.'],
-    [/rename object: new key must not be empty/i, 'Введите новое имя.'],
-    [/rename object: new key .* is the same as the current key/i, 'Новое имя совпадает с текущим.'],
-    [/create folder: name must not be empty/i, 'Введите имя папки.'],
-    [/create folder: name .* must not contain/i, 'Имя папки не может содержать «/».'],
-    [/no keys given/i, 'Не выбрано ни одного объекта.'],
+    [/application is locked/i, i18n.t('errors.appLocked')],
+    [/profile not found/i, i18n.t('errors.profileNotFound')],
+    [/a profile with this name already exists/i, i18n.t('errors.profileNameExists')],
+    [/invalid endpoint url/i, i18n.t('errors.invalidEndpoint')],
+    [/profile name must not be empty/i, i18n.t('errors.profileNameEmpty')],
+    [/incorrect password/i, i18n.t('errors.incorrectPassword')],
+    [/bulk operation \d+ not found or already finished/i, i18n.t('errors.operationNotFound')],
+    [/rename object: new key must not be empty/i, i18n.t('errors.newNameEmpty')],
+    [/rename object: new key .* is the same as the current key/i, i18n.t('errors.newNameSame')],
+    [/create folder: name must not be empty/i, i18n.t('errors.folderNameEmpty')],
+    [/create folder: name .* must not contain/i, i18n.t('errors.folderNameSlash')],
+    [/no keys given/i, i18n.t('errors.noKeysGiven')],
   ];
 
   for (const [pattern, message] of patterns) {

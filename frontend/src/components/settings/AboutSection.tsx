@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { APP_VERSION } from '../../lib/appVersion';
 import { SettingField } from './SettingField';
 import { SettingGroup } from './SettingGroup';
@@ -10,10 +11,11 @@ import { SettingGroup } from './SettingGroup';
  * repository).
  */
 export function AboutSection() {
+  const { t } = useTranslation();
   return (
     <div className="flex flex-col">
       <SettingGroup>
-        <SettingField label="Версия">
+        <SettingField label={t('settings.about.versionLabel')}>
           <span className="text-[13px] text-fg-primary">{APP_VERSION}</span>
         </SettingField>
       </SettingGroup>

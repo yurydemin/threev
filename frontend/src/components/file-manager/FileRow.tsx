@@ -1,4 +1,5 @@
 import type { MouseEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import { cn, formatBytes, getEntryDisplayName } from '../../lib/utils';
 import type { ObjectEntry } from '../../types';
 import { Checkbox } from '../ui/Checkbox';
@@ -55,6 +56,7 @@ export function FileRow({
   isSelected,
   onToggleSelect,
 }: FileRowProps) {
+  const { t } = useTranslation();
   const name = getEntryDisplayName(entry.key, currentPrefix);
 
   function handleDoubleClick() {
@@ -91,7 +93,7 @@ export function FileRow({
               onToggleSelect(entry.key, event);
             }}
             onChange={() => {}}
-            aria-label={`Выбрать ${name}`}
+            aria-label={t('fileManager.fileRow.select', { name })}
           />
         </div>
       )}
@@ -106,7 +108,7 @@ export function FileRow({
         {entry.isFolder ? '—' : formatBytes(entry.size)}
       </div>
       <div className="flex-1 truncate pr-2 text-xs text-fg-muted" title={entry.contentType || undefined}>
-        {entry.isFolder ? 'Папка' : truncateType(entry.contentType)}
+        {entry.isFolder ? t('fileManager.fileRow.folder') : truncateType(entry.contentType)}
       </div>
       <div className="flex-1 truncate text-xs text-fg-secondary">
         {entry.isFolder ? '' : formatModified(entry.lastModified)}

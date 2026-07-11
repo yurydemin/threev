@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { AlertTriangle, Check, ChevronDown, ChevronRight, Eye, EyeOff } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
 import { testConnection as apiTestConnection } from '../../lib/wails/connection';
 import { useConnectionStore } from '../../stores/useConnectionStore';
@@ -72,6 +73,7 @@ function valuesFromConnection(connection: Connection | undefined): ConnectionFor
  * contract (a failed test does not prevent `SaveProfile`).
  */
 export function ConnectionForm({ isOpen, onClose, initialValues, onSaved }: ConnectionFormProps) {
+  const { t } = useTranslation();
   const isEditing = !!initialValues;
   const storeSaveConnection = useConnectionStore((state) => state.saveConnection);
 
@@ -123,7 +125,7 @@ export function ConnectionForm({ isOpen, onClose, initialValues, onSaved }: Conn
     } catch (err) {
       setTestState({
         status: 'error',
-        message: err instanceof Error ? err.message : 'Не удалось выполнить проверку',
+        message: err instanceof Error ? err.message : t('connections.form.testGenericError'),
         detail: '',
       });
     }
@@ -139,7 +141,7 @@ export function ConnectionForm({ isOpen, onClose, initialValues, onSaved }: Conn
       onSaved(saved);
       onClose();
     } else {
-      setSaveError(useConnectionStore.getState().error ?? 'Не удалось сохранить подключение');
+      setSaveError(useConnectionStore.getState().error ?? t('connections.form.saveError'));
     }
   }
 
@@ -147,19 +149,19 @@ export function ConnectionForm({ isOpen, onClose, initialValues, onSaved }: Conn
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={isEditing ? 'Редактирование подключения' : 'Новое подключение'}
+      title={isEditing ? t('connections.form.titleEdit') : t('connections.form.titleNew')}
       footer={
         <div className="flex w-full flex-col gap-2">
           <div className="flex items-center justify-between gap-2">
             <Button variant="secondary" onClick={handleTest} isLoading={testState.status === 'loading'}>
-              Тестировать
+              {t('connections.form.test')}
             </Button>
             <div className="flex items-center gap-2">
               <Button variant="secondary" onClick={onClose}>
-                Отмена
+                {t('common.cancel')}
               </Button>
               <Button variant="primary" onClick={handleSave} disabled={!canSave} isLoading={isSaving}>
-                Сохранить
+                {t('common.save')}
               </Button>
             </div>
           </div>
@@ -179,7 +181,7 @@ export function ConnectionForm({ isOpen, onClose, initialValues, onSaved }: Conn
                 )}
                 <span>
                   {testState.message ||
-                    (testState.status === 'success' ? 'Подключение успешно' : 'Не удалось подключиться')}
+                    (testState.status === 'success' ? t('connections.form.testSuccess') : t('connections.form.testError'))}
                 </span>
               </div>
               {testState.detail && (
@@ -188,7 +190,7 @@ export function ConnectionForm({ isOpen, onClose, initialValues, onSaved }: Conn
                   onClick={() => setShowTestDetail((prev) => !prev)}
                   className="self-start text-fg-muted hover:text-fg-secondary hover:underline"
                 >
-                  {showTestDetail ? 'Скрыть технические детали' : 'Показать технические детали'}
+                  {showTestDetail ? t('connections.form.hideTechnicalDetails') : t('connections.form.showTechnicalDetails')}
                 </button>
               )}
               {showTestDetail && testState.detail && (
@@ -205,31 +207,31 @@ export function ConnectionForm({ isOpen, onClose, initialValues, onSaved }: Conn
     >
       <div className="flex flex-col gap-3">
         <Input
-          label="Название"
+          label={t('connections.form.nameLabel')}
           value={values.name}
           onChange={(e) => update('name', e.target.value)}
-          placeholder="AWS Production"
+          placeholder={t('connections.form.namePlaceholder')}
           required
         />
 
         <Input
-          label="Endpoint URL"
+          label={t('connections.form.endpointLabel')}
           value={values.endpointUrl}
           onChange={(e) => update('endpointUrl', e.target.value)}
-          placeholder="https://s3.amazonaws.com"
+          placeholder={t('connections.form.endpointPlaceholder')}
           required
         />
 
         <div className="flex flex-col">
           <label htmlFor="connection-region" className="mb-1 text-xs font-medium text-fg-secondary">
-            Регион
+            {t('connections.form.regionLabel')}
           </label>
           <input
             id="connection-region"
             list="connection-region-suggestions"
             value={values.region}
             onChange={(e) => update('region', e.target.value)}
-            placeholder="us-east-1"
+            placeholder={t('connections.form.regionPlaceholder')}
             className={cn(
               'h-8 w-full rounded border border-border bg-bg-secondary px-2.5 text-[13px] text-fg-primary',
               'placeholder:text-fg-muted transition-colors duration-fast',
@@ -244,7 +246,7 @@ export function ConnectionForm({ isOpen, onClose, initialValues, onSaved }: Conn
         </div>
 
         <Input
-          label="Access Key ID"
+          label={t('connections.form.accessKeyLabel')}
           value={values.accessKeyId}
           onChange={(e) => update('accessKeyId', e.target.value)}
           required
@@ -252,7 +254,7 @@ export function ConnectionForm({ isOpen, onClose, initialValues, onSaved }: Conn
 
         <div className="flex flex-col">
           <label htmlFor="connection-secret" className="mb-1 text-xs font-medium text-fg-secondary">
-            Secret Access Key
+            {t('connections.form.secretKeyLabel')}
           </label>
           <div className="relative">
             <input
@@ -266,11 +268,11 @@ export function ConnectionForm({ isOpen, onClose, initialValues, onSaved }: Conn
                 'focus:border-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-subtle',
               )}
             />
-            <Tooltip content={showSecret ? 'Скрыть секретный ключ' : 'Показать секретный ключ'}>
+            <Tooltip content={showSecret ? t('connections.form.hideSecret') : t('connections.form.showSecret')}>
               <button
                 type="button"
                 onClick={() => setShowSecret((prev) => !prev)}
-                aria-label={showSecret ? 'Скрыть секретный ключ' : 'Показать секретный ключ'}
+                aria-label={showSecret ? t('connections.form.hideSecret') : t('connections.form.showSecret')}
                 className="absolute right-1 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-sm text-fg-secondary transition-colors duration-fast hover:bg-bg-tertiary"
               >
                 {showSecret ? (
@@ -284,10 +286,10 @@ export function ConnectionForm({ isOpen, onClose, initialValues, onSaved }: Conn
         </div>
 
         <Input
-          label="Session Token"
+          label={t('connections.form.sessionTokenLabel')}
           value={values.sessionToken}
           onChange={(e) => update('sessionToken', e.target.value)}
-          placeholder="опционально"
+          placeholder={t('connections.form.sessionTokenPlaceholder')}
         />
 
         <div className="border-t border-border pt-2">
@@ -302,7 +304,7 @@ export function ConnectionForm({ isOpen, onClose, initialValues, onSaved }: Conn
             ) : (
               <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
             )}
-            Advanced
+            {t('connections.form.advanced')}
           </button>
           <div
             className={cn(
@@ -312,12 +314,12 @@ export function ConnectionForm({ isOpen, onClose, initialValues, onSaved }: Conn
           >
             <div className="flex flex-col gap-2 pb-1 pt-2">
               <Checkbox
-                label="Path-style URL"
+                label={t('connections.form.pathStyleLabel')}
                 checked={values.pathStyle}
                 onChange={(e) => update('pathStyle', e.target.checked)}
               />
               <Checkbox
-                label="Проверять SSL-сертификат"
+                label={t('connections.form.verifySslLabel')}
                 checked={values.verifySsl}
                 onChange={(e) => update('verifySsl', e.target.checked)}
               />

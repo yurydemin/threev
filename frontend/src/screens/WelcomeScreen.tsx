@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { CloudUpload } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { ConnectionForm } from '../components/connection/ConnectionForm';
 import { Button } from '../components/ui/Button';
 
@@ -17,19 +18,20 @@ import { Button } from '../components/ui/Button';
  * callback needs to be threaded back up.
  */
 export function WelcomeScreen() {
+  const { t } = useTranslation();
   const [isFormOpen, setIsFormOpen] = useState(false);
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6 text-center">
       <CloudUpload className="h-12 w-12 text-accent" aria-hidden="true" />
       <div className="flex flex-col gap-1.5">
-        <h1 className="text-xl font-semibold text-fg-primary">S3 Desktop Client</h1>
+        <h1 className="text-xl font-semibold text-fg-primary">{t('welcome.title')}</h1>
         <p className="text-sm text-fg-secondary">
-          Управляйте облачными хранилищами как локальными
+          {t('welcome.subtitle')}
         </p>
       </div>
       <Button variant="primary" size="large" onClick={() => setIsFormOpen(true)}>
-        + Добавить подключение
+        {t('welcome.addConnection')}
       </Button>
 
       <ConnectionForm

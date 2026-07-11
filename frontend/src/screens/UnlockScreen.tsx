@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Lock } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { unlock } from '../lib/wails/appsettings';
@@ -27,6 +28,7 @@ export interface UnlockScreenProps {
  * mechanism, and a dead-end link would be actively misleading.
  */
 export function UnlockScreen({ onUnlocked }: UnlockScreenProps) {
+  const { t } = useTranslation();
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -40,11 +42,11 @@ export function UnlockScreen({ onUnlocked }: UnlockScreenProps) {
       if (ok) {
         onUnlocked();
       } else {
-        setError('Неверный пароль');
+        setError(t('unlock.wrongPassword'));
       }
     } catch (err) {
       console.error('[UnlockScreen] unlock failed:', err);
-      const message = err instanceof ApiError ? err.message : 'Не удалось выполнить разблокировку';
+      const message = err instanceof ApiError ? err.message : t('unlock.genericError');
       setError(message);
       toast.error(message, err instanceof ApiError ? err.raw : undefined);
     } finally {
@@ -56,9 +58,9 @@ export function UnlockScreen({ onUnlocked }: UnlockScreenProps) {
     <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6 text-center">
       <Lock className="h-12 w-12 text-accent" aria-hidden="true" />
       <div className="flex flex-col gap-1.5">
-        <h1 className="text-xl font-semibold text-fg-primary">Приложение заблокировано</h1>
+        <h1 className="text-xl font-semibold text-fg-primary">{t('unlock.title')}</h1>
         <p className="text-sm text-fg-secondary">
-          Введите мастер-пароль для доступа к сохранённым подключениям
+          {t('unlock.subtitle')}
         </p>
       </div>
 
@@ -75,15 +77,15 @@ export function UnlockScreen({ onUnlocked }: UnlockScreenProps) {
           onChange={(e) => setPassword(e.target.value)}
           error={error ?? undefined}
           autoFocus
-          placeholder="Мастер-пароль"
+          placeholder={t('unlock.passwordPlaceholder')}
         />
         <Button type="submit" variant="primary" isLoading={isLoading} disabled={!password}>
-          Разблокировать
+          {t('unlock.unlockButton')}
         </Button>
       </form>
 
       <p className="max-w-xs text-xs text-fg-muted">
-        Если вы забыли пароль — восстановление недоступно; сохранённые подключения останутся зашифрованными
+        {t('unlock.recoveryHint')}
       </p>
     </div>
   );

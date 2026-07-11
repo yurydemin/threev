@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
@@ -35,6 +36,7 @@ export interface RenameModalProps {
  * than going through `useBulkOperationStore`.
  */
 export function RenameModal({ isOpen, onClose, profileId, bucket, entry, currentPrefix, onRenamed }: RenameModalProps) {
+  const { t } = useTranslation();
   const [newName, setNewName] = useState(() => getEntryDisplayName(entry.key, currentPrefix));
   const [isLoading, setIsLoading] = useState(false);
 
@@ -49,7 +51,7 @@ export function RenameModal({ isOpen, onClose, profileId, bucket, entry, current
     } catch (err) {
       console.error('[RenameModal] renameObject failed:', err);
       toast.error(
-        err instanceof ApiError ? err.message : 'Не удалось переименовать объект',
+        err instanceof ApiError ? err.message : t('fileManager.renameModal.genericError'),
         err instanceof ApiError ? err.raw : undefined,
       );
     } finally {
@@ -61,20 +63,20 @@ export function RenameModal({ isOpen, onClose, profileId, bucket, entry, current
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Переименовать"
+      title={t('fileManager.renameModal.title')}
       footer={
         <>
           <Button variant="secondary" onClick={onClose} disabled={isLoading}>
-            Отмена
+            {t('common.cancel')}
           </Button>
           <Button variant="primary" isLoading={isLoading} onClick={() => void handleRename()}>
-            Переименовать
+            {t('fileManager.renameModal.title')}
           </Button>
         </>
       }
     >
       <Input
-        label="Новое имя"
+        label={t('fileManager.renameModal.nameLabel')}
         value={newName}
         onChange={(event) => setNewName(event.target.value)}
         autoFocus

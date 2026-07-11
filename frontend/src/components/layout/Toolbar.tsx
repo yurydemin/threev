@@ -11,6 +11,7 @@ import {
   Search,
   Upload,
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
 import { useFileManagerStore } from '../../stores/useFileManagerStore';
 import { useTransferStore } from '../../stores/useTransferStore';
@@ -49,6 +50,7 @@ export interface ToolbarProps {
  * it has no meaningful behavior independent of that store.
  */
 export function Toolbar({ view, onViewChange }: ToolbarProps) {
+  const { t } = useTranslation();
   const history = useFileManagerStore((state) => state.history);
   const historyIndex = useFileManagerStore((state) => state.historyIndex);
   const activeProfileId = useFileManagerStore((state) => state.activeProfileId);
@@ -78,7 +80,7 @@ export function Toolbar({ view, onViewChange }: ToolbarProps) {
     } catch (err) {
       console.error('[Toolbar] pickUploadDirectory failed:', err);
       toast.error(
-        err instanceof ApiError ? err.message : 'Не удалось выбрать папку для загрузки',
+        err instanceof ApiError ? err.message : t('fileManager.toolbar.pickFolderError'),
         err instanceof ApiError ? err.raw : undefined,
       );
     }
@@ -86,12 +88,12 @@ export function Toolbar({ view, onViewChange }: ToolbarProps) {
 
   const uploadMenuItems: ContextMenuItem[] = [
     {
-      label: 'Выбрать файлы…',
+      label: t('fileManager.toolbar.pickFiles'),
       icon: <FileUp className="h-4 w-4" aria-hidden="true" />,
       onClick: () => void pickAndQueueUploadFiles(activeProfileId, selectedBucket, currentPrefix),
     },
     {
-      label: 'Выбрать папку…',
+      label: t('fileManager.toolbar.pickFolder'),
       icon: <FolderUp className="h-4 w-4" aria-hidden="true" />,
       onClick: () => void handlePickDirectory(),
     },
@@ -100,30 +102,30 @@ export function Toolbar({ view, onViewChange }: ToolbarProps) {
   return (
     <div className="flex h-header shrink-0 items-center justify-between gap-4 border-b border-border bg-bg-secondary px-4">
       <div className="flex min-w-0 items-center gap-2">
-        <Tooltip content="Назад">
+        <Tooltip content={t('fileManager.toolbar.back')}>
           <Button
             iconOnly
             variant="ghost"
             disabled={!canGoBack}
             onClick={() => goBack()}
-            aria-label="Назад"
+            aria-label={t('fileManager.toolbar.back')}
           >
             <ChevronLeft className="h-5 w-5" aria-hidden="true" />
           </Button>
         </Tooltip>
-        <Tooltip content="Вперёд">
+        <Tooltip content={t('fileManager.toolbar.forward')}>
           <Button
             iconOnly
             variant="ghost"
             disabled={!canGoForward}
             onClick={() => goForward()}
-            aria-label="Вперёд"
+            aria-label={t('fileManager.toolbar.forward')}
           >
             <ChevronRight className="h-5 w-5" aria-hidden="true" />
           </Button>
         </Tooltip>
-        <Tooltip content="Обновить">
-          <Button iconOnly variant="ghost" onClick={() => refresh()} aria-label="Обновить">
+        <Tooltip content={t('fileManager.toolbar.refresh')}>
+          <Button iconOnly variant="ghost" onClick={() => refresh()} aria-label={t('fileManager.toolbar.refresh')}>
             <RotateCcw className="h-5 w-5" aria-hidden="true" />
           </Button>
         </Tooltip>
@@ -145,7 +147,7 @@ export function Toolbar({ view, onViewChange }: ToolbarProps) {
             type="search"
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder="Поиск в текущей папке…"
+            placeholder={t('fileManager.toolbar.searchPlaceholder')}
             className={cn(
               'h-8 rounded border border-border bg-bg-secondary pl-8 pr-2.5 text-[13px] text-fg-primary',
               'placeholder:text-fg-muted transition-[width,border-color] duration-fast',
@@ -156,25 +158,25 @@ export function Toolbar({ view, onViewChange }: ToolbarProps) {
         </div>
 
         <div className="flex items-center gap-0.5 rounded-sm border border-border p-0.5">
-          <Tooltip content="Список">
+          <Tooltip content={t('fileManager.toolbar.listView')}>
             <Button
               iconOnly
               variant={view === 'list' ? 'secondary' : 'ghost'}
               className={cn('h-7 w-7', view === 'list' && 'border-none bg-bg-tertiary')}
               onClick={() => onViewChange('list')}
-              aria-label="Список"
+              aria-label={t('fileManager.toolbar.listView')}
               aria-pressed={view === 'list'}
             >
               <List className="h-4 w-4" aria-hidden="true" />
             </Button>
           </Tooltip>
-          <Tooltip content="Сетка">
+          <Tooltip content={t('fileManager.toolbar.gridView')}>
             <Button
               iconOnly
               variant={view === 'grid' ? 'secondary' : 'ghost'}
               className={cn('h-7 w-7', view === 'grid' && 'border-none bg-bg-tertiary')}
               onClick={() => onViewChange('grid')}
-              aria-label="Сетка"
+              aria-label={t('fileManager.toolbar.gridView')}
               aria-pressed={view === 'grid'}
             >
               <LayoutGrid className="h-4 w-4" aria-hidden="true" />
@@ -188,7 +190,7 @@ export function Toolbar({ view, onViewChange }: ToolbarProps) {
           onClick={() => setIsCreateFolderOpen(true)}
         >
           <FolderPlus className="h-4 w-4" aria-hidden="true" />
-          Создать папку
+          {t('fileManager.toolbar.createFolder')}
         </Button>
 
         <Button
@@ -200,7 +202,7 @@ export function Toolbar({ view, onViewChange }: ToolbarProps) {
           }}
         >
           <Upload className="h-4 w-4" aria-hidden="true" />
-          Загрузить
+          {t('fileManager.toolbar.upload')}
         </Button>
       </div>
 

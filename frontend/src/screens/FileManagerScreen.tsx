@@ -1,4 +1,5 @@
 import { useMemo, useState, type CSSProperties } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Sidebar } from '../components/layout/Sidebar';
 import { Toolbar, type FileManagerView } from '../components/layout/Toolbar';
 import { StatusBar } from '../components/layout/StatusBar';
@@ -85,6 +86,7 @@ export function FileManagerScreen({
   onSelectTransfers,
   onSelectSettings,
 }: FileManagerScreenProps) {
+  const { t } = useTranslation();
   const [view, setView] = useState<FileManagerView>('list');
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [previewEntry, setPreviewEntry] = useState<ObjectEntry | null>(null);
@@ -130,11 +132,12 @@ export function FileManagerScreen({
   );
 
   const hasSearchQuery = searchQuery.trim().length > 0;
-  const selectionSuffix = selectedKeys.size > 0 ? ` • ${selectedKeys.size} выбрано` : '';
+  const selectionSuffix =
+    selectedKeys.size > 0 ? t('fileManager.screen.statusSelectedSuffix', { count: selectedKeys.size }) : '';
   const statusLeft = selectedBucket
-    ? hasSearchQuery
-      ? `${filteredEntries.length} из ${entries.length} объектов${selectionSuffix}`
-      : `${entries.length} объектов${selectionSuffix}`
+    ? (hasSearchQuery
+        ? t('fileManager.screen.statusFiltered', { filtered: filteredEntries.length, total: entries.length })
+        : t('fileManager.screen.statusAll', { total: entries.length })) + selectionSuffix
     : undefined;
 
   function handleOpenFile(entry: ObjectEntry) {
@@ -171,7 +174,7 @@ export function FileManagerScreen({
           ) : (
             <div className="flex flex-1 items-center justify-center">
               <p className="text-sm text-fg-muted">
-                Выберите бакет слева, чтобы просмотреть его содержимое
+                {t('fileManager.screen.selectBucketHint')}
               </p>
             </div>
           )}

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { AlertTriangle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
@@ -18,6 +19,7 @@ export interface RemovePasswordModalProps {
  * behind `useSecurityStore` skipping `toast.error` here.
  */
 export function RemovePasswordModal({ isOpen, onClose }: RemovePasswordModalProps) {
+  const { t } = useTranslation();
   const [currentPassword, setCurrentPassword] = useState('');
   const [fieldError, setFieldError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -32,7 +34,7 @@ export function RemovePasswordModal({ isOpen, onClose }: RemovePasswordModalProp
   async function handleSubmit() {
     setFieldError(null);
     if (!currentPassword) {
-      setFieldError('Введите текущий пароль');
+      setFieldError(t('settings.removePasswordModal.emptyPasswordError'));
       return;
     }
 
@@ -42,7 +44,7 @@ export function RemovePasswordModal({ isOpen, onClose }: RemovePasswordModalProp
     if (ok) {
       onClose();
     } else {
-      setFieldError(useSecurityStore.getState().error ?? 'Не удалось удалить мастер-пароль');
+      setFieldError(useSecurityStore.getState().error ?? t('settings.removePasswordModal.genericError'));
     }
   }
 
@@ -50,14 +52,14 @@ export function RemovePasswordModal({ isOpen, onClose }: RemovePasswordModalProp
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Удалить мастер-пароль"
+      title={t('settings.removePasswordModal.title')}
       footer={
         <>
           <Button variant="secondary" onClick={onClose} disabled={isLoading}>
-            Отмена
+            {t('common.cancel')}
           </Button>
           <Button variant="danger" isLoading={isLoading} onClick={() => void handleSubmit()}>
-            Удалить
+            {t('common.delete')}
           </Button>
         </>
       }
@@ -66,12 +68,11 @@ export function RemovePasswordModal({ isOpen, onClose }: RemovePasswordModalProp
         <div className="flex items-start gap-3">
           <AlertTriangle className="h-8 w-8 shrink-0 text-danger" aria-hidden="true" />
           <p className="text-[13px] text-fg-primary">
-            После удаления сохранённые учётные данные будут защищены только ключом, привязанным к этому
-            компьютеру.
+            {t('settings.removePasswordModal.warning')}
           </p>
         </div>
         <Input
-          label="Текущий пароль"
+          label={t('settings.removePasswordModal.currentPasswordLabel')}
           type="password"
           value={currentPassword}
           onChange={(e) => setCurrentPassword(e.target.value)}

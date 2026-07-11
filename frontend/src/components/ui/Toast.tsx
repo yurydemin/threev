@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { AlertTriangle, Check, CheckCircle2, Copy, Info, X, XCircle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn, copyToClipboard } from '../../lib/utils';
 import { Tooltip } from './Tooltip';
 import type { ToastType } from '../../stores/useToastStore';
@@ -41,6 +42,7 @@ const TYPE_CONFIG: Record<ToastType, { icon: typeof CheckCircle2; border: string
  * the standard "copy button" confirmation pattern.
  */
 export function Toast({ id, type, message, details, onDismiss }: ToastProps) {
+  const { t } = useTranslation();
   const { icon: Icon, border, iconColor } = TYPE_CONFIG[type];
   const [isCopied, setIsCopied] = useState(false);
 
@@ -64,11 +66,11 @@ export function Toast({ id, type, message, details, onDismiss }: ToastProps) {
       <Icon className={cn('mt-0.5 h-4 w-4 shrink-0', iconColor)} aria-hidden="true" />
       <p className="min-w-0 flex-1 break-words text-[13px] text-fg-primary">{message}</p>
       {type === 'error' && details && (
-        <Tooltip content="Скопировать технические детали">
+        <Tooltip content={t('toast.copyDetails')}>
           <button
             type="button"
             onClick={() => void handleCopyDetails()}
-            aria-label="Скопировать технические детали"
+            aria-label={t('toast.copyDetails')}
             className={cn(
               'flex h-5 w-5 shrink-0 items-center justify-center rounded-sm text-fg-muted',
               'transition-colors duration-fast hover:bg-bg-tertiary hover:text-fg-primary',
@@ -85,7 +87,7 @@ export function Toast({ id, type, message, details, onDismiss }: ToastProps) {
       <button
         type="button"
         onClick={() => onDismiss(id)}
-        aria-label="Закрыть уведомление"
+        aria-label={t('toast.dismiss')}
         className={cn(
           'flex h-5 w-5 shrink-0 items-center justify-center rounded-sm text-fg-muted',
           'transition-colors duration-fast hover:bg-bg-tertiary hover:text-fg-primary',
