@@ -30,6 +30,37 @@ func TestIsLockedReflectsKeyBoxState(t *testing.T) {
 	}
 }
 
+// TestHasMasterPasswordMethodReflectsVerifierRowRegardlessOfLockState
+// verifies the (*SettingsService).HasMasterPassword method - unlike
+// IsLocked, which only reports the current KeyBox state - genuinely tracks
+// whether a verifier row exists: false on a freshly constructed service (no
+// password ever set), true once SetMasterPassword has run.
+func TestHasMasterPasswordMethodReflectsVerifierRowRegardlessOfLockState(t *testing.T) {
+	t.Parallel()
+
+	deps := newTestSettingsService(t)
+
+	hasPassword, err := deps.settingsSvc.HasMasterPassword()
+	if err != nil {
+		t.Fatalf("HasMasterPassword() returned error: %v", err)
+	}
+	if hasPassword {
+		t.Error("HasMasterPassword() on a fresh service = true, want false")
+	}
+
+	if err := deps.settingsSvc.SetMasterPassword("correct horse battery staple"); err != nil {
+		t.Fatalf("SetMasterPassword() returned error: %v", err)
+	}
+
+	hasPassword, err = deps.settingsSvc.HasMasterPassword()
+	if err != nil {
+		t.Fatalf("HasMasterPassword() returned error: %v", err)
+	}
+	if !hasPassword {
+		t.Error("HasMasterPassword() after SetMasterPassword() = false, want true")
+	}
+}
+
 // TestSetMasterPasswordReencryptsProfilesAndInstallsNewKey is the core
 // SetMasterPassword contract test: after a successful call, every stored
 // profile's SecretAccessKey/SessionToken decrypts under the NEW

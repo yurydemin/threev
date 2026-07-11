@@ -10,8 +10,18 @@ import { FileManagerScreen } from './screens/FileManagerScreen';
 import { TransferScreen } from './screens/TransferScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
 import { WelcomeScreen } from './screens/WelcomeScreen';
+import { UnlockScreen } from './screens/UnlockScreen';
 import { ToastContainer } from './components/ui/ToastContainer';
+import { isLocked as apiIsLocked } from './lib/wails/appsettings';
 import type { ConnectionSummary } from './types';
+
+/**
+ * Whether the app is gated behind `UnlockScreen` on startup. Checked once,
+ * via `appsettings.IsLocked`, before any of the normal `Screen`s render —
+ * see the boot-gate `useEffect` below for the fail-open rationale on a
+ * check failure.
+ */
+type BootState = { status: 'checking' } | { status: 'locked' } | { status: 'unlocked' };
 
 /**
  * Top-level navigation state. `connections` covers both the Welcome and
@@ -43,6 +53,22 @@ function App() {
     // theme/UI-scale reconciliation with the backend is relevant from
     // startup, on every screen, not just the Settings screen itself.
     useSettingsSync();
+
+    const [boot, setBoot] = useState<BootState>({ status: 'checking' });
+
+    useEffect(() => {
+        apiIsLocked()
+            .then((locked) => setBoot({ status: locked ? 'locked' : 'unlocked' }))
+            .catch((err) => {
+                // Fail-open on a plumbing failure (not a wrong password):
+                // if a master password is actually set, every backend call
+                // that needs the encryption key still enforces `ErrLocked`
+                // on its own, so this only avoids a UI deadlock, it doesn't
+                // open a real security hole.
+                console.error('[App] IsLocked check failed:', err);
+                setBoot({ status: 'unlocked' });
+            });
+    }, []);
 
     const connections = useConnectionStore((state) => state.connections);
     const isLoading = useConnectionStore((state) => state.isLoading);
@@ -81,6 +107,21 @@ function App() {
     // connections screen's own skeleton state over flashing the Welcome
     // screen — "no connections" is only meaningful once we actually know.
     const showWelcome = hasFetchedOnce && !isLoading && connections.length === 0;
+
+    if (boot.status === 'checking') {
+        // Empty shell in the app's own background color, not `null`, to
+        // avoid a white flash before the check resolves.
+        return <div className="flex h-screen bg-bg-primary" />;
+    }
+
+    if (boot.status === 'locked') {
+        return (
+            <div className="flex h-screen bg-bg-primary text-fg-primary">
+                <UnlockScreen onUnlocked={() => setBoot({ status: 'unlocked' })} />
+                <ToastContainer />
+            </div>
+        );
+    }
 
     return (
         <div className="flex h-screen bg-bg-primary text-fg-primary">

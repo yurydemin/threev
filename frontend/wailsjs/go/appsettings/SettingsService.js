@@ -10,6 +10,26 @@ export function GetSettings() {
   return window['go']['appsettings']['SettingsService']['GetSettings']();
 }
 
+export function HasMasterPassword() {
+  return window['go']['appsettings']['SettingsService']['HasMasterPassword']();
+}
+
+export function IsLocked() {
+  return window['go']['appsettings']['SettingsService']['IsLocked']();
+}
+
+export function RemoveMasterPassword(arg1) {
+  return window['go']['appsettings']['SettingsService']['RemoveMasterPassword'](arg1);
+}
+
 export function SaveSettings(arg1) {
   return window['go']['appsettings']['SettingsService']['SaveSettings'](arg1);
+}
+
+export function SetMasterPassword(arg1) {
+  return window['go']['appsettings']['SettingsService']['SetMasterPassword'](arg1);
+}
+
+export function Unlock(arg1) {
+  return window['go']['appsettings']['SettingsService']['Unlock'](arg1);
 }

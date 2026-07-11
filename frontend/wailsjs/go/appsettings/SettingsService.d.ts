@@ -6,4 +6,14 @@ export function ApplySettings(arg1:domain.AppSettings):Promise<void>;
 
 export function GetSettings():Promise<domain.AppSettings>;
 
+export function HasMasterPassword():Promise<boolean>;
+
+export function IsLocked():Promise<boolean>;
+
+export function RemoveMasterPassword(arg1:string):Promise<void>;
+
 export function SaveSettings(arg1:domain.AppSettings):Promise<void>;
+
+export function SetMasterPassword(arg1:string):Promise<void>;
+
+export function Unlock(arg1:string):Promise<boolean>;

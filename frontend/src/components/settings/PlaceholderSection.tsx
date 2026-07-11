@@ -6,9 +6,10 @@ export interface PlaceholderSectionProps {
 }
 
 /**
- * "Coming soon" placeholder, shared by the "Безопасность" (master password
- * — Stage 4 Block H/I, no backend yet) and "Сетевые" (proxy settings —
- * backlog per the Stage 4 plan) sections, which have no real content yet.
+ * "Coming soon" placeholder. Used by the "Сетевые" (proxy settings —
+ * backlog per the Stage 4 plan) section, which has no real content yet.
+ * "Безопасность" moved off this placeholder onto `SecuritySection` in
+ * Stage 4 Block I.
  */
 export function PlaceholderSection({ title, description }: PlaceholderSectionProps) {
   return (

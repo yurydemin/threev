@@ -72,6 +72,20 @@ func (s *SettingsService) IsLocked() bool {
 	return !ok
 }
 
+// HasMasterPassword reports whether a master password is currently
+// configured (a verifier row exists), regardless of whether s is currently
+// locked or unlocked - unlike IsLocked (which only ever reports "no key
+// installed right now" and cannot distinguish "no password was ever set" from
+// "a password is set but this session already unlocked it"), this is what
+// the frontend's Security settings section (Этап 4 суб-этап 4.4, Блок I)
+// calls to decide which form to show: "Установить пароль" when false,
+// "Сменить/удалить пароль" when true. Thin wrapper around the package-level
+// HasMasterPassword function app.go's newApp() already uses at startup for
+// the same underlying check, before a *SettingsService even exists.
+func (s *SettingsService) HasMasterPassword() (bool, error) {
+	return HasMasterPassword(context.Background(), s.db)
+}
+
 // SetMasterPassword configures password as a new master password (whether
 // none was set before, or replacing an existing one): derives a new key via
 // crypto.DeriveKey(password, s.salt) (a non-empty passphrase - see

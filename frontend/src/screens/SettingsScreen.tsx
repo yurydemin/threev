@@ -5,6 +5,7 @@ import { SettingsSidebar, type SettingsSection } from '../components/settings/Se
 import { GeneralSection } from '../components/settings/GeneralSection';
 import { AppearanceSection } from '../components/settings/AppearanceSection';
 import { TransfersSection } from '../components/settings/TransfersSection';
+import { SecuritySection } from '../components/settings/SecuritySection';
 import { PlaceholderSection } from '../components/settings/PlaceholderSection';
 import { AboutSection } from '../components/settings/AboutSection';
 import { Button } from '../components/ui/Button';
@@ -94,10 +95,7 @@ export function SettingsScreen({ onSelectConnections, onSelectTransfers }: Setti
           ) : section === 'transfers' ? (
             <TransfersSection value={draft} onChange={updateDraft} />
           ) : section === 'security' ? (
-            <PlaceholderSection
-              title="Скоро"
-              description="Мастер-пароль и защита сохранённых учётных данных появятся в одном из следующих обновлений."
-            />
+            <SecuritySection />
           ) : section === 'network' ? (
             <PlaceholderSection
               title="Скоро"

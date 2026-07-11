@@ -1,0 +1,84 @@
+import { useEffect, useState } from 'react';
+import { AlertTriangle } from 'lucide-react';
+import { Modal } from '../ui/Modal';
+import { Button } from '../ui/Button';
+import { Input } from '../ui/Input';
+import { useSecurityStore } from '../../stores/useSecurityStore';
+
+export interface RemovePasswordModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+/**
+ * "Удалить мастер-пароль" confirmation modal, per Stage 4 Block I.
+ *
+ * Same client-validate-then-call-backend, inline-error-on-failure
+ * convention as `SetPasswordModal` — see its doc comment for the rationale
+ * behind `useSecurityStore` skipping `toast.error` here.
+ */
+export function RemovePasswordModal({ isOpen, onClose }: RemovePasswordModalProps) {
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [fieldError, setFieldError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setCurrentPassword('');
+    setFieldError(null);
+    setIsLoading(false);
+  }, [isOpen]);
+
+  async function handleSubmit() {
+    setFieldError(null);
+    if (!currentPassword) {
+      setFieldError('Введите текущий пароль');
+      return;
+    }
+
+    setIsLoading(true);
+    const ok = await useSecurityStore.getState().removeMasterPassword(currentPassword);
+    setIsLoading(false);
+    if (ok) {
+      onClose();
+    } else {
+      setFieldError(useSecurityStore.getState().error ?? 'Не удалось удалить мастер-пароль');
+    }
+  }
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Удалить мастер-пароль"
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose} disabled={isLoading}>
+            Отмена
+          </Button>
+          <Button variant="danger" isLoading={isLoading} onClick={() => void handleSubmit()}>
+            Удалить
+          </Button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-3">
+        <div className="flex items-start gap-3">
+          <AlertTriangle className="h-8 w-8 shrink-0 text-danger" aria-hidden="true" />
+          <p className="text-[13px] text-fg-primary">
+            После удаления сохранённые учётные данные будут защищены только ключом, привязанным к этому
+            компьютеру.
+          </p>
+        </div>
+        <Input
+          label="Текущий пароль"
+          type="password"
+          value={currentPassword}
+          onChange={(e) => setCurrentPassword(e.target.value)}
+          error={fieldError ?? undefined}
+          autoFocus
+        />
+      </div>
+    </Modal>
+  );
+}

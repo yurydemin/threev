@@ -13,7 +13,15 @@
  * restart, but the frontend has no legitimate reason to invoke it directly
  * — `SaveSettings` is the only write path a screen should ever call.
  */
-import { GetSettings, SaveSettings } from '../../../wailsjs/go/appsettings/SettingsService';
+import {
+  GetSettings,
+  SaveSettings,
+  HasMasterPassword,
+  IsLocked,
+  Unlock,
+  SetMasterPassword,
+  RemoveMasterPassword,
+} from '../../../wailsjs/go/appsettings/SettingsService';
 import { domain } from '../../../wailsjs/go/models';
 import type { AppSettings } from '../../types';
 import { call } from './errors';
@@ -50,4 +58,29 @@ export async function getSettings(): Promise<AppSettings> {
 
 export async function saveSettings(settings: AppSettings): Promise<void> {
   return call(() => SaveSettings(toAppSettings(settings)));
+}
+
+/** Whether a master password has been set up (independent of lock state). */
+export async function hasMasterPassword(): Promise<boolean> {
+  return call(() => HasMasterPassword());
+}
+
+/** Whether the app is currently locked (a master password is set and hasn't been unlocked this session). */
+export async function isLocked(): Promise<boolean> {
+  return call(() => IsLocked());
+}
+
+/** Attempts to unlock with `password`. Resolves `false` (not a rejection) on a wrong password. */
+export async function unlock(password: string): Promise<boolean> {
+  return call(() => Unlock(password));
+}
+
+/** Sets (or changes) the master password. No current-password check when already unlocked — see `SecuritySection`. */
+export async function setMasterPassword(password: string): Promise<void> {
+  return call(() => SetMasterPassword(password));
+}
+
+/** Removes the master password, requiring `currentPassword` for confirmation. */
+export async function removeMasterPassword(currentPassword: string): Promise<void> {
+  return call(() => RemoveMasterPassword(currentPassword));
 }
