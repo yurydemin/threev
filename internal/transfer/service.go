@@ -17,6 +17,7 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 
 	"threev/internal/connection"
+	"threev/internal/crypto"
 	"threev/internal/domain"
 	"threev/internal/s3client"
 	"threev/internal/storage"
@@ -42,12 +43,13 @@ const wailsObjectChangeEvent = "object:change"
 //
 // Like FileManagerService, it deliberately does not depend on
 // connection.ConnectionService: it takes the same *storage.ProfileRepository
-// and encryption key already constructed once in app.go, resolving a
-// decrypted domain.Profile itself via connection.ResolveProfile (task.go's
-// runTask) whenever a task actually starts.
+// and (Этап 4 суб-этап 4.4) *crypto.KeyBox already constructed once in
+// app.go, resolving a decrypted domain.Profile itself via
+// connection.ResolveProfile (task.go's runTask) whenever a task actually
+// starts.
 type TransferService struct {
-	profileRepo   *storage.ProfileRepository
-	encryptionKey [32]byte
+	profileRepo *storage.ProfileRepository
+	keyBox      *crypto.KeyBox
 
 	queueRepo   *storage.TransferQueueRepository
 	historyRepo *storage.TransferHistoryRepository
@@ -110,7 +112,10 @@ type ctxHolder struct {
 }
 
 // NewTransferService returns a TransferService backed by profileRepo/
-// encryptionKey (for resolving profiles), queueRepo/historyRepo (for
+// keyBox (for resolving profiles - keyBox is read fresh on every call that
+// needs it rather than a fixed [32]byte being taken at construction time,
+// see crypto.KeyBox's own doc comment and NewConnectionService's identical
+// rationale, Этап 4 суб-этап 4.4), queueRepo/historyRepo (for
 // transfer_queue/transfer_history persistence), connMgr (for pooled/fresh
 // S3 clients per profile), and breaker (the shared, per-process circuit
 // breaker every task's retries coordinate through). maxConcurrentTasks
@@ -122,7 +127,7 @@ type ctxHolder struct {
 // called by internal/appsettings.SettingsService.ApplySettings.
 func NewTransferService(
 	profileRepo *storage.ProfileRepository,
-	encryptionKey [32]byte,
+	keyBox *crypto.KeyBox,
 	queueRepo *storage.TransferQueueRepository,
 	historyRepo *storage.TransferHistoryRepository,
 	connMgr *s3client.ConnectionManager,
@@ -130,7 +135,7 @@ func NewTransferService(
 ) *TransferService {
 	return &TransferService{
 		profileRepo:        profileRepo,
-		encryptionKey:      encryptionKey,
+		keyBox:             keyBox,
 		queueRepo:          queueRepo,
 		historyRepo:        historyRepo,
 		connMgr:            connMgr,
@@ -560,8 +565,20 @@ func (s *TransferService) QueueDownload(req domain.DownloadRequest) (int64, erro
 // which simply ends pagination early rather than aborting everything
 // already queued) is logged and skipped, never aborting the rest; a
 // non-nil error is returned only if nothing at all was queued.
+//
+// Guarded (Этап 4 суб-этап 4.4): unlike QueueUpload/QueueUploadPaths/
+// QueueDownload (which only ever create transfer_queue rows, resolving the
+// profile later, asynchronously, in runTask - see runTask's own guard),
+// QueueDownloadPrefix resolves the profile SYNCHRONOUSLY right here, since
+// it needs a live S3 client immediately to list bucket/prefix - so it needs
+// its own guard rather than relying on runTask's.
 func (s *TransferService) QueueDownloadPrefix(profileID int64, bucket, prefix, localDestDir string) ([]int64, error) {
-	profile, err := connection.ResolveProfile(context.Background(), s.profileRepo, s.encryptionKey, profileID)
+	key, ok := s.keyBox.Get()
+	if !ok {
+		return nil, domain.ErrLocked
+	}
+
+	profile, err := connection.ResolveProfile(context.Background(), s.profileRepo, key, profileID)
 	if err != nil {
 		return nil, fmt.Errorf("resolve profile %d: %w", profileID, err)
 	}

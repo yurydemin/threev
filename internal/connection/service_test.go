@@ -5,13 +5,18 @@ import (
 	"path/filepath"
 	"testing"
 
+	"threev/internal/crypto"
 	"threev/internal/domain"
 	"threev/internal/storage"
 )
 
 // newTestConnectionService opens a fresh migrated SQLite database backed by
 // a temporary file and returns a ConnectionService over it, using a fixed
-// (test-only) 32-byte encryption key.
+// (test-only) 32-byte encryption key, already Set on a fresh KeyBox (so
+// existing tests written before Этап 4 суб-этап 4.4's KeyBox refactor keep
+// observing an unlocked service, exactly as before - see
+// TestConnectionServiceGetProfileReturnsErrLockedWhenLocked below for the
+// dedicated locked-state test).
 func newTestConnectionService(t *testing.T) *ConnectionService {
 	t.Helper()
 
@@ -34,7 +39,10 @@ func newTestConnectionService(t *testing.T) *ConnectionService {
 		key[i] = byte(i)
 	}
 
-	return NewConnectionService(repo, key)
+	keyBox := crypto.NewKeyBox()
+	keyBox.Set(key)
+
+	return NewConnectionService(repo, keyBox)
 }
 
 func sampleServiceProfile(name string) domain.Profile {
@@ -354,5 +362,60 @@ func TestConnectionServiceTestConnectionUsesFormDataDirectly(t *testing.T) {
 	}
 	if result.Category == "" {
 		t.Error("Category is empty on failure")
+	}
+}
+
+// TestConnectionServiceGetProfileReturnsErrLockedWhenLocked verifies
+// GetProfile's Этап 4 суб-этап 4.4 guard: a ConnectionService backed by an
+// empty *crypto.KeyBox (never Set - the state app.go's newApp leaves it in
+// when a master password is configured but not yet unlocked) returns
+// domain.ErrLocked rather than attempting to decrypt anything.
+func TestConnectionServiceGetProfileReturnsErrLockedWhenLocked(t *testing.T) {
+	t.Parallel()
+
+	dbPath := filepath.Join(t.TempDir(), "connection_service_locked_test.db")
+
+	db, err := storage.OpenDB(dbPath)
+	if err != nil {
+		t.Fatalf("OpenDB(%q) returned error: %v", dbPath, err)
+	}
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Errorf("db.Close() returned error: %v", err)
+		}
+	})
+
+	repo := storage.NewProfileRepository(db)
+	svc := NewConnectionService(repo, crypto.NewKeyBox())
+
+	_, err = svc.GetProfile(1)
+	if !errors.Is(err, domain.ErrLocked) {
+		t.Fatalf("GetProfile() on a locked service error = %v, want errors.Is(_, domain.ErrLocked)", err)
+	}
+}
+
+// TestConnectionServiceSaveProfileReturnsErrLockedWhenLocked is
+// GetProfile's above locked-state test's SaveProfile counterpart.
+func TestConnectionServiceSaveProfileReturnsErrLockedWhenLocked(t *testing.T) {
+	t.Parallel()
+
+	dbPath := filepath.Join(t.TempDir(), "connection_service_locked_save_test.db")
+
+	db, err := storage.OpenDB(dbPath)
+	if err != nil {
+		t.Fatalf("OpenDB(%q) returned error: %v", dbPath, err)
+	}
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Errorf("db.Close() returned error: %v", err)
+		}
+	})
+
+	repo := storage.NewProfileRepository(db)
+	svc := NewConnectionService(repo, crypto.NewKeyBox())
+
+	_, err = svc.SaveProfile(sampleServiceProfile("locked"))
+	if !errors.Is(err, domain.ErrLocked) {
+		t.Fatalf("SaveProfile() on a locked service error = %v, want errors.Is(_, domain.ErrLocked)", err)
 	}
 }

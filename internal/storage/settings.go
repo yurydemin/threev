@@ -63,16 +63,48 @@ func GetSetting(ctx context.Context, db *sql.DB, key string) (string, error) {
 	return value.String, nil
 }
 
+// sqlExecutor is satisfied by both *sql.DB and *sql.Tx (both expose an
+// identical ExecContext signature) - SetSetting/DeleteSetting accept this
+// instead of a concrete *sql.DB so a caller that already owns a
+// transaction (internal/appsettings.SettingsService.reencryptTx, Этап 4
+// суб-этап 4.4) can write/delete a settings row as part of that SAME
+// transaction, rather than as a separate, non-atomic follow-up write after
+// the transaction has already committed - see reencryptTx's own doc
+// comment for why that atomicity is load-bearing (SetMasterPassword/
+// RemoveMasterPassword's master-password verifier row must never become
+// durably inconsistent with which key the stored profiles were actually
+// re-encrypted to).
+type sqlExecutor interface {
+	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
+}
+
 // SetSetting upserts key/value into the "settings" table. Exported for the
 // same reason as GetSetting - internal/appsettings.SettingsService.
-// SaveSettings writes each of its settings keys individually.
-func SetSetting(ctx context.Context, db *sql.DB, key, value string) error {
+// SaveSettings writes each of its settings keys individually. Accepts
+// sqlExecutor (not a concrete *sql.DB) so it can also be called with a
+// *sql.Tx - see sqlExecutor's own doc comment.
+func SetSetting(ctx context.Context, db sqlExecutor, key, value string) error {
 	const query = `
 INSERT INTO settings (key, value) VALUES (?, ?)
 ON CONFLICT (key) DO UPDATE SET value = excluded.value`
 
 	if _, err := db.ExecContext(ctx, query, key, value); err != nil {
 		return fmt.Errorf("set setting %q: %w", key, err)
+	}
+
+	return nil
+}
+
+// DeleteSetting removes the row stored under key, if any. Idempotent - it
+// is not an error to delete a key that does not exist (RemoveMasterPassword,
+// internal/appsettings/security.go, calls this to remove the master-password
+// verifier row, and the removal must succeed even if called twice or against
+// a database that somehow never had the row). Accepts sqlExecutor (not a
+// concrete *sql.DB) so it can also be called with a *sql.Tx - see
+// sqlExecutor's own doc comment.
+func DeleteSetting(ctx context.Context, db sqlExecutor, key string) error {
+	if _, err := db.ExecContext(ctx, `DELETE FROM settings WHERE key = ?`, key); err != nil {
+		return fmt.Errorf("delete setting %q: %w", key, err)
 	}
 
 	return nil

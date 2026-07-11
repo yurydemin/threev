@@ -29,8 +29,17 @@ const delimiter = "/"
 
 // ListBuckets returns every bucket visible to the profile identified by
 // profileID (FR-FM-001).
+//
+// Guarded (Этап 4 суб-этап 4.4): resolveClient below decrypts the profile's
+// credentials, requiring the current encryption key - unavailable while the
+// application is locked. See domain.ErrLocked's own doc comment.
 func (f *FileManagerService) ListBuckets(profileID int64) ([]domain.Bucket, error) {
-	client, err := f.resolveClient(profileID)
+	key, ok := f.keyBox.Get()
+	if !ok {
+		return nil, domain.ErrLocked
+	}
+
+	client, err := f.resolveClient(profileID, key)
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +81,22 @@ func (f *FileManagerService) ListBuckets(profileID int64) ([]domain.Bucket, erro
 //
 // In every case the returned Entries are freshly sorted per
 // req.SortBy/req.SortOrder without mutating the cached order.
+//
+// Guarded (Этап 4 суб-этап 4.4): the guard runs unconditionally at the top,
+// even though a fully cache-served request (see above) does not itself
+// need the encryption key - this is deliberate, not overly conservative:
+// with no Lock()/auto-relock in this application (see crypto.KeyBox's own
+// doc comment), the cache can only ever hold entries fetched while
+// unlocked, so a locked application can never actually have anything to
+// serve from cache anyway. Guarding once, up front, is simpler than
+// threading the guard down into fetchAndCachePage for a case that cannot
+// occur in practice.
 func (f *FileManagerService) ListObjects(req domain.ListObjectsRequest) (domain.ListObjectsResponse, error) {
+	encKey, ok := f.keyBox.Get()
+	if !ok {
+		return domain.ListObjectsResponse{}, domain.ErrLocked
+	}
+
 	key := cacheKey{ProfileID: req.ProfileID, Bucket: req.Bucket, Prefix: req.Prefix}
 
 	if req.Refresh {
@@ -89,15 +113,15 @@ func (f *FileManagerService) ListObjects(req domain.ListObjectsRequest) (domain.
 		}
 	}
 
-	return f.fetchAndCachePage(req, key)
+	return f.fetchAndCachePage(req, key, encKey)
 }
 
-// fetchAndCachePage performs the actual ListObjectsV2 call for req, merges
-// the resulting page into the cache under key (appending if req is a
-// follow-up page, replacing if it is a first page), and returns the sorted,
-// accumulated result.
-func (f *FileManagerService) fetchAndCachePage(req domain.ListObjectsRequest, key cacheKey) (domain.ListObjectsResponse, error) {
-	client, err := f.resolveClient(req.ProfileID)
+// fetchAndCachePage performs the actual ListObjectsV2 call for req (using
+// encKey, already guarded by ListObjects), merges the resulting page into
+// the cache under key (appending if req is a follow-up page, replacing if
+// it is a first page), and returns the sorted, accumulated result.
+func (f *FileManagerService) fetchAndCachePage(req domain.ListObjectsRequest, key cacheKey, encKey [32]byte) (domain.ListObjectsResponse, error) {
+	client, err := f.resolveClient(req.ProfileID, encKey)
 	if err != nil {
 		return domain.ListObjectsResponse{}, err
 	}

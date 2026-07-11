@@ -1,10 +1,13 @@
 package filemanager
 
 import (
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"threev/internal/domain"
 )
 
 func TestFileManagerServiceHeadObject(t *testing.T) {
@@ -103,5 +106,24 @@ func TestFileManagerServiceHeadObjectNotFoundError(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "not-found") {
 		t.Errorf("error = %q, want it classified as not-found", err.Error())
+	}
+}
+
+// TestFileManagerServiceHeadObjectReturnsErrLockedWhenLocked verifies
+// HeadObject's Этап 4 суб-этап 4.4 guard: a FileManagerService whose
+// keyBox has never been Set (or was Cleared) returns domain.ErrLocked
+// rather than attempting to resolve/decrypt anything - no server round
+// trip should even be attempted.
+func TestFileManagerServiceHeadObjectReturnsErrLockedWhenLocked(t *testing.T) {
+	t.Parallel()
+
+	fm, repo, key := newTestFileManagerService(t)
+	profileID := saveTestProfile(t, repo, key, "http://127.0.0.1:1")
+
+	fm.keyBox.Clear()
+
+	_, err := fm.HeadObject(profileID, "bucket1", "path/to/file.txt")
+	if !errors.Is(err, domain.ErrLocked) {
+		t.Fatalf("HeadObject() on a locked service error = %v, want errors.Is(_, domain.ErrLocked)", err)
 	}
 }

@@ -25,17 +25,22 @@ import (
 // decrypting them back out for the one caller that genuinely needs
 // plaintext (GetProfile, to populate an edit form).
 type ConnectionService struct {
-	repo          *storage.ProfileRepository
-	encryptionKey [32]byte
+	repo   *storage.ProfileRepository
+	keyBox *crypto.KeyBox
 }
 
-// NewConnectionService returns a ConnectionService backed by repo, using
-// encryptionKey to encrypt/decrypt SecretAccessKey and SessionToken.
-// encryptionKey is expected to be derived once at application startup (see
-// crypto.DeriveKey) and passed in already computed - ConnectionService
-// never derives or persists key material itself.
-func NewConnectionService(repo *storage.ProfileRepository, encryptionKey [32]byte) *ConnectionService {
-	return &ConnectionService{repo: repo, encryptionKey: encryptionKey}
+// NewConnectionService returns a ConnectionService backed by repo, reading
+// the current encryption key from keyBox on every call that needs one
+// rather than taking a fixed [32]byte at construction time (Этап 4 суб-этап
+// 4.4, KeyBox: see crypto.KeyBox's own doc comment for why a master
+// password means the key can no longer be a constructor-time constant).
+// keyBox is expected to be shared with every other service app.go's newApp
+// constructs (FileManagerService, TransferService, s3client.
+// ConnectionManager) and, when a master password is configured, is filled
+// in later by appsettings.SettingsService.Unlock rather than at
+// construction time.
+func NewConnectionService(repo *storage.ProfileRepository, keyBox *crypto.KeyBox) *ConnectionService {
+	return &ConnectionService{repo: repo, keyBox: keyBox}
 }
 
 // GetProfiles returns every saved profile as a secret-free ProfileDTO,
@@ -66,8 +71,19 @@ func (c *ConnectionService) GetProfiles() ([]domain.ProfileDTO, error) {
 // SecretAccessKey and SessionToken decrypted to plaintext, for populating
 // an edit form. AccessKeyID is returned as stored: it is not a secret and
 // is never encrypted in the first place.
+//
+// Guarded (Этап 4 суб-этап 4.4): decrypting SecretAccessKey/SessionToken
+// requires the current encryption key, which is unavailable while the
+// application is locked (a master password is configured but Unlock has
+// not yet succeeded this process lifetime) - see domain.ErrLocked's own
+// doc comment.
 func (c *ConnectionService) GetProfile(id int64) (domain.Profile, error) {
-	return ResolveProfile(context.Background(), c.repo, c.encryptionKey, id)
+	key, ok := c.keyBox.Get()
+	if !ok {
+		return domain.Profile{}, domain.ErrLocked
+	}
+
+	return ResolveProfile(context.Background(), c.repo, key, id)
 }
 
 // SaveProfile creates a new profile (p.ID == 0) or overwrites an existing
@@ -114,7 +130,20 @@ func (c *ConnectionService) GetProfile(id int64) (domain.Profile, error) {
 //     boundary). Every other field - including the persisted ID and
 //     timestamps - is returned normally, so the caller can e.g. update its
 //     local list state from the response.
+//
+// Guarded (Этап 4 суб-этап 4.4): encrypting a new/changed SecretAccessKey or
+// SessionToken requires the current encryption key, unavailable while the
+// application is locked - see GetProfile's identical guard/domain.ErrLocked
+// doc comment. The guard runs before any repository access at all (even the
+// keepExistingSecret path's read-only GetByID below), so a locked
+// application never partially validates/looks up a profile only to fail on
+// the encryption step.
 func (c *ConnectionService) SaveProfile(p domain.Profile) (domain.Profile, error) {
+	key, ok := c.keyBox.Get()
+	if !ok {
+		return domain.Profile{}, domain.ErrLocked
+	}
+
 	ctx := context.Background()
 
 	keepExistingSecret := p.ID != 0 && p.SecretAccessKey == ""
@@ -141,7 +170,7 @@ func (c *ConnectionService) SaveProfile(p domain.Profile) (domain.Profile, error
 	}
 
 	if !keepExistingSecret {
-		encrypted, err := crypto.Encrypt([]byte(p.SecretAccessKey), c.encryptionKey)
+		encrypted, err := crypto.Encrypt([]byte(p.SecretAccessKey), key)
 		if err != nil {
 			return domain.Profile{}, fmt.Errorf("save profile: encrypt secret access key: %w", err)
 		}
@@ -150,7 +179,7 @@ func (c *ConnectionService) SaveProfile(p domain.Profile) (domain.Profile, error
 	}
 
 	if p.SessionToken != "" {
-		encrypted, err := crypto.Encrypt([]byte(p.SessionToken), c.encryptionKey)
+		encrypted, err := crypto.Encrypt([]byte(p.SessionToken), key)
 		if err != nil {
 			return domain.Profile{}, fmt.Errorf("save profile: encrypt session token: %w", err)
 		}

@@ -2,6 +2,7 @@ package filemanager
 
 import (
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -133,6 +134,28 @@ func TestFileManagerServiceDeleteObjectsRejectsEmptyKeys(t *testing.T) {
 
 	if _, err := fm.DeleteObjects(domain.DeleteObjectsRequest{ProfileID: profileID, Bucket: "bucket1"}); err == nil {
 		t.Fatal("DeleteObjects() with no keys returned nil error, want an error")
+	}
+}
+
+// TestFileManagerServiceDeleteObjectsReturnsErrLockedWhenLocked verifies
+// DeleteObjects' Этап 4 суб-этап 4.4 guard runs SYNCHRONOUSLY - before any
+// operationID is ever handed back to the caller (see DeleteObjects' own doc
+// comment for why) - by asserting the returned operationID is exactly 0 (no
+// operation was ever registered), not merely that an error was returned.
+func TestFileManagerServiceDeleteObjectsReturnsErrLockedWhenLocked(t *testing.T) {
+	t.Parallel()
+
+	fm, repo, key := newTestFileManagerService(t)
+	profileID := saveTestProfile(t, repo, key, "http://127.0.0.1:1") // never contacted
+
+	fm.keyBox.Clear()
+
+	opID, err := fm.DeleteObjects(domain.DeleteObjectsRequest{ProfileID: profileID, Bucket: "bucket1", Keys: []string{"key1"}})
+	if !errors.Is(err, domain.ErrLocked) {
+		t.Fatalf("DeleteObjects() on a locked service error = %v, want errors.Is(_, domain.ErrLocked)", err)
+	}
+	if opID != 0 {
+		t.Errorf("DeleteObjects() on a locked service operationID = %d, want 0 (no operation should have been registered)", opID)
 	}
 }
 

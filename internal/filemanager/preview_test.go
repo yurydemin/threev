@@ -1,11 +1,14 @@
 package filemanager
 
 import (
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
 	"strings"
 	"testing"
+
+	"threev/internal/domain"
 )
 
 // smallPreviewContent is well under textPreviewLimitBytes.
@@ -168,5 +171,24 @@ func TestFileManagerServiceGetTextPreviewNotFoundError(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "not-found") {
 		t.Errorf("error = %q, want it classified as not-found", err.Error())
+	}
+}
+
+// TestFileManagerServiceGetTextPreviewReturnsErrLockedWhenLocked verifies
+// GetTextPreview's Этап 4 суб-этап 4.4 guard - see its own doc comment for
+// why this guard is deliberately repeated here even though the first thing
+// GetTextPreview calls (f.HeadObject) already carries an identical guard of
+// its own.
+func TestFileManagerServiceGetTextPreviewReturnsErrLockedWhenLocked(t *testing.T) {
+	t.Parallel()
+
+	fm, repo, key := newTestFileManagerService(t)
+	profileID := saveTestProfile(t, repo, key, "http://127.0.0.1:1")
+
+	fm.keyBox.Clear()
+
+	_, err := fm.GetTextPreview(profileID, "bucket1", "path/to/file.txt")
+	if !errors.Is(err, domain.ErrLocked) {
+		t.Fatalf("GetTextPreview() on a locked service error = %v, want errors.Is(_, domain.ErrLocked)", err)
 	}
 }

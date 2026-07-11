@@ -22,8 +22,17 @@ import (
 // f.connMgr/s3client.WithRetry: a single synchronous call has no batch/
 // worker-pool retry story to share, so the extra machinery buys nothing
 // here.
+//
+// Guarded (Этап 4 суб-этап 4.4): resolveClient below decrypts the profile's
+// credentials, requiring the current encryption key - unavailable while the
+// application is locked. See domain.ErrLocked's own doc comment.
 func (f *FileManagerService) UpdateMetadata(req domain.UpdateMetadataRequest) error {
-	client, err := f.resolveClient(req.ProfileID)
+	key, ok := f.keyBox.Get()
+	if !ok {
+		return domain.ErrLocked
+	}
+
+	client, err := f.resolveClient(req.ProfileID, key)
 	if err != nil {
 		return err
 	}

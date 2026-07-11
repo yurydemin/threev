@@ -2,11 +2,13 @@ package storage
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"path/filepath"
 	"reflect"
 	"testing"
 
+	"threev/internal/crypto"
 	"threev/internal/domain"
 )
 
@@ -28,6 +30,275 @@ func newTestProfileRepository(t *testing.T) *ProfileRepository {
 	})
 
 	return NewProfileRepository(db)
+}
+
+// newTestProfileRepositoryWithDB is newTestProfileRepository's counterpart
+// for tests that also need direct *sql.DB access (ReencryptSecretsTx's own
+// tests, below: they need to open transactions themselves, and one test
+// needs to hand-corrupt a row via a raw db.Exec to exercise the rollback
+// path).
+func newTestProfileRepositoryWithDB(t *testing.T) (*ProfileRepository, *sql.DB) {
+	t.Helper()
+
+	dbPath := filepath.Join(t.TempDir(), "profiles_reencrypt_test.db")
+
+	db, err := OpenDB(dbPath)
+	if err != nil {
+		t.Fatalf("OpenDB(%q) returned error: %v", dbPath, err)
+	}
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Errorf("db.Close() returned error: %v", err)
+		}
+	})
+
+	return NewProfileRepository(db), db
+}
+
+// reencryptTestKey returns a fixed (test-only) 32-byte key, filled with
+// seed in every byte - distinct seeds give distinct, comparable keys for
+// ReencryptSecretsTx's old/new key tests.
+func reencryptTestKey(seed byte) [32]byte {
+	var key [32]byte
+	for i := range key {
+		key[i] = seed
+	}
+
+	return key
+}
+
+// createEncryptedTestProfile creates and persists a profile named name
+// whose SecretAccessKey/SessionToken are encrypted with key (mirroring what
+// ConnectionService.SaveProfile does in production), returning the saved
+// (still-encrypted) profile.
+func createEncryptedTestProfile(t *testing.T, repo *ProfileRepository, key [32]byte, name string) domain.Profile {
+	t.Helper()
+
+	encryptedSecret, err := crypto.Encrypt([]byte("plaintext-secret-"+name), key)
+	if err != nil {
+		t.Fatalf("crypto.Encrypt(secret) returned error: %v", err)
+	}
+
+	encryptedToken, err := crypto.Encrypt([]byte("plaintext-token-"+name), key)
+	if err != nil {
+		t.Fatalf("crypto.Encrypt(session token) returned error: %v", err)
+	}
+
+	saved, err := repo.Create(context.Background(), domain.Profile{
+		Name:            name,
+		EndpointURL:     "https://s3.example.com",
+		Region:          "us-east-1",
+		AccessKeyID:     "AKIAEXAMPLE",
+		SecretAccessKey: encryptedSecret,
+		SessionToken:    encryptedToken,
+		PathStyle:       true,
+		VerifySSL:       true,
+	})
+	if err != nil {
+		t.Fatalf("Create(%q) returned error: %v", name, err)
+	}
+
+	return saved
+}
+
+// TestProfileRepositoryReencryptSecretsTxReencryptsAllProfiles verifies the
+// core contract: after a committed ReencryptSecretsTx(oldKey, newKey), every
+// profile's SecretAccessKey/SessionToken decrypts correctly under newKey and
+// no longer decrypts under oldKey.
+func TestProfileRepositoryReencryptSecretsTxReencryptsAllProfiles(t *testing.T) {
+	t.Parallel()
+
+	repo, db := newTestProfileRepositoryWithDB(t)
+	ctx := context.Background()
+
+	oldKey := reencryptTestKey(0x01)
+	newKey := reencryptTestKey(0x02)
+
+	profiles := []domain.Profile{
+		createEncryptedTestProfile(t, repo, oldKey, "alpha"),
+		createEncryptedTestProfile(t, repo, oldKey, "bravo"),
+		createEncryptedTestProfile(t, repo, oldKey, "charlie"),
+	}
+
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatalf("BeginTx() returned error: %v", err)
+	}
+
+	if err := repo.ReencryptSecretsTx(ctx, tx, oldKey, newKey); err != nil {
+		t.Fatalf("ReencryptSecretsTx() returned error: %v", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		t.Fatalf("Commit() returned error: %v", err)
+	}
+
+	for _, p := range profiles {
+		got, err := repo.GetByID(ctx, p.ID)
+		if err != nil {
+			t.Fatalf("GetByID(%d) returned error: %v", p.ID, err)
+		}
+
+		wantSecret := "plaintext-secret-" + p.Name
+		wantToken := "plaintext-token-" + p.Name
+
+		decryptedSecret, err := crypto.Decrypt(got.SecretAccessKey, newKey)
+		if err != nil {
+			t.Fatalf("profile %q: Decrypt(SecretAccessKey, newKey) returned error: %v", p.Name, err)
+		}
+		if string(decryptedSecret) != wantSecret {
+			t.Errorf("profile %q: SecretAccessKey decrypted with newKey = %q, want %q", p.Name, decryptedSecret, wantSecret)
+		}
+
+		decryptedToken, err := crypto.Decrypt(got.SessionToken, newKey)
+		if err != nil {
+			t.Fatalf("profile %q: Decrypt(SessionToken, newKey) returned error: %v", p.Name, err)
+		}
+		if string(decryptedToken) != wantToken {
+			t.Errorf("profile %q: SessionToken decrypted with newKey = %q, want %q", p.Name, decryptedToken, wantToken)
+		}
+
+		if _, err := crypto.Decrypt(got.SecretAccessKey, oldKey); err == nil {
+			t.Errorf("profile %q: Decrypt(SecretAccessKey, oldKey) succeeded after reencryption, want error", p.Name)
+		}
+	}
+}
+
+// TestProfileRepositoryReencryptSecretsTxSkipsEmptySessionToken verifies
+// that a profile with no SessionToken at all (the optional-field case
+// ConnectionService.SaveProfile already documents) round-trips through
+// ReencryptSecretsTx without error and stays empty - never encrypting an
+// empty string into something crypto.Decrypt would then fail to parse back
+// out as "".
+func TestProfileRepositoryReencryptSecretsTxSkipsEmptySessionToken(t *testing.T) {
+	t.Parallel()
+
+	repo, db := newTestProfileRepositoryWithDB(t)
+	ctx := context.Background()
+
+	oldKey := reencryptTestKey(0x03)
+	newKey := reencryptTestKey(0x04)
+
+	encryptedSecret, err := crypto.Encrypt([]byte("plaintext-secret"), oldKey)
+	if err != nil {
+		t.Fatalf("crypto.Encrypt(secret) returned error: %v", err)
+	}
+
+	saved, err := repo.Create(ctx, domain.Profile{
+		Name:            "no-token",
+		EndpointURL:     "https://s3.example.com",
+		Region:          "us-east-1",
+		AccessKeyID:     "AKIAEXAMPLE",
+		SecretAccessKey: encryptedSecret,
+		SessionToken:    "",
+		PathStyle:       true,
+		VerifySSL:       true,
+	})
+	if err != nil {
+		t.Fatalf("Create() returned error: %v", err)
+	}
+
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatalf("BeginTx() returned error: %v", err)
+	}
+
+	if err := repo.ReencryptSecretsTx(ctx, tx, oldKey, newKey); err != nil {
+		t.Fatalf("ReencryptSecretsTx() returned error: %v", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		t.Fatalf("Commit() returned error: %v", err)
+	}
+
+	got, err := repo.GetByID(ctx, saved.ID)
+	if err != nil {
+		t.Fatalf("GetByID(%d) returned error: %v", saved.ID, err)
+	}
+
+	if got.SessionToken != "" {
+		t.Errorf("SessionToken = %q, want empty", got.SessionToken)
+	}
+
+	decryptedSecret, err := crypto.Decrypt(got.SecretAccessKey, newKey)
+	if err != nil {
+		t.Fatalf("Decrypt(SecretAccessKey, newKey) returned error: %v", err)
+	}
+	if string(decryptedSecret) != "plaintext-secret" {
+		t.Errorf("SecretAccessKey decrypted with newKey = %q, want %q", decryptedSecret, "plaintext-secret")
+	}
+}
+
+// TestProfileRepositoryReencryptSecretsTxRollsBackOnCorruptedRow is the
+// key "commit only after every row succeeds" regression test: one profile's
+// secret_access_key is hand-corrupted (invalid base64, which crypto.Decrypt
+// itself would reject) directly via db.Exec (bypassing the repository/
+// crypto layer entirely - simulating a corrupted database row rather than
+// anything ReencryptSecretsTx's own caller could produce), so
+// ReencryptSecretsTx must fail on that row - and, critically, the caller
+// rolling back the transaction on that error must leave EVERY profile's
+// ciphertext (including the two healthy ones) completely untouched, still
+// decryptable under oldKey.
+func TestProfileRepositoryReencryptSecretsTxRollsBackOnCorruptedRow(t *testing.T) {
+	t.Parallel()
+
+	repo, db := newTestProfileRepositoryWithDB(t)
+	ctx := context.Background()
+
+	oldKey := reencryptTestKey(0x05)
+	newKey := reencryptTestKey(0x06)
+
+	healthy1 := createEncryptedTestProfile(t, repo, oldKey, "healthy-one")
+	corrupted := createEncryptedTestProfile(t, repo, oldKey, "corrupted")
+	healthy2 := createEncryptedTestProfile(t, repo, oldKey, "healthy-two")
+
+	if _, err := db.ExecContext(ctx, `UPDATE profiles SET secret_access_key = ? WHERE id = ?`, "not-valid-base64!!!", corrupted.ID); err != nil {
+		t.Fatalf("corrupt profile %d: %v", corrupted.ID, err)
+	}
+
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatalf("BeginTx() returned error: %v", err)
+	}
+
+	err = repo.ReencryptSecretsTx(ctx, tx, oldKey, newKey)
+	if err == nil {
+		t.Fatal("ReencryptSecretsTx() returned nil error, want an error for the corrupted row")
+	}
+
+	if rbErr := tx.Rollback(); rbErr != nil {
+		t.Fatalf("Rollback() returned error: %v", rbErr)
+	}
+
+	// Every profile - including the two healthy ones - must still decrypt
+	// under oldKey, exactly as before the failed attempt: the corrupted
+	// row's failure must not have left any partial writes committed.
+	for _, p := range []domain.Profile{healthy1, healthy2} {
+		got, err := repo.GetByID(ctx, p.ID)
+		if err != nil {
+			t.Fatalf("GetByID(%d) returned error: %v", p.ID, err)
+		}
+
+		decrypted, err := crypto.Decrypt(got.SecretAccessKey, oldKey)
+		if err != nil {
+			t.Fatalf("profile %q: Decrypt(SecretAccessKey, oldKey) returned error after rollback: %v", p.Name, err)
+		}
+
+		want := "plaintext-secret-" + p.Name
+		if string(decrypted) != want {
+			t.Errorf("profile %q: SecretAccessKey decrypted with oldKey after rollback = %q, want %q", p.Name, decrypted, want)
+		}
+	}
+
+	// The corrupted row itself must also be untouched (still the
+	// hand-corrupted value, not silently rewritten).
+	gotCorrupted, err := repo.GetByID(ctx, corrupted.ID)
+	if err != nil {
+		t.Fatalf("GetByID(%d) returned error: %v", corrupted.ID, err)
+	}
+	if gotCorrupted.SecretAccessKey != "not-valid-base64!!!" {
+		t.Errorf("corrupted profile SecretAccessKey after rollback = %q, want unchanged %q", gotCorrupted.SecretAccessKey, "not-valid-base64!!!")
+	}
 }
 
 func sampleProfile(name string) domain.Profile {

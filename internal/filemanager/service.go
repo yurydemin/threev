@@ -9,6 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 
 	"threev/internal/connection"
+	"threev/internal/crypto"
 	"threev/internal/s3client"
 	"threev/internal/storage"
 )
@@ -22,14 +23,14 @@ import (
 // It deliberately does not depend on connection.ConnectionService (that
 // would create a service->service dependency also needed by
 // TransferService, Stage 3). Instead it takes the same
-// *storage.ProfileRepository and encryption key already constructed once in
-// app.go, and resolves a decrypted domain.Profile itself via
-// connection.ResolveProfile - the same helper ConnectionService.GetProfile
-// delegates to.
+// *storage.ProfileRepository and (Этап 4 суб-этап 4.4) *crypto.KeyBox
+// already constructed once in app.go, and resolves a decrypted
+// domain.Profile itself via connection.ResolveProfile - the same helper
+// ConnectionService.GetProfile delegates to.
 type FileManagerService struct {
-	repo          *storage.ProfileRepository
-	encryptionKey [32]byte
-	cache         *listCache
+	repo   *storage.ProfileRepository
+	keyBox *crypto.KeyBox
+	cache  *listCache
 
 	// connMgr/breaker back the bulk delete/copy/move operations (bulkops.go,
 	// delete.go, copymove.go): unlike resolveClient (used by the pre-Stage-4
@@ -64,27 +65,39 @@ type FileManagerService struct {
 	nextOpID atomic.Int64
 }
 
-// NewFileManagerService returns a FileManagerService backed by repo, using
-// encryptionKey to decrypt profile credentials on demand (see
-// connection.ResolveProfile). encryptionKey is expected to be derived once
-// at application startup (see crypto.DeriveKey) and passed in already
-// computed, mirroring NewConnectionService. connMgr/breaker back the bulk
+// NewFileManagerService returns a FileManagerService backed by repo,
+// reading the current encryption key from keyBox on every call that needs
+// one (see connection.ResolveProfile) rather than taking a fixed [32]byte
+// at construction time - see crypto.KeyBox's own doc comment and
+// NewConnectionService's identical rationale (Этап 4 суб-этап 4.4, KeyBox).
+// keyBox is expected to be the same instance shared with every other
+// service app.go's newApp constructs. connMgr/breaker back the bulk
 // operations added in Этап 4 (see the connMgr/breaker fields' doc comment) -
 // breaker is expected to be the same instance passed to
 // transfer.NewTransferService.
-func NewFileManagerService(repo *storage.ProfileRepository, encryptionKey [32]byte, connMgr *s3client.ConnectionManager, breaker *s3client.CircuitBreaker) *FileManagerService {
+func NewFileManagerService(repo *storage.ProfileRepository, keyBox *crypto.KeyBox, connMgr *s3client.ConnectionManager, breaker *s3client.CircuitBreaker) *FileManagerService {
 	return &FileManagerService{
-		repo:          repo,
-		encryptionKey: encryptionKey,
-		cache:         newListCache(),
-		connMgr:       connMgr,
-		breaker:       breaker,
-		running:       make(map[int64]*runningBulkOp),
+		repo:    repo,
+		keyBox:  keyBox,
+		cache:   newListCache(),
+		connMgr: connMgr,
+		breaker: breaker,
+		running: make(map[int64]*runningBulkOp),
 	}
 }
 
-// resolveClient loads and decrypts the profile identified by profileID and
-// builds an *s3.Client from it.
+// resolveClient loads and decrypts the profile identified by profileID
+// (using key) and builds an *s3.Client from it.
+//
+// key is passed in by every caller (each of which has already performed
+// its own domain.ErrLocked guard by reading f.keyBox itself - see e.g.
+// ListBuckets/ListObjects) rather than resolveClient reading f.keyBox
+// directly: resolveClient is the single client-construction chokepoint for
+// every pre-Stage-4 listing/metadata/preview method, so centralizing
+// *client* construction here while leaving the *guard* at each public
+// method keeps every guard visible right next to the Wails-bound signature
+// it protects, rather than hidden one layer down in a shared private
+// helper.
 //
 // Note on context: like ConnectionService, every FileManagerService method
 // uses context.Background() internally (Wails v2's generated bindings do
@@ -97,8 +110,8 @@ func NewFileManagerService(repo *storage.ProfileRepository, encryptionKey [32]by
 // acceptable for this stage's volume of listing calls; a proper Connection
 // Manager with pooled clients belongs to the Transfer Engine (Stage 3, see
 // docs/02-tech-spec.md section 10.1).
-func (f *FileManagerService) resolveClient(profileID int64) (*s3.Client, error) {
-	p, err := connection.ResolveProfile(context.Background(), f.repo, f.encryptionKey, profileID)
+func (f *FileManagerService) resolveClient(profileID int64, key [32]byte) (*s3.Client, error) {
+	p, err := connection.ResolveProfile(context.Background(), f.repo, key, profileID)
 	if err != nil {
 		return nil, fmt.Errorf("resolve profile %d: %w", profileID, err)
 	}

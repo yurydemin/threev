@@ -36,8 +36,8 @@ import (
 // ResolveProfile's small amount of logic directly against
 // *storage.ProfileRepository and the crypto package.
 type ConnectionManager struct {
-	repo          *storage.ProfileRepository
-	encryptionKey [32]byte
+	repo   *storage.ProfileRepository
+	keyBox *crypto.KeyBox
 
 	mu      sync.Mutex
 	entries map[int64]*managerEntry
@@ -56,16 +56,17 @@ type managerEntry struct {
 	freshTransport  *http.Transport
 }
 
-// NewConnectionManager returns a ConnectionManager backed by repo, using
-// encryptionKey to decrypt profile credentials on demand. encryptionKey is
-// expected to be derived once at application startup (see
-// crypto.DeriveKey) and passed in already computed, mirroring
-// NewConnectionService/NewFileManagerService.
-func NewConnectionManager(repo *storage.ProfileRepository, encryptionKey [32]byte) *ConnectionManager {
+// NewConnectionManager returns a ConnectionManager backed by repo, reading
+// the current encryption key from keyBox on every Get call rather than
+// taking a fixed [32]byte at construction time - see crypto.KeyBox's own
+// doc comment and NewConnectionService's identical rationale (Этап 4
+// суб-этап 4.4, KeyBox). keyBox is expected to be the same instance shared
+// with every other service app.go's newApp constructs.
+func NewConnectionManager(repo *storage.ProfileRepository, keyBox *crypto.KeyBox) *ConnectionManager {
 	return &ConnectionManager{
-		repo:          repo,
-		encryptionKey: encryptionKey,
-		entries:       make(map[int64]*managerEntry),
+		repo:    repo,
+		keyBox:  keyBox,
+		entries: make(map[int64]*managerEntry),
 	}
 }
 
@@ -84,8 +85,18 @@ func NewConnectionManager(repo *storage.ProfileRepository, encryptionKey [32]byt
 // be called from many worker goroutines, both within one transfer's worker
 // pool and across multiple concurrent transfers against the same or
 // different profiles.
+//
+// Guarded (Этап 4 суб-этап 4.4): building a client requires decrypting the
+// profile's SecretAccessKey/SessionToken, which requires the current
+// encryption key - unavailable while the application is locked. See
+// domain.ErrLocked's own doc comment.
 func (m *ConnectionManager) Get(profileID int64) (pooled *s3.Client, fresh *s3.Client, err error) {
-	p, err := m.resolveProfile(profileID)
+	key, ok := m.keyBox.Get()
+	if !ok {
+		return nil, nil, domain.ErrLocked
+	}
+
+	p, err := m.resolveProfile(profileID, key)
 	if err != nil {
 		return nil, nil, fmt.Errorf("resolve profile %d: %w", profileID, err)
 	}
@@ -135,18 +146,24 @@ func (m *ConnectionManager) Invalidate(profileID int64) {
 }
 
 // resolveProfile loads the profile identified by id from m.repo and
-// decrypts its SecretAccessKey and (if present) SessionToken using
-// m.encryptionKey. It is functionally identical to
-// connection.ResolveProfile, duplicated here rather than called directly
-// because connection already imports s3client (see the ConnectionManager
-// doc comment) and importing it back would create a cycle.
-func (m *ConnectionManager) resolveProfile(id int64) (domain.Profile, error) {
+// decrypts its SecretAccessKey and (if present) SessionToken using key. It
+// is functionally identical to connection.ResolveProfile, duplicated here
+// rather than called directly because connection already imports s3client
+// (see the ConnectionManager doc comment) and importing it back would
+// create a cycle.
+//
+// key is passed in by Get (already guarded/read from m.keyBox) rather than
+// read from m.keyBox itself here - this private helper trusts its one
+// caller to have already performed the domain.ErrLocked guard, mirroring
+// connection.ResolveProfile's own signature (a raw [32]byte parameter, not
+// a *crypto.KeyBox).
+func (m *ConnectionManager) resolveProfile(id int64, key [32]byte) (domain.Profile, error) {
 	p, err := m.repo.GetByID(context.Background(), id)
 	if err != nil {
 		return domain.Profile{}, fmt.Errorf("get profile %d: %w", id, err)
 	}
 
-	secret, err := crypto.Decrypt(p.SecretAccessKey, m.encryptionKey)
+	secret, err := crypto.Decrypt(p.SecretAccessKey, key)
 	if err != nil {
 		return domain.Profile{}, fmt.Errorf("get profile %d: decrypt secret access key: %w", id, err)
 	}
@@ -154,7 +171,7 @@ func (m *ConnectionManager) resolveProfile(id int64) (domain.Profile, error) {
 	p.SecretAccessKey = string(secret)
 
 	if p.SessionToken != "" {
-		token, err := crypto.Decrypt(p.SessionToken, m.encryptionKey)
+		token, err := crypto.Decrypt(p.SessionToken, key)
 		if err != nil {
 			return domain.Profile{}, fmt.Errorf("get profile %d: decrypt session token: %w", id, err)
 		}

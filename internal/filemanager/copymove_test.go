@@ -1,6 +1,7 @@
 package filemanager
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -160,6 +161,51 @@ func TestFileManagerServiceMoveObjectsRejectsEmptyKeys(t *testing.T) {
 	req := domain.BulkMoveRequest{ProfileID: profileID, SourceBucket: "bucket1", DestBucket: "bucket1", DestPrefix: "archive/"}
 	if _, err := fm.MoveObjects(req); err == nil {
 		t.Fatal("MoveObjects() with no keys returned nil error, want an error")
+	}
+}
+
+// TestFileManagerServiceCopyObjectsReturnsErrLockedWhenLocked verifies
+// CopyObjects' Этап 4 суб-этап 4.4 guard runs SYNCHRONOUSLY - before any
+// operationID is ever handed back to the caller (see DeleteObjects' own doc
+// comment, copymove.go, for why) - asserting the returned operationID is
+// exactly 0.
+func TestFileManagerServiceCopyObjectsReturnsErrLockedWhenLocked(t *testing.T) {
+	t.Parallel()
+
+	fm, repo, key := newTestFileManagerService(t)
+	profileID := saveTestProfile(t, repo, key, "http://127.0.0.1:1") // never contacted
+
+	fm.keyBox.Clear()
+
+	req := domain.BulkCopyRequest{ProfileID: profileID, SourceBucket: "bucket1", Keys: []string{"key1"}, DestBucket: "bucket1", DestPrefix: "archive/"}
+
+	opID, err := fm.CopyObjects(req)
+	if !errors.Is(err, domain.ErrLocked) {
+		t.Fatalf("CopyObjects() on a locked service error = %v, want errors.Is(_, domain.ErrLocked)", err)
+	}
+	if opID != 0 {
+		t.Errorf("CopyObjects() on a locked service operationID = %d, want 0 (no operation should have been registered)", opID)
+	}
+}
+
+// TestFileManagerServiceMoveObjectsReturnsErrLockedWhenLocked is
+// CopyObjects' identical guard test above's MoveObjects counterpart.
+func TestFileManagerServiceMoveObjectsReturnsErrLockedWhenLocked(t *testing.T) {
+	t.Parallel()
+
+	fm, repo, key := newTestFileManagerService(t)
+	profileID := saveTestProfile(t, repo, key, "http://127.0.0.1:1") // never contacted
+
+	fm.keyBox.Clear()
+
+	req := domain.BulkMoveRequest{ProfileID: profileID, SourceBucket: "bucket1", Keys: []string{"key1"}, DestBucket: "bucket1", DestPrefix: "archive/"}
+
+	opID, err := fm.MoveObjects(req)
+	if !errors.Is(err, domain.ErrLocked) {
+		t.Fatalf("MoveObjects() on a locked service error = %v, want errors.Is(_, domain.ErrLocked)", err)
+	}
+	if opID != 0 {
+		t.Errorf("MoveObjects() on a locked service operationID = %d, want 0 (no operation should have been registered)", opID)
 	}
 }
 

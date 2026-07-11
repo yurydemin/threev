@@ -1,10 +1,13 @@
 package filemanager
 
 import (
+	"errors"
 	"net/url"
 	"strconv"
 	"strings"
 	"testing"
+
+	"threev/internal/domain"
 )
 
 // presignedExpirySeconds parses the X-Amz-Expires query parameter (the
@@ -87,6 +90,26 @@ func TestFileManagerServiceGetPresignedURLClampsExpiry(t *testing.T) {
 				t.Errorf("X-Amz-Expires = %d, want %d", got, tt.wantSeconds)
 			}
 		})
+	}
+}
+
+// TestFileManagerServiceGetPresignedURLReturnsErrLockedWhenLocked verifies
+// GetPresignedURL's Этап 4 суб-этап 4.4 guard: even though presigning
+// itself is a purely local cryptographic operation with no network call
+// (see GetPresignedURL's own doc comment), it still requires the current
+// encryption key to decrypt the profile's credentials via resolveClient
+// first, so a locked application must fail here too.
+func TestFileManagerServiceGetPresignedURLReturnsErrLockedWhenLocked(t *testing.T) {
+	t.Parallel()
+
+	fm, repo, key := newTestFileManagerService(t)
+	profileID := saveTestProfile(t, repo, key, "http://localhost:9000")
+
+	fm.keyBox.Clear()
+
+	_, err := fm.GetPresignedURL(profileID, "bucket1", "path/to/file.txt", 300)
+	if !errors.Is(err, domain.ErrLocked) {
+		t.Fatalf("GetPresignedURL() on a locked service error = %v, want errors.Is(_, domain.ErrLocked)", err)
 	}
 }
 

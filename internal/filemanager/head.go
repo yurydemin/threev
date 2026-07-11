@@ -14,8 +14,17 @@ import (
 // HeadObject returns metadata for a single object (bucket/key) belonging to
 // profileID (docs/02-tech-spec.md section 9.2), without downloading its
 // body.
+//
+// Guarded (Этап 4 суб-этап 4.4): resolveClient below decrypts the profile's
+// credentials, requiring the current encryption key - unavailable while the
+// application is locked. See domain.ErrLocked's own doc comment.
 func (f *FileManagerService) HeadObject(profileID int64, bucket, key string) (domain.ObjectMeta, error) {
-	client, err := f.resolveClient(profileID)
+	encKey, ok := f.keyBox.Get()
+	if !ok {
+		return domain.ObjectMeta{}, domain.ErrLocked
+	}
+
+	client, err := f.resolveClient(profileID, encKey)
 	if err != nil {
 		return domain.ObjectMeta{}, err
 	}

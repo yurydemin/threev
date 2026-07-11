@@ -1,6 +1,7 @@
 package filemanager
 
 import (
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -152,5 +153,26 @@ func TestFileManagerServiceRenameObjectDeleteFailureAfterSuccessfulCopy(t *testi
 
 	if mock.deleteCount != 1 {
 		t.Errorf("delete count = %d, want 1", mock.deleteCount)
+	}
+}
+
+// TestFileManagerServiceRenameObjectReturnsErrLockedWhenLocked verifies
+// RenameObject's Этап 4 суб-этап 4.4 guard.
+func TestFileManagerServiceRenameObjectReturnsErrLockedWhenLocked(t *testing.T) {
+	t.Parallel()
+
+	fm, repo, key := newTestFileManagerService(t)
+	profileID := saveTestProfile(t, repo, key, "http://127.0.0.1:1") // never contacted
+
+	fm.keyBox.Clear()
+
+	err := fm.RenameObject(domain.RenameObjectRequest{
+		ProfileID: profileID,
+		Bucket:    "bucket1",
+		OldKey:    "docs/report.txt",
+		NewKey:    "docs/report-final.txt",
+	})
+	if !errors.Is(err, domain.ErrLocked) {
+		t.Fatalf("RenameObject() on a locked service error = %v, want errors.Is(_, domain.ErrLocked)", err)
 	}
 }

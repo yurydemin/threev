@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"threev/internal/connection"
+	"threev/internal/crypto"
 	"threev/internal/domain"
 	"threev/internal/s3client"
 	"threev/internal/storage"
@@ -28,7 +29,16 @@ type testSettingsDeps struct {
 	transferSvc *transfer.TransferService
 	profileRepo *storage.ProfileRepository
 	key         [32]byte
+	keyBox      *crypto.KeyBox
+	salt        []byte
 }
+
+// testSettingsSalt is a fixed (test-only) Argon2id salt, used by every
+// security.go test (SetMasterPassword/Unlock/RemoveMasterPassword) that
+// needs a real crypto.DeriveKey call - 16 bytes, matching
+// crypto.GenerateSalt's documented length, though its exact value is
+// otherwise arbitrary and never persisted/regenerated across tests.
+var testSettingsSalt = []byte("0123456789abcdef")
 
 func newTestSettingsService(t *testing.T) testSettingsDeps {
 	t.Helper()
@@ -54,17 +64,22 @@ func newTestSettingsService(t *testing.T) testSettingsDeps {
 		key[i] = byte(i)
 	}
 
-	connMgr := s3client.NewConnectionManager(profileRepo, key)
+	keyBox := crypto.NewKeyBox()
+	keyBox.Set(key)
+
+	connMgr := s3client.NewConnectionManager(profileRepo, keyBox)
 	breaker := s3client.NewCircuitBreaker()
 
-	transferSvc := transfer.NewTransferService(profileRepo, key, queueRepo, historyRepo, connMgr, breaker)
-	settingsSvc := NewSettingsService(db, transferSvc)
+	transferSvc := transfer.NewTransferService(profileRepo, keyBox, queueRepo, historyRepo, connMgr, breaker)
+	settingsSvc := NewSettingsService(db, transferSvc, profileRepo, keyBox, testSettingsSalt)
 
 	return testSettingsDeps{
 		settingsSvc: settingsSvc,
 		transferSvc: transferSvc,
 		profileRepo: profileRepo,
 		key:         key,
+		keyBox:      keyBox,
+		salt:        testSettingsSalt,
 	}
 }
 
@@ -76,7 +91,10 @@ var testProfileNameCounter atomic.Int64
 func createTestProfile(t *testing.T, profileRepo *storage.ProfileRepository, key [32]byte, endpointURL string) int64 {
 	t.Helper()
 
-	connSvc := connection.NewConnectionService(profileRepo, key)
+	keyBox := crypto.NewKeyBox()
+	keyBox.Set(key)
+
+	connSvc := connection.NewConnectionService(profileRepo, keyBox)
 
 	saved, err := connSvc.SaveProfile(domain.Profile{
 		Name:            fmt.Sprintf("appsettings-test-%d", testProfileNameCounter.Add(1)),

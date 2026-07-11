@@ -6,6 +6,8 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+
+	"threev/internal/domain"
 )
 
 // minPresignExpiry and maxPresignExpiry bound the TTL of a presigned URL
@@ -34,8 +36,17 @@ const defaultPresignExpiry = 5 * time.Minute
 // callers that don't care about TTL (e.g. Stage 2's frontend, which never
 // sets this parameter explicitly) get the intended 5-minute default rather
 // than the 1-minute floor.
+//
+// Guarded (Этап 4 суб-этап 4.4): resolveClient below decrypts the profile's
+// credentials, requiring the current encryption key - unavailable while the
+// application is locked. See domain.ErrLocked's own doc comment.
 func (f *FileManagerService) GetPresignedURL(profileID int64, bucket, key string, expirySeconds int64) (string, error) {
-	client, err := f.resolveClient(profileID)
+	encKey, ok := f.keyBox.Get()
+	if !ok {
+		return "", domain.ErrLocked
+	}
+
+	client, err := f.resolveClient(profileID, encKey)
 	if err != nil {
 		return "", err
 	}

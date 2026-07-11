@@ -27,15 +27,32 @@ const deleteObjectsBatchSize = 1000
 // interrupted early via CancelBulkOperation(operationID).
 //
 // Returns an error, without starting anything, if req.Keys is empty.
+//
+// Guarded (Этап 4 суб-этап 4.4): the guard here runs SYNCHRONOUSLY, before
+// registerBulkOp/the "go f.runDeleteObjects(...)" call below, not inside
+// the spawned goroutine itself (contrast runDeleteObjects'
+// resolveBulkClients call, which merely receives an already-guarded key as
+// a parameter - see resolveBulkClients' own doc comment). This ordering
+// matters: if the guard instead lived inside the goroutine, a locked
+// application would still hand the caller a live operationID and let the
+// frontend's progress overlay start tracking it, only to have the
+// operation silently fail moments later - misleadingly implying an
+// operation actually began. Failing fast, synchronously, before any
+// operationID is ever returned, avoids that.
 func (f *FileManagerService) DeleteObjects(req domain.DeleteObjectsRequest) (int64, error) {
 	if len(req.Keys) == 0 {
 		return 0, fmt.Errorf("delete objects: no keys given")
 	}
 
+	key, ok := f.keyBox.Get()
+	if !ok {
+		return 0, domain.ErrLocked
+	}
+
 	opID := f.nextOperationID()
 	ctx, rt := f.registerBulkOp(opID)
 
-	go f.runDeleteObjects(ctx, opID, req, rt)
+	go f.runDeleteObjects(ctx, opID, req, rt, key)
 
 	return opID, nil
 }
@@ -69,12 +86,16 @@ func (f *FileManagerService) DeleteObjects(req domain.DeleteObjectsRequest) (int
 // in-flight when cancellation happens is still allowed to finish (ctx is
 // also threaded into that batch's own WithRetry call, so an in-flight
 // attempt is itself interrupted promptly too).
-func (f *FileManagerService) runDeleteObjects(ctx context.Context, opID int64, req domain.DeleteObjectsRequest, rt *runningBulkOp) {
+//
+// key is the encryption key DeleteObjects already read from f.keyBox
+// (synchronously, before spawning this goroutine - see DeleteObjects' own
+// doc comment for why the guard cannot live here instead).
+func (f *FileManagerService) runDeleteObjects(ctx context.Context, opID int64, req domain.DeleteObjectsRequest, rt *runningBulkOp, key [32]byte) {
 	defer f.finishBulkOp(opID, rt)
 
 	total := len(req.Keys)
 
-	pooled, fresh, host, err := f.resolveBulkClients(req.ProfileID)
+	pooled, fresh, host, err := f.resolveBulkClients(req.ProfileID, key)
 	if err != nil {
 		// Nothing could even be attempted - every key counts as processed
 		// and failed, and the operation still reaches a normal terminal
@@ -182,13 +203,26 @@ func (f *FileManagerService) deleteObjectBatch(ctx context.Context, pooled, fres
 	return batchErrors, nil
 }
 
-// resolveBulkClients resolves profileID's decrypted profile and pooled/fresh
-// S3 clients (via connection.ResolveProfile/f.connMgr.Get - the same two
-// calls transfer.TransferService.runTask makes) plus the bare hostname
-// s3client.WithRetry's host parameter expects, in one call - shared by every
-// bulk operation's goroutine (runDeleteObjects, runCopyOrMove).
-func (f *FileManagerService) resolveBulkClients(profileID int64) (pooled, fresh *s3.Client, host string, err error) {
-	profile, err := connection.ResolveProfile(context.Background(), f.repo, f.encryptionKey, profileID)
+// resolveBulkClients resolves profileID's decrypted profile (using key) and
+// pooled/fresh S3 clients (via connection.ResolveProfile/f.connMgr.Get -
+// the same two calls transfer.TransferService.runTask makes) plus the bare
+// hostname s3client.WithRetry's host parameter expects, in one call -
+// shared by every bulk operation's goroutine (runDeleteObjects,
+// runCopyOrMove).
+//
+// key is received as a parameter (already guarded by each of
+// DeleteObjects/CopyObjects/MoveObjects, synchronously, before their
+// goroutine was ever spawned) rather than read from f.keyBox here: by the
+// time this runs, on a goroutine with no caller left to hand a
+// domain.ErrLocked back to, re-checking the guard here would be too late to
+// matter (see DeleteObjects' own doc comment). f.connMgr.Get performs its
+// own, entirely separate guard against f.connMgr's own keyBox (the same
+// shared *crypto.KeyBox instance) - this call therefore effectively goes
+// through two independent decrypt attempts against the same key, which is
+// harmless (both trivially succeed or fail together, since they share one
+// KeyBox) rather than a real double-guard.
+func (f *FileManagerService) resolveBulkClients(profileID int64, key [32]byte) (pooled, fresh *s3.Client, host string, err error) {
+	profile, err := connection.ResolveProfile(context.Background(), f.repo, key, profileID)
 	if err != nil {
 		return nil, nil, "", fmt.Errorf("resolve profile %d: %w", profileID, err)
 	}

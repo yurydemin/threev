@@ -2,6 +2,7 @@ package s3client
 
 import (
 	"context"
+	"errors"
 	"path/filepath"
 	"testing"
 
@@ -22,7 +23,11 @@ func testEncryptionKey() [32]byte {
 }
 
 // newTestConnectionManager opens a fresh migrated SQLite database backed by
-// a temporary file and returns a ConnectionManager over it.
+// a temporary file and returns a ConnectionManager over it, with a fresh
+// *crypto.KeyBox already Set to testEncryptionKey() (mirroring the state
+// app.go's newApp leaves it in when no master password is configured - see
+// TestConnectionManagerGetReturnsErrLockedWhenLocked for the dedicated
+// locked-state test, which builds its own KeyBox instead).
 func newTestConnectionManager(t *testing.T) (*ConnectionManager, *storage.ProfileRepository) {
 	t.Helper()
 
@@ -40,7 +45,10 @@ func newTestConnectionManager(t *testing.T) (*ConnectionManager, *storage.Profil
 
 	repo := storage.NewProfileRepository(db)
 
-	return NewConnectionManager(repo, testEncryptionKey()), repo
+	keyBox := crypto.NewKeyBox()
+	keyBox.Set(testEncryptionKey())
+
+	return NewConnectionManager(repo, keyBox), repo
 }
 
 // createTestProfile encrypts secret/session token with the manager's test
@@ -200,4 +208,34 @@ func TestConnectionManagerInvalidateUnknownProfileIsNoop(t *testing.T) {
 
 	// Must not panic or error for a profile that was never cached.
 	mgr.Invalidate(999)
+}
+
+// TestConnectionManagerGetReturnsErrLockedWhenLocked verifies Get's Этап 4
+// суб-этап 4.4 guard: a ConnectionManager backed by an empty *crypto.KeyBox
+// (never Set) returns domain.ErrLocked rather than attempting to decrypt
+// anything, even for a profile that would otherwise resolve successfully.
+func TestConnectionManagerGetReturnsErrLockedWhenLocked(t *testing.T) {
+	t.Parallel()
+
+	dbPath := filepath.Join(t.TempDir(), "connection_manager_locked_test.db")
+
+	db, err := storage.OpenDB(dbPath)
+	if err != nil {
+		t.Fatalf("OpenDB(%q) returned error: %v", dbPath, err)
+	}
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Errorf("db.Close() returned error: %v", err)
+		}
+	})
+
+	repo := storage.NewProfileRepository(db)
+	mgr := NewConnectionManager(repo, crypto.NewKeyBox())
+
+	profile := createTestProfile(t, repo, "locked")
+
+	_, _, err = mgr.Get(profile.ID)
+	if !errors.Is(err, domain.ErrLocked) {
+		t.Fatalf("Get() on a locked manager error = %v, want errors.Is(_, domain.ErrLocked)", err)
+	}
 }

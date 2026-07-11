@@ -4,10 +4,13 @@
 // internal/storage's generic GetSetting/SetSetting helpers, and pushing the
 // Transfers-section fields live into a *transfer.TransferService.
 //
-// Security-related settings (a future master password, суб-этап 4.4) are
-// deliberately out of scope here - domain.AppSettings does not carry any
-// such field yet, and this package has no reason to ever touch
-// crypto_salt/deriveEncryptionKey (app.go), which remain entirely separate.
+// It also implements the master-password backend (SEC-001, Этап 4
+// суб-этап 4.4, security.go): IsLocked/Unlock/SetMasterPassword/
+// RemoveMasterPassword. See security.go's own doc comments for the full
+// design; SettingsService.db/salt/keyBox/profileRepo below are shared
+// between both halves of this package (settings-persistence and
+// master-password) rather than split into two separate structs, since both
+// halves are Wails-bound on the exact same SettingsService instance.
 package appsettings
 
 import (
@@ -17,6 +20,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"threev/internal/crypto"
 	"threev/internal/domain"
 	"threev/internal/storage"
 	"threev/internal/transfer"
@@ -103,15 +107,56 @@ var (
 // configured. Should a future settings consumer beyond TransferService ever
 // exist, it should follow this same direct-dependency pattern, not the
 // avoided ResolveProfile one.
+//
+// profileRepo/keyBox/salt (Этап 4 суб-этап 4.4, security.go) extend this
+// same reasoning rather than violating it further: SetMasterPassword/
+// RemoveMasterPassword need to (a) run a re-encryption transaction directly
+// against every stored profile's ciphertext and (b) mutate the live,
+// shared *crypto.KeyBox every other service reads its encryption key from.
+// Neither of those is "resolve a profile a second, redundant way" (the
+// pattern TransferService's own doc comment describes every *Service in
+// this codebase as avoiding) - SettingsService does not build its own S3
+// client or duplicate connection.ResolveProfile's decrypt logic anywhere;
+// it owns the re-encryption transaction itself (via
+// storage.ProfileRepository.ReencryptSecretsTx) precisely because no other
+// existing layer has a reason to ever touch every profile's ciphertext at
+// once. keyBox is the SAME *crypto.KeyBox instance app.go's newApp shares
+// with ConnectionService/FileManagerService/TransferService/
+// s3client.ConnectionManager - SettingsService.Unlock/SetMasterPassword/
+// RemoveMasterPassword are the only places in the entire codebase that ever
+// call KeyBox.Set, which is exactly why they live here rather than on any
+// other *Service.
 type SettingsService struct {
 	db              *sql.DB
 	transferService *transfer.TransferService
+
+	// profileRepo/keyBox/salt back the master-password backend
+	// (security.go) - see this struct's own doc comment above for why they
+	// live here rather than on a separate type.
+	profileRepo *storage.ProfileRepository
+	keyBox      *crypto.KeyBox
+	salt        []byte
 }
 
 // NewSettingsService returns a SettingsService backed by db (settings-row
-// persistence) and transferService (ApplySettings' target).
-func NewSettingsService(db *sql.DB, transferService *transfer.TransferService) *SettingsService {
-	return &SettingsService{db: db, transferService: transferService}
+// persistence), transferService (ApplySettings' target), profileRepo
+// (SetMasterPassword/RemoveMasterPassword's re-encryption transaction,
+// security.go), keyBox (the shared *crypto.KeyBox every service reads its
+// encryption key from - Unlock/SetMasterPassword/RemoveMasterPassword are
+// this codebase's only KeyBox.Set call sites), and salt (the same
+// crypto_salt app.go's newApp already resolves once at startup via
+// resolveCryptoSalt, passed in already decoded - see crypto.DeriveKey's own
+// doc comment for why the SAME salt is reused for both the machine-only and
+// password-derived key, rather than a second, dedicated "master password
+// salt").
+func NewSettingsService(db *sql.DB, transferService *transfer.TransferService, profileRepo *storage.ProfileRepository, keyBox *crypto.KeyBox, salt []byte) *SettingsService {
+	return &SettingsService{
+		db:              db,
+		transferService: transferService,
+		profileRepo:     profileRepo,
+		keyBox:          keyBox,
+		salt:            salt,
+	}
 }
 
 // GetSettings reads every domain.AppSettings field from its own "settings"

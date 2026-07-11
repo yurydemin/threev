@@ -25,6 +25,10 @@ import (
 // req.OldKey and req.NewKey both exist (a safe, recoverable duplicate) rather
 // than risking deleting req.OldKey before a copy at req.NewKey was ever
 // confirmed.
+//
+// Guarded (Этап 4 суб-этап 4.4): resolveClient below decrypts the profile's
+// credentials, requiring the current encryption key - unavailable while the
+// application is locked. See domain.ErrLocked's own doc comment.
 func (f *FileManagerService) RenameObject(req domain.RenameObjectRequest) error {
 	if req.NewKey == "" {
 		return fmt.Errorf("rename object: new key must not be empty")
@@ -34,7 +38,12 @@ func (f *FileManagerService) RenameObject(req domain.RenameObjectRequest) error 
 		return fmt.Errorf("rename object: new key %q is the same as the current key", req.NewKey)
 	}
 
-	client, err := f.resolveClient(req.ProfileID)
+	encKey, ok := f.keyBox.Get()
+	if !ok {
+		return domain.ErrLocked
+	}
+
+	client, err := f.resolveClient(req.ProfileID, encKey)
 	if err != nil {
 		return err
 	}

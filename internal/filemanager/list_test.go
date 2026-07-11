@@ -1,6 +1,7 @@
 package filemanager
 
 import (
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -9,6 +10,7 @@ import (
 	"testing"
 
 	"threev/internal/connection"
+	"threev/internal/crypto"
 	"threev/internal/domain"
 	"threev/internal/s3client"
 	"threev/internal/storage"
@@ -16,10 +18,13 @@ import (
 
 // newTestFileManagerService opens a fresh migrated SQLite database backed by
 // a temporary file and returns a FileManagerService over it, using a fixed
-// (test-only) 32-byte encryption key - mirroring
-// connection.newTestConnectionService. connMgr/breaker are freshly
-// constructed per call (never shared across tests), mirroring
-// transfer.newTestTransferService's identical setup.
+// (test-only) 32-byte encryption key already Set on a fresh *crypto.KeyBox -
+// mirroring connection.newTestConnectionService (Этап 4 суб-этап 4.4: see
+// TestFileManagerServiceListBucketsReturnsErrLockedWhenLocked for the
+// dedicated locked-state test, which builds its own, never-Set KeyBox
+// instead). connMgr/breaker are freshly constructed per call (never shared
+// across tests), mirroring transfer.newTestTransferService's identical
+// setup.
 func newTestFileManagerService(t *testing.T) (*FileManagerService, *storage.ProfileRepository, [32]byte) {
 	t.Helper()
 
@@ -42,10 +47,13 @@ func newTestFileManagerService(t *testing.T) (*FileManagerService, *storage.Prof
 		key[i] = byte(i)
 	}
 
-	connMgr := s3client.NewConnectionManager(repo, key)
+	keyBox := crypto.NewKeyBox()
+	keyBox.Set(key)
+
+	connMgr := s3client.NewConnectionManager(repo, keyBox)
 	breaker := s3client.NewCircuitBreaker()
 
-	return NewFileManagerService(repo, key, connMgr, breaker), repo, key
+	return NewFileManagerService(repo, keyBox, connMgr, breaker), repo, key
 }
 
 // saveTestProfile persists (via ConnectionService, so credentials are
@@ -54,7 +62,10 @@ func newTestFileManagerService(t *testing.T) (*FileManagerService, *storage.Prof
 func saveTestProfile(t *testing.T, repo *storage.ProfileRepository, key [32]byte, endpoint string) int64 {
 	t.Helper()
 
-	connSvc := connection.NewConnectionService(repo, key)
+	keyBox := crypto.NewKeyBox()
+	keyBox.Set(key)
+
+	connSvc := connection.NewConnectionService(repo, keyBox)
 
 	saved, err := connSvc.SaveProfile(domain.Profile{
 		Name:            "prod",
@@ -431,5 +442,37 @@ func TestFileManagerServiceListObjectsNoSuchBucketError(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "Бакет не найден") {
 		t.Errorf("error = %q, want it to contain the NoSuchBucket-specific message", err.Error())
+	}
+}
+
+// TestFileManagerServiceListBucketsReturnsErrLockedWhenLocked verifies
+// ListBuckets' Этап 4 суб-этап 4.4 guard.
+func TestFileManagerServiceListBucketsReturnsErrLockedWhenLocked(t *testing.T) {
+	t.Parallel()
+
+	fm, repo, key := newTestFileManagerService(t)
+	profileID := saveTestProfile(t, repo, key, "http://127.0.0.1:1") // never contacted
+
+	fm.keyBox.Clear()
+
+	_, err := fm.ListBuckets(profileID)
+	if !errors.Is(err, domain.ErrLocked) {
+		t.Fatalf("ListBuckets() on a locked service error = %v, want errors.Is(_, domain.ErrLocked)", err)
+	}
+}
+
+// TestFileManagerServiceListObjectsReturnsErrLockedWhenLocked verifies
+// ListObjects' Этап 4 суб-этап 4.4 guard.
+func TestFileManagerServiceListObjectsReturnsErrLockedWhenLocked(t *testing.T) {
+	t.Parallel()
+
+	fm, repo, key := newTestFileManagerService(t)
+	profileID := saveTestProfile(t, repo, key, "http://127.0.0.1:1") // never contacted
+
+	fm.keyBox.Clear()
+
+	_, err := fm.ListObjects(domain.ListObjectsRequest{ProfileID: profileID, Bucket: "bucket1"})
+	if !errors.Is(err, domain.ErrLocked) {
+		t.Fatalf("ListObjects() on a locked service error = %v, want errors.Is(_, domain.ErrLocked)", err)
 	}
 }

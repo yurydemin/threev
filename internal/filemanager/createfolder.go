@@ -22,6 +22,10 @@ import (
 //
 // Synchronous, like UpdateMetadata: a single PutObject call, no operation
 // id/bulk:progress event.
+//
+// Guarded (Этап 4 суб-этап 4.4): resolveClient below decrypts the profile's
+// credentials, requiring the current encryption key - unavailable while the
+// application is locked. See domain.ErrLocked's own doc comment.
 func (f *FileManagerService) CreateFolder(req domain.CreateFolderRequest) error {
 	if req.Name == "" {
 		return fmt.Errorf("create folder: name must not be empty")
@@ -31,7 +35,12 @@ func (f *FileManagerService) CreateFolder(req domain.CreateFolderRequest) error 
 		return fmt.Errorf("create folder: name %q must not contain %q", req.Name, "/")
 	}
 
-	client, err := f.resolveClient(req.ProfileID)
+	encKey, ok := f.keyBox.Get()
+	if !ok {
+		return domain.ErrLocked
+	}
+
+	client, err := f.resolveClient(req.ProfileID, encKey)
 	if err != nil {
 		return err
 	}

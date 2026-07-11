@@ -159,7 +159,29 @@ func (s *TransferService) runTask(ctx context.Context, task domain.TransferTask,
 		return
 	}
 
-	profile, err := connection.ResolveProfile(context.Background(), s.profileRepo, s.encryptionKey, task.ProfileID)
+	// Guarded (Этап 4 суб-этап 4.4): runTask always runs asynchronously, on
+	// its own goroutine spawned by startTask/dispatch, with no caller left
+	// to hand a domain.ErrLocked back to directly - unlike every guarded
+	// method elsewhere in this package/codebase, there is no "return
+	// domain.ErrLocked" here. Instead, a locked application's keyBox.Get()
+	// miss is folded into the exact same failure path a real resolve-profile
+	// error would take: handleTaskResult marks the task "failed" (with
+	// domain.ErrLocked's message persisted as its ErrorMessage), leaving it
+	// sitting in transfer_queue for the user to RetryTask once they unlock,
+	// exactly like any other transient resolve failure.
+	//
+	// Naming note: this package already has a local variable named key (the
+	// S3 object key, from taskBucketKey above) in this exact function scope
+	// - the encryption key is deliberately named encKey, not key, to avoid
+	// shadowing/confusing the two (a prior Block in this codebase already
+	// tripped over exactly this kind of name collision once).
+	encKey, ok := s.keyBox.Get()
+	if !ok {
+		s.handleTaskResult(task, rt, fmt.Errorf("resolve profile: %w", domain.ErrLocked), nil, bucket, key, task.MultipartUploadID)
+		return
+	}
+
+	profile, err := connection.ResolveProfile(context.Background(), s.profileRepo, encKey, task.ProfileID)
 	if err != nil {
 		s.handleTaskResult(task, rt, fmt.Errorf("resolve profile: %w", err), nil, bucket, key, task.MultipartUploadID)
 		return

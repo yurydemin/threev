@@ -2,17 +2,20 @@ package transfer
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"threev/internal/connection"
+	"threev/internal/crypto"
 	"threev/internal/domain"
 	"threev/internal/s3client"
 	"threev/internal/storage"
@@ -26,12 +29,17 @@ type testTransferDeps struct {
 	svc         *TransferService
 	profileRepo *storage.ProfileRepository
 	key         [32]byte
+	keyBox      *crypto.KeyBox
 }
 
 // newTestTransferService opens a fresh migrated SQLite database backed by a
 // temporary file and returns a TransferService over it, using a fixed
-// (test-only) 32-byte encryption key - identical technique to
-// connection/service_test.go's newTestConnectionService.
+// (test-only) 32-byte encryption key already Set on a fresh *crypto.KeyBox -
+// identical technique to connection/service_test.go's
+// newTestConnectionService (Этап 4 суб-этап 4.4: see
+// TestQueueDownloadPrefixReturnsErrLockedWhenLocked/
+// TestRunTaskFailsWithErrLockedWhenLocked for the dedicated locked-state
+// tests, which build their own, never-Set KeyBox instead).
 func newTestTransferService(t *testing.T) testTransferDeps {
 	t.Helper()
 
@@ -56,12 +64,15 @@ func newTestTransferService(t *testing.T) testTransferDeps {
 		key[i] = byte(i)
 	}
 
-	connMgr := s3client.NewConnectionManager(profileRepo, key)
+	keyBox := crypto.NewKeyBox()
+	keyBox.Set(key)
+
+	connMgr := s3client.NewConnectionManager(profileRepo, keyBox)
 	breaker := s3client.NewCircuitBreaker()
 
-	svc := NewTransferService(profileRepo, key, queueRepo, historyRepo, connMgr, breaker)
+	svc := NewTransferService(profileRepo, keyBox, queueRepo, historyRepo, connMgr, breaker)
 
-	return testTransferDeps{svc: svc, profileRepo: profileRepo, key: key}
+	return testTransferDeps{svc: svc, profileRepo: profileRepo, key: key, keyBox: keyBox}
 }
 
 // testProfileNameCounter guarantees every createTestProfile call gets a
@@ -75,10 +86,20 @@ var testProfileNameCounter atomic.Int64
 // storage.ProfileRepository.Create would store it as unencrypted plaintext,
 // which s3client.ConnectionManager's crypto.Decrypt call would then fail
 // against) a profile pointed at endpointURL, returning its ID.
+//
+// key is wrapped in a fresh, already-Set *crypto.KeyBox here (rather than
+// this function's callers each needing their own) purely because
+// ConnectionService's constructor now takes a *crypto.KeyBox, not a raw
+// [32]byte (Этап 4 суб-этап 4.4) - every call site of createTestProfile
+// still just passes the [32]byte key it already has (typically
+// testTransferDeps.key), unaffected by this internal detail.
 func createTestProfile(t *testing.T, profileRepo *storage.ProfileRepository, key [32]byte, endpointURL string) int64 {
 	t.Helper()
 
-	connSvc := connection.NewConnectionService(profileRepo, key)
+	keyBox := crypto.NewKeyBox()
+	keyBox.Set(key)
+
+	connSvc := connection.NewConnectionService(profileRepo, keyBox)
 
 	saved, err := connSvc.SaveProfile(domain.Profile{
 		Name:            fmt.Sprintf("transfer-service-test-%d", testProfileNameCounter.Add(1)),
@@ -494,6 +515,72 @@ func TestFailedUploadTaskStaysInQueueNotArchived(t *testing.T) {
 	}
 
 	requireNotInHistory(t, deps.svc, id)
+}
+
+// TestRunTaskFailsWithErrLockedWhenLocked is runTask's (task.go) Этап 4
+// суб-этап 4.4 guard test: unlike every other guarded method in this
+// codebase, runTask always executes on its own goroutine with no direct
+// caller to hand a domain.ErrLocked back to - so this test observes the
+// guard's effect the same indirect way
+// TestFailedUploadTaskStaysInQueueNotArchived observes any other runTask
+// failure: the task ends up "failed" in the queue (never archived), with
+// domain.ErrLocked's message present in ErrorMessage.
+//
+// The profile itself is still created normally (createTestProfile builds
+// its own, separate, already-Set KeyBox internally - see its own doc
+// comment - so profile creation is unaffected by deps.keyBox's state)
+// before deps.keyBox.Clear() simulates "the application is currently
+// locked" for the QueueUpload/runTask call that follows.
+func TestRunTaskFailsWithErrLockedWhenLocked(t *testing.T) {
+	t.Parallel()
+
+	deps := newTestTransferService(t)
+
+	mock := &putObjectMock{etag: "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"}
+	server := httptest.NewServer(http.HandlerFunc(mock.handler))
+	t.Cleanup(server.Close)
+
+	profileID := createTestProfile(t, deps.profileRepo, deps.key, server.URL)
+	localPath := createSparseFile(t, 1024)
+
+	deps.keyBox.Clear()
+
+	id, err := deps.svc.QueueUpload(domain.UploadRequest{
+		ProfileID: profileID,
+		Bucket:    "bucket1",
+		Key:       "key1",
+		LocalPath: localPath,
+	})
+	if err != nil {
+		t.Fatalf("QueueUpload() returned error: %v (QueueUpload itself is unguarded - only runTask should fail)", err)
+	}
+
+	task := waitForTaskStatus(t, deps.svc, id, "failed", 5*time.Second)
+	if !strings.Contains(task.ErrorMessage, domain.ErrLocked.Error()) {
+		t.Errorf("failed task's ErrorMessage = %q, want it to contain %q", task.ErrorMessage, domain.ErrLocked.Error())
+	}
+
+	requireNotInHistory(t, deps.svc, id)
+}
+
+// TestQueueDownloadPrefixReturnsErrLockedWhenLocked is QueueDownloadPrefix's
+// own Этап 4 суб-этап 4.4 guard test - unlike QueueUpload/QueueDownload,
+// QueueDownloadPrefix resolves the profile synchronously and so has its own
+// direct guard (see its own doc comment), returning domain.ErrLocked
+// immediately rather than queuing anything at all.
+func TestQueueDownloadPrefixReturnsErrLockedWhenLocked(t *testing.T) {
+	t.Parallel()
+
+	deps := newTestTransferService(t)
+
+	profileID := createTestProfile(t, deps.profileRepo, deps.key, "http://127.0.0.1:1")
+
+	deps.keyBox.Clear()
+
+	_, err := deps.svc.QueueDownloadPrefix(profileID, "bucket1", "prefix/", t.TempDir())
+	if !errors.Is(err, domain.ErrLocked) {
+		t.Fatalf("QueueDownloadPrefix() on a locked service error = %v, want errors.Is(_, domain.ErrLocked)", err)
+	}
 }
 
 // TestRetryFailedUploadTaskEventuallyCompletes verifies RetryTask resets a

@@ -47,9 +47,19 @@ type bulkCopyMoveParams struct {
 // req.DestBucket/req.DestPrefix (FR-BULK-003) and returns immediately with
 // an operation id - see runCopyOrMove for the worker pool/progress/cancel
 // mechanics shared with MoveObjects.
+//
+// Guarded (Этап 4 суб-этап 4.4): synchronously, before registerBulkOp/the
+// "go f.runCopyOrMove(...)" call below - see DeleteObjects' identical guard
+// for why this must happen before an operationID is ever handed back to the
+// caller, not inside the spawned goroutine.
 func (f *FileManagerService) CopyObjects(req domain.BulkCopyRequest) (int64, error) {
 	if len(req.Keys) == 0 {
 		return 0, fmt.Errorf("copy objects: no keys given")
+	}
+
+	key, ok := f.keyBox.Get()
+	if !ok {
+		return 0, domain.ErrLocked
 	}
 
 	opID := f.nextOperationID()
@@ -62,7 +72,7 @@ func (f *FileManagerService) CopyObjects(req domain.BulkCopyRequest) (int64, err
 		DestBucket:   req.DestBucket,
 		DestPrefix:   req.DestPrefix,
 		Move:         false,
-	}, rt)
+	}, rt, key)
 
 	return opID, nil
 }
@@ -72,9 +82,17 @@ func (f *FileManagerService) CopyObjects(req domain.BulkCopyRequest) (int64, err
 // returns immediately with an operation id - see runCopyOrMove/
 // copyOneObject for the copy-then-delete-that-same-key ordering this
 // implements and why.
+//
+// Guarded (Этап 4 суб-этап 4.4): synchronously - see CopyObjects' identical
+// guard for why.
 func (f *FileManagerService) MoveObjects(req domain.BulkMoveRequest) (int64, error) {
 	if len(req.Keys) == 0 {
 		return 0, fmt.Errorf("move objects: no keys given")
+	}
+
+	key, ok := f.keyBox.Get()
+	if !ok {
+		return 0, domain.ErrLocked
 	}
 
 	opID := f.nextOperationID()
@@ -87,7 +105,7 @@ func (f *FileManagerService) MoveObjects(req domain.BulkMoveRequest) (int64, err
 		DestBucket:   req.DestBucket,
 		DestPrefix:   req.DestPrefix,
 		Move:         true,
-	}, rt)
+	}, rt, key)
 
 	return opID, nil
 }
@@ -114,12 +132,18 @@ func (f *FileManagerService) MoveObjects(req domain.BulkMoveRequest) (int64, err
 // the worker pool's sync.WaitGroup.Wait() returns (guaranteeing it reflects
 // the exact final count, never a stale tick from the throttled ticker), with
 // Status "completed" or "cancelled" depending on whether ctx was canceled.
-func (f *FileManagerService) runCopyOrMove(ctx context.Context, opID int64, opType string, params bulkCopyMoveParams, rt *runningBulkOp) {
+//
+// encKey is the encryption key CopyObjects/MoveObjects already read from
+// f.keyBox (synchronously, before spawning this goroutine - see their own
+// doc comments for why the guard cannot live here instead). Named encKey,
+// not key, to avoid shadowing the many S3 object key variables (also named
+// key) in this function's own body and closures below.
+func (f *FileManagerService) runCopyOrMove(ctx context.Context, opID int64, opType string, params bulkCopyMoveParams, rt *runningBulkOp, encKey [32]byte) {
 	defer f.finishBulkOp(opID, rt)
 
 	total := len(params.Keys)
 
-	pooled, fresh, host, err := f.resolveBulkClients(params.ProfileID)
+	pooled, fresh, host, err := f.resolveBulkClients(params.ProfileID, encKey)
 	if err != nil {
 		// See runDeleteObjects' identical up-front-failure handling: every
 		// key counts as processed and failed, terminal status is still the

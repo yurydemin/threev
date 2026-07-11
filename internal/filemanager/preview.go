@@ -25,13 +25,27 @@ const textPreviewLimitBytes = 100 * 1024
 // leading slice it needs (a byte-range request when the object exceeds the
 // limit, avoiding downloading the rest of a possibly huge file just to show
 // a short excerpt).
+//
+// Guarded (Этап 4 суб-этап 4.4): explicitly, even though the very first
+// call this makes (f.HeadObject) already carries its own identical guard
+// and would itself already return domain.ErrLocked while the application is
+// locked - the guard here is repeated anyway so this method's own contract
+// ("requires the encryption key") is visible directly at its own top,
+// exactly as every other guarded method in this file/package does, rather
+// than relying on a reader to trace into HeadObject to discover why a
+// locked application fails this call too.
 func (f *FileManagerService) GetTextPreview(profileID int64, bucket, key string) (domain.TextPreviewResult, error) {
+	encKey, ok := f.keyBox.Get()
+	if !ok {
+		return domain.TextPreviewResult{}, domain.ErrLocked
+	}
+
 	meta, err := f.HeadObject(profileID, bucket, key)
 	if err != nil {
 		return domain.TextPreviewResult{}, err
 	}
 
-	client, err := f.resolveClient(profileID)
+	client, err := f.resolveClient(profileID, encKey)
 	if err != nil {
 		return domain.TextPreviewResult{}, err
 	}

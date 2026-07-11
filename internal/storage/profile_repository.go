@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 
+	"threev/internal/crypto"
 	"threev/internal/domain"
 )
 
@@ -270,4 +271,114 @@ func mapProfileWriteError(err error) error {
 	}
 
 	return err
+}
+
+// reencryptRow is the in-memory snapshot ReencryptSecretsTx reads every
+// profile row into (via a single SELECT) before writing anything back - see
+// ReencryptSecretsTx's own doc comment for why the SELECT must be fully
+// drained before the first UPDATE.
+type reencryptRow struct {
+	id              int64
+	secretAccessKey string
+	sessionToken    sql.NullString
+}
+
+// ReencryptSecretsTx re-encrypts every stored profile's SecretAccessKey
+// and (if present) SessionToken from oldKey to newKey, within the given
+// transaction - the caller (internal/appsettings/security.go) owns
+// Begin/Commit/Rollback, so that a failure partway through (a decrypt
+// failure on some corrupted row, a write error, ...) leaves EVERY profile's
+// stored ciphertext untouched, never a mix of old- and new-key-encrypted
+// rows. See SetMasterPassword/RemoveMasterPassword's own doc comments
+// (internal/appsettings/security.go) for the full "commit only after every
+// row succeeds, keyBox.Set only after commit" ordering this enables.
+//
+// Every row is first read into memory in full (via a single SELECT,
+// fully drained into a []reencryptRow slice) before any UPDATE is issued -
+// never interleaving a still-open *sql.Rows cursor with writes to that same
+// table inside the same transaction. Nothing elsewhere in this file needs
+// that same care (every other write method here issues exactly one
+// statement at a time), but it matters here specifically because this
+// method both reads and writes every row of the same table, and
+// modernc.org/sqlite (this project's driver) is not guaranteed to tolerate
+// a concurrent write against a table an unclosed Rows cursor from the same
+// connection/transaction is still iterating - draining first sidesteps the
+// question entirely rather than relying on driver-specific behavior.
+//
+// Any single row's failure (a decrypt failure against oldKey - e.g. a
+// corrupted or already-differently-encrypted ciphertext - or an encrypt/
+// write failure) aborts the entire method immediately, wrapped with the
+// failing profile's id (fmt.Errorf("reencrypt profile %d: %w", id, err)):
+// the caller is expected to roll back tx on any error return, per this
+// method's own transaction-ownership contract above.
+func (r *ProfileRepository) ReencryptSecretsTx(ctx context.Context, tx *sql.Tx, oldKey, newKey [32]byte) error {
+	rows, err := tx.QueryContext(ctx, `SELECT id, secret_access_key, session_token FROM profiles`)
+	if err != nil {
+		return fmt.Errorf("reencrypt secrets: list profiles: %w", err)
+	}
+
+	var toReencrypt []reencryptRow
+
+	for rows.Next() {
+		var row reencryptRow
+
+		if err := rows.Scan(&row.id, &row.secretAccessKey, &row.sessionToken); err != nil {
+			rows.Close()
+			return fmt.Errorf("reencrypt secrets: scan profile row: %w", err)
+		}
+
+		toReencrypt = append(toReencrypt, row)
+	}
+
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return fmt.Errorf("reencrypt secrets: iterate profile rows: %w", err)
+	}
+
+	if err := rows.Close(); err != nil {
+		return fmt.Errorf("reencrypt secrets: close profile rows: %w", err)
+	}
+
+	const updateQuery = `UPDATE profiles SET secret_access_key = ?, session_token = ? WHERE id = ?`
+
+	for _, row := range toReencrypt {
+		newSecret, err := reencryptValue(row.secretAccessKey, oldKey, newKey)
+		if err != nil {
+			return fmt.Errorf("reencrypt profile %d: secret access key: %w", row.id, err)
+		}
+
+		newToken := row.sessionToken
+		if row.sessionToken.Valid && row.sessionToken.String != "" {
+			reencrypted, err := reencryptValue(row.sessionToken.String, oldKey, newKey)
+			if err != nil {
+				return fmt.Errorf("reencrypt profile %d: session token: %w", row.id, err)
+			}
+
+			newToken = sql.NullString{String: reencrypted, Valid: true}
+		}
+
+		if _, err := tx.ExecContext(ctx, updateQuery, newSecret, newToken, row.id); err != nil {
+			return fmt.Errorf("reencrypt profile %d: write: %w", row.id, err)
+		}
+	}
+
+	return nil
+}
+
+// reencryptValue decrypts ciphertext with oldKey and re-encrypts the
+// resulting plaintext with newKey - the single-value operation
+// ReencryptSecretsTx applies to each profile's SecretAccessKey and,
+// separately, SessionToken.
+func reencryptValue(ciphertext string, oldKey, newKey [32]byte) (string, error) {
+	plaintext, err := crypto.Decrypt(ciphertext, oldKey)
+	if err != nil {
+		return "", fmt.Errorf("decrypt: %w", err)
+	}
+
+	reencrypted, err := crypto.Encrypt(plaintext, newKey)
+	if err != nil {
+		return "", fmt.Errorf("encrypt: %w", err)
+	}
+
+	return reencrypted, nil
 }

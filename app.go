@@ -91,20 +91,55 @@ func newApp() (*App, error) {
 		return nil, fmt.Errorf("open database: %w", err)
 	}
 
-	key, err := deriveEncryptionKey(db)
+	salt, err := resolveCryptoSalt(db)
 	if err != nil {
 		_ = db.Close()
-		return nil, fmt.Errorf("derive encryption key: %w", err)
+		return nil, fmt.Errorf("resolve crypto salt: %w", err)
+	}
+
+	// keyBox starts out empty and is shared, as a single *crypto.KeyBox
+	// instance, by every service constructed below - see crypto.KeyBox's
+	// own doc comment for why a master password (Этап 4 суб-этап 4.4) means
+	// the encryption key can no longer be a constructor-time [32]byte
+	// constant. It is filled in immediately below if no master password is
+	// configured (today's exact pre-4.4 behavior, unchanged), or left empty
+	// - deferring every guarded method to domain.ErrLocked - until the
+	// frontend calls SettingsService.Unlock (Block I, not yet implemented
+	// at the time this code was written).
+	keyBox := crypto.NewKeyBox()
+
+	hasPassword, err := appsettings.HasMasterPassword(context.Background(), db)
+	if err != nil {
+		// Cannot determine whether a master password is configured - safer
+		// by default to assume one IS configured (leave keyBox empty,
+		// require Unlock) than to risk wrongly unlocking with the
+		// machine-only key when a password actually is set (which would be
+		// a silent bypass of SEC-001's protection). Log and continue: the
+		// user simply sees an UnlockScreen and enters their password (or,
+		// if no password was ever actually configured, hits a bug - logged
+		// verbosely enough here to be diagnosable in that case).
+		log.Printf("threev: check master password: %v", err)
+		hasPassword = true
+	}
+
+	if !hasPassword {
+		machineKey, err := crypto.DeriveKey("", salt)
+		if err != nil {
+			_ = db.Close()
+			return nil, fmt.Errorf("derive machine key: %w", err)
+		}
+
+		keyBox.Set(machineKey)
 	}
 
 	repo := storage.NewProfileRepository(db)
 
 	queueRepo := storage.NewTransferQueueRepository(db)
 	historyRepo := storage.NewTransferHistoryRepository(db)
-	connMgr := s3client.NewConnectionManager(repo, key)
+	connMgr := s3client.NewConnectionManager(repo, keyBox)
 	breaker := s3client.NewCircuitBreaker()
 
-	transferService := transfer.NewTransferService(repo, key, queueRepo, historyRepo, connMgr, breaker)
+	transferService := transfer.NewTransferService(repo, keyBox, queueRepo, historyRepo, connMgr, breaker)
 
 	// Read and apply persisted Settings (FR-SET-001, Этап 4 суб-этап 4.3)
 	// before RecoverOrphanedTasks below, since AutoResumeIfEnabled needs
@@ -121,7 +156,16 @@ func newApp() (*App, error) {
 	// settings itself stays its zero value in that case, so the
 	// AutoResumeIfEnabled call below safely defaults to
 	// AutoResumeQueue == false.
-	settingsService := appsettings.NewSettingsService(db, transferService)
+	//
+	// GetSettings/AutoResumeIfEnabled below never touch the encryption key
+	// themselves (see TransferService's own doc comment on which of its
+	// methods are guarded) - both work identically whether keyBox is
+	// currently empty (locked) or already filled: a locked application's
+	// AutoResumeIfEnabled simply resumes tasks that then fail fast with
+	// domain.ErrLocked via runTask's own guard (see task.go), logged and
+	// left "failed" for the user to RetryTask once they unlock - never a
+	// crash or a skipped step here.
+	settingsService := appsettings.NewSettingsService(db, transferService, repo, keyBox, salt)
 
 	settings, err := settingsService.GetSettings()
 	if err != nil {
@@ -147,26 +191,34 @@ func newApp() (*App, error) {
 
 	return &App{
 		db:                 db,
-		connectionService:  connection.NewConnectionService(repo, key),
-		fileManagerService: filemanager.NewFileManagerService(repo, key, connMgr, breaker),
+		connectionService:  connection.NewConnectionService(repo, keyBox),
+		fileManagerService: filemanager.NewFileManagerService(repo, keyBox, connMgr, breaker),
 		transferService:    transferService,
 		settingsService:    settingsService,
 	}, nil
 }
 
-// deriveEncryptionKey computes the AES-256 key used to encrypt/decrypt
-// stored profile credentials (ConnectionService's SecretAccessKey/
-// SessionToken fields).
+// resolveCryptoSalt returns the Argon2id salt used to derive the
+// application's credential-encryption key (crypto.DeriveKey), lazily
+// creating - on first run only - a random salt and persisting it under
+// cryptoSaltSettingKey in the "settings" table via storage.
+// GetOrCreateSetting, base64-encoded since the settings.value column is
+// TEXT. On every run (including the first), it decodes and returns that
+// same salt unchanged.
 //
-// It lazily creates - on first run only - a random Argon2id salt and
-// persists it under cryptoSaltSettingKey in the "settings" table via
-// storage.GetOrCreateSetting, base64-encoded since the settings.value
-// column is TEXT. On every run (including the first), it decodes that
-// salt and derives the key via crypto.DeriveKey with an empty passphrase:
-// a master password is not implemented in Stage 1 (settled decision), so
-// the derived key is machine-specific (crypto.DeriveKey mixes in
-// crypto.MachineSeed) but not additionally passphrase-protected.
-func deriveEncryptionKey(db *sql.DB) ([32]byte, error) {
+// This used to be the first half of a function (deriveEncryptionKey) that
+// also called crypto.DeriveKey("", salt) directly, back when a master
+// password was not implemented (Stage 1) and the encryption key was always
+// exactly that one, fixed, machine-only derivation. Since Этап 4 суб-этап
+// 4.4 lets the key instead depend on a user-supplied master password (an
+// entirely separate KeyBox-filling decision - see newApp's own comments for
+// exactly when/how it derives either the machine-only key or, later via
+// SettingsService.Unlock, a password-derived one), resolveCryptoSalt now
+// does only the salt half of that original job: the SAME salt is reused for
+// both the machine-only and password-derived key (see crypto.DeriveKey's
+// own doc comment for why a single, non-secret Argon2id salt suffices for
+// both - a separate "master password salt" is not needed).
+func resolveCryptoSalt(db *sql.DB) ([]byte, error) {
 	ctx := context.Background()
 
 	saltB64, err := storage.GetOrCreateSetting(ctx, db, cryptoSaltSettingKey, func() (string, error) {
@@ -178,20 +230,15 @@ func deriveEncryptionKey(db *sql.DB) ([32]byte, error) {
 		return base64.StdEncoding.EncodeToString(salt), nil
 	})
 	if err != nil {
-		return [32]byte{}, fmt.Errorf("get or create crypto salt: %w", err)
+		return nil, fmt.Errorf("get or create crypto salt: %w", err)
 	}
 
 	salt, err := base64.StdEncoding.DecodeString(saltB64)
 	if err != nil {
-		return [32]byte{}, fmt.Errorf("decode crypto salt: %w", err)
+		return nil, fmt.Errorf("decode crypto salt: %w", err)
 	}
 
-	key, err := crypto.DeriveKey("", salt)
-	if err != nil {
-		return [32]byte{}, fmt.Errorf("derive key: %w", err)
-	}
-
-	return key, nil
+	return salt, nil
 }
 
 // startup is called when the app starts. The context is saved so we can
