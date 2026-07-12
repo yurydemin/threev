@@ -75,3 +75,39 @@ jobs:
 
       - name: Run unit tests
         run: go test ./... -race
+
+  integration-tests:
+    name: integration-tests
+    runs-on: ubuntu-latest
+    services:
+      minio:
+        image: bitnamilegacy/minio:2025.7.23
+        env:
+          MINIO_ROOT_USER: minioadmin
+          MINIO_ROOT_PASSWORD: minioadmin
+        ports:
+          - 9000:9000
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: Wait for MinIO
+        run: |
+          for i in $(seq 1 30); do
+            if curl -fs http://localhost:9000/minio/health/live; then
+              echo "MinIO is up"
+              exit 0
+            fi
+            echo "Waiting for MinIO... ($i)"
+            sleep 1
+          done
+          echo "MinIO did not become ready in time" >&2
+          exit 1
+
+      - name: Run integration tests
+        run: go test -tags=integration ./internal/integration/... -race -count=1
