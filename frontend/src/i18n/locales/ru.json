@@ -15,7 +15,8 @@
     "history": "История",
     "settings": "Настройки",
     "activeConnection": "Подключено: {{name}}",
-    "activeConnectionTooltip": "Вернуться к файловому менеджеру ({{name}})"
+    "activeConnectionTooltip": "Вернуться к файловому менеджеру ({{name}})",
+    "activeConnectionCurrentTooltip": "Открыто: {{name}}"
   },
   "welcome": {
     "title": "S3 Desktop Client",
@@ -36,7 +37,8 @@
       "title": "Подключения",
       "addButton": "+ Добавить подключение",
       "duplicateSuffix": "{{name}} (копия)",
-      "deleteConfirm": "Удалить подключение «{{name}}»?"
+      "deleteConfirm": "Удалить подключение «{{name}}»?",
+      "switchSessionConfirm": "Текущая сессия просмотра «{{currentName}}» будет закрыта. Перейти к «{{newName}}»?"
     },
     "card": {
       "connect": "Подключиться",

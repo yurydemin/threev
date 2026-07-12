@@ -15,7 +15,8 @@
     "history": "History",
     "settings": "Settings",
     "activeConnection": "Connected: {{name}}",
-    "activeConnectionTooltip": "Return to File Manager ({{name}})"
+    "activeConnectionTooltip": "Return to File Manager ({{name}})",
+    "activeConnectionCurrentTooltip": "Currently open: {{name}}"
   },
   "welcome": {
     "title": "S3 Desktop Client",
@@ -36,7 +37,8 @@
       "title": "Connections",
       "addButton": "+ Add connection",
       "duplicateSuffix": "{{name}} (copy)",
-      "deleteConfirm": "Delete connection \"{{name}}\"?"
+      "deleteConfirm": "Delete connection \"{{name}}\"?",
+      "switchSessionConfirm": "The current browsing session for \"{{currentName}}\" will be closed. Switch to \"{{newName}}\"?"
     },
     "card": {
       "connect": "Connect",

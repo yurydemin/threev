@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useTheme } from './hooks/useTheme';
 import { useUIScale } from './hooks/useUIScale';
 import { useLanguageSync } from './hooks/useLanguageSync';
@@ -40,6 +41,7 @@ type Screen =
   | { name: 'settings' };
 
 function App() {
+    const { t } = useTranslation();
     useTheme();
     useUIScale();
     useLanguageSync();
@@ -89,7 +91,28 @@ function App() {
         // re-clicking "Подключиться" on the already-open profile's own card
         // (or navigating back into it) must not blow away where the user
         // currently is, per the Block L2 fix.
-        if (useFileManagerStore.getState().activeProfileId !== connection.id) {
+        const { activeProfileId, activeProfileName } = useFileManagerStore.getState();
+        const isSwitchingToAnotherProfile = activeProfileId !== null && activeProfileId !== connection.id;
+
+        // Switching AWAY from a still-open session (as opposed to entering
+        // one for the first time, or just returning to the same one) loses
+        // that session's current folder/navigation history/selection — the
+        // files themselves aren't touched, only the browsing position — so
+        // confirm before discarding it (Stage 4 Block L4). Native
+        // `window.confirm`, same lightweight pattern as
+        // `ConnectionsScreen#handleDelete` — a full modal is unwarranted for
+        // this.
+        if (isSwitchingToAnotherProfile) {
+            const confirmed = window.confirm(
+                t('connections.screen.switchSessionConfirm', {
+                    currentName: activeProfileName,
+                    newName: connection.name,
+                }),
+            );
+            if (!confirmed) return;
+        }
+
+        if (activeProfileId !== connection.id) {
             useFileManagerStore.getState().enterProfile(connection.id, connection.name);
         }
         setScreen({ name: 'fileManager', profileId: connection.id, profileName: connection.name });

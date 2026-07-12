@@ -14,15 +14,17 @@ interface NavItem {
   onClick?: () => void;
 }
 
-export type SidebarActiveItem = 'connections' | 'transfers' | 'settings';
+export type SidebarActiveItem = 'connections' | 'transfers' | 'settings' | 'fileManager';
 
 export interface SidebarProps {
   /**
    * Which nav item is highlighted. Defaults to 'connections' — preserves
-   * every existing call site (`ConnectionsScreen`/`FileManagerScreen`)
-   * unchanged if they don't pass it: `FileManagerScreen` intentionally
-   * keeps "Подключения" highlighted while browsing (it has no nav item of
-   * its own — File Manager is reached FROM Connections, per Stage 2).
+   * every existing call site (`ConnectionsScreen`) unchanged if it doesn't
+   * pass it. `FileManagerScreen` always passes `'fileManager'` explicitly
+   * (Stage 4 Block L4) — that value doesn't match any of the static nav
+   * items below, so none of them highlight while browsing; the
+   * active-connection indicator itself becomes the "you are here" cue
+   * instead (see its own `isActive` prop).
    */
   activeItem?: SidebarActiveItem;
   /**
@@ -39,18 +41,9 @@ export interface SidebarProps {
   /**
    * Called when the active-connection indicator (Stage 4, Block L2) is
    * clicked, returning to the already-open File Manager session. Optional
-   * for the same reason as `onSelectConnections`/etc — `FileManagerScreen`
-   * doesn't pass it at all (see `hideActiveConnectionIndicator`, its
-   * indicator would be redundant there).
+   * for the same reason as `onSelectConnections`/etc.
    */
   onSelectFileManager?: () => void;
-  /**
-   * Hides the active-connection indicator even if a session is open — set
-   * by `FileManagerScreen`'s own `<Sidebar>` usage, since the indicator
-   * would be redundant there (the active profile is already shown in
-   * `BucketPanel`).
-   */
-  hideActiveConnectionIndicator?: boolean;
 }
 
 /**
@@ -72,7 +65,6 @@ export function Sidebar({
   onSelectTransfers,
   onSelectSettings,
   onSelectFileManager,
-  hideActiveConnectionIndicator,
 }: SidebarProps) {
   const { t } = useTranslation();
   const activeProfileId = useFileManagerStore((state) => state.activeProfileId);
@@ -137,10 +129,14 @@ export function Sidebar({
         a one-click way back into it — rather than as incidental metadata
         tucked away at the bottom of the panel.
       */}
-      {!hideActiveConnectionIndicator && activeProfileId !== null && activeProfileName !== null && (
+      {activeProfileId !== null && activeProfileName !== null && (
         <>
           <div className="border-t border-border" />
-          <ActiveConnectionIndicator profileName={activeProfileName} onClick={onSelectFileManager} />
+          <ActiveConnectionIndicator
+            profileName={activeProfileName}
+            isActive={resolvedActiveItem === 'fileManager'}
+            onClick={onSelectFileManager}
+          />
         </>
       )}
 
