@@ -1,0 +1,226 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+# NOTE: unlike ci.yml, this workflow does NOT set cancel-in-progress. A real
+# release publishing artifacts to a GitHub Release should not be silently
+# cancelled mid-flight by a second run against the same tag - that's a
+# genuine error condition (e.g. someone re-pushing the same tag), not stale
+# work to discard. The second run will simply queue/fail on its own (e.g.
+# `gh release create` erroring because the release/tag already exists)
+# rather than clobbering an in-flight publish.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+# Least-privilege default; elevated to `contents: write` only on the
+# `publish` job, which is the only job that creates a GitHub Release.
+permissions:
+  contents: read
+
+jobs:
+  check-version:
+    name: check-version
+    runs-on: ubuntu-latest
+    # Fails fast, before spending time on 3 platform builds, if whoever cut
+    # this tag forgot to bump wails.json's info.productVersion first - the
+    # packaging scripts read that field as their single source of truth for
+    # the version string baked into artifact filenames, so a mismatch here
+    # would silently attach e.g. "threev-0.1.0-..." files to a "v0.2.0"
+    # GitHub Release.
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Compare tag against wails.json productVersion
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          PRODUCT_VERSION="$(jq -r '.info.productVersion' wails.json)"
+          if [ "$TAG_VERSION" != "$PRODUCT_VERSION" ]; then
+            echo "ERROR: tag ${GITHUB_REF_NAME} (version ${TAG_VERSION}) does not match wails.json's info.productVersion (${PRODUCT_VERSION})." >&2
+            echo "Bump productVersion in wails.json to ${TAG_VERSION} and re-tag before releasing." >&2
+            exit 1
+          fi
+          echo "OK: tag version ${TAG_VERSION} matches wails.json's productVersion."
+
+  package:
+    name: package
+    needs: check-version
+    strategy:
+      fail-fast: false
+      matrix:
+        # NOTE: `ubuntu-22.04` here instead of `ubuntu-latest` is intentional,
+        # not an oversight - see the long comment on the "Install Linux build
+        # dependencies" step below for why `ubuntu-latest` (Ubuntu 24.04)
+        # breaks this build.
+        os: [macos-latest, windows-latest, ubuntu-22.04]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Wails CLI
+        # Pinned to match the locally installed / developed-against version
+        # (v2.13.0). Deliberately not @latest - a CLI version bump changing
+        # build/packaging behavior out from under a release pipeline is
+        # exactly the kind of thing that should be an explicit, reviewed
+        # change, not something that happens silently on the next tag push.
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.13.0
+
+      - name: Install Linux build dependencies
+        if: matrix.os == 'ubuntu-22.04'
+        # Package list matches what `wails doctor` itself expects for apt-based
+        # distros (internal/system/packagemanager/apt.go in the wails v2.13.0
+        # module): libgtk-3-dev, libwebkit2gtk-4.0-dev, build-essential,
+        # pkg-config. `npm` is already provided by actions/setup-node above.
+        #
+        # IMPORTANT: this is *why* the matrix uses ubuntu-22.04 rather than
+        # ubuntu-latest. scripts/package-appimage.sh calls
+        # `wails build -platform linux/amd64 -clean` with no `-tags` flag, so
+        # it compiles against the untagged/default cgo pkg-config target,
+        # which is `webkit2gtk-4.0` (see wails' webkit2_legacy.go build
+        # constraint file, used whenever none of the webkit2_36/40/41 build
+        # tags are passed). Ubuntu 24.04 ("noble", what ubuntu-latest now
+        # resolves to) dropped the libwebkit2gtk-4.0-dev package entirely -
+        # only libwebkit2gtk-4.1-dev is available there - so `go build` would
+        # fail at the cgo/pkg-config step before ever reaching packaging.
+        # Ubuntu 22.04 ("jammy") still ships libwebkit2gtk-4.0-dev, matching
+        # what the untagged wails build expects, so pinning here avoids the
+        # mismatch without having to modify the packaging script itself.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev build-essential pkg-config
+
+      - name: Package macOS (.dmg)
+        if: matrix.os == 'macos-latest'
+        run: |
+          chmod +x scripts/package-dmg.sh
+          ./scripts/package-dmg.sh
+
+      - name: Package Windows (NSIS installer)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: ./scripts/package-windows-nsis.ps1
+
+      - name: Package Linux (AppImage)
+        if: matrix.os == 'ubuntu-22.04'
+        run: |
+          chmod +x scripts/package-appimage.sh
+          ./scripts/package-appimage.sh
+
+      - name: Verify macOS artifact
+        if: matrix.os == 'macos-latest'
+        run: |
+          shopt -s nullglob
+          files=(build/bin/threev-*-macos-universal.dmg)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "ERROR: no .dmg matching build/bin/threev-*-macos-universal.dmg was produced" >&2
+            exit 1
+          fi
+          for f in "${files[@]}"; do
+            if [ ! -s "$f" ]; then
+              echo "ERROR: $f exists but is empty" >&2
+              exit 1
+            fi
+            echo "Verified artifact: $f ($(du -h "$f" | cut -f1))"
+          done
+
+      - name: Verify Windows artifact
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          $files = Get-ChildItem -Path build/bin -Filter "threev-*-windows-amd64-installer.exe" -ErrorAction SilentlyContinue
+          if ($files.Count -eq 0) {
+            Write-Error "no .exe matching build/bin/threev-*-windows-amd64-installer.exe was produced"
+            exit 1
+          }
+          foreach ($f in $files) {
+            if ($f.Length -eq 0) {
+              Write-Error "$($f.FullName) exists but is empty"
+              exit 1
+            }
+            Write-Host "Verified artifact: $($f.FullName) ($([math]::Round($f.Length / 1MB, 2)) MB)"
+          }
+
+      - name: Verify Linux artifact
+        if: matrix.os == 'ubuntu-22.04'
+        run: |
+          shopt -s nullglob
+          files=(build/bin/threev-*-linux-amd64.AppImage)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "ERROR: no .AppImage matching build/bin/threev-*-linux-amd64.AppImage was produced" >&2
+            exit 1
+          fi
+          for f in "${files[@]}"; do
+            if [ ! -s "$f" ]; then
+              echo "ERROR: $f exists but is empty" >&2
+              exit 1
+            fi
+            echo "Verified artifact: $f ($(du -h "$f" | cut -f1))"
+          done
+
+      - name: Upload macOS artifact
+        if: matrix.os == 'macos-latest'
+        uses: actions/upload-artifact@v7
+        with:
+          name: macos-dmg
+          path: build/bin/threev-*-macos-universal.dmg
+          if-no-files-found: error
+
+      - name: Upload Windows artifact
+        if: matrix.os == 'windows-latest'
+        uses: actions/upload-artifact@v7
+        with:
+          name: windows-installer
+          path: build/bin/threev-*-windows-amd64-installer.exe
+          if-no-files-found: error
+
+      - name: Upload Linux artifact
+        if: matrix.os == 'ubuntu-22.04'
+        uses: actions/upload-artifact@v7
+        with:
+          name: linux-appimage
+          path: build/bin/threev-*-linux-amd64.AppImage
+          if-no-files-found: error
+
+  publish:
+    name: publish
+    needs: package
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v8
+        with:
+          path: artifacts
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ github.ref_name }}" \
+            --repo "${{ github.repository }}" \
+            --title "${{ github.ref_name }}" \
+            --generate-notes \
+            artifacts/macos-dmg/*.dmg \
+            artifacts/windows-installer/*.exe \
+            artifacts/linux-appimage/*.AppImage
