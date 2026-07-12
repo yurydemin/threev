@@ -6,16 +6,25 @@ import (
 	"encoding/base64"
 	"fmt"
 	"log"
+	"os"
 
 	"threev/internal/appsettings"
 	"threev/internal/config"
 	"threev/internal/connection"
 	"threev/internal/crypto"
 	"threev/internal/filemanager"
+	"threev/internal/profiling"
 	"threev/internal/s3client"
 	"threev/internal/storage"
 	"threev/internal/transfer"
 )
+
+// pprofAddrEnvVar is the environment variable that, when set to a
+// non-empty address (e.g. "localhost:6060"), opts the running app into
+// serving profiling.EnableDebugServer's pprof endpoints - see startup's
+// doc comment. Left unset (the default for any shipped build), no debug
+// server is ever started.
+const pprofAddrEnvVar = "THREEV_PPROF_ADDR"
 
 // cryptoSaltSettingKey is the "settings" table key under which the
 // randomly-generated Argon2id salt used to derive the credential encryption
@@ -48,6 +57,12 @@ type App struct {
 	// Transfers backend (FR-SET-001, Этап 4 суб-этап 4.3) and is bound
 	// directly to the frontend (see main.go's options.App.Bind).
 	settingsService *appsettings.SettingsService
+
+	// pprofStop, when non-nil, shuts down the opt-in profiling debug
+	// server started in startup (see pprofAddrEnvVar). It stays nil - and
+	// is simply never called by shutdown - unless THREEV_PPROF_ADDR was
+	// set to a non-empty value at startup.
+	pprofStop func()
 }
 
 // NewApp creates a new App application struct, eagerly opening the SQLite
@@ -244,15 +259,40 @@ func resolveCryptoSalt(db *sql.DB) ([]byte, error) {
 // startup is called when the app starts. The context is saved so we can
 // call the runtime methods. All database/service wiring already happened
 // in NewApp (see its doc comment for why).
+//
+// It also optionally starts the profiling package's debug pprof server,
+// used purely as local developer tooling for Stage 5 AC-005/AC-006 RAM/CPU
+// measurement (see profiling's own package doc comment) - never enabled
+// unless THREEV_PPROF_ADDR is set to a non-empty address in the process
+// environment, which will never be true for a normally-launched, shipped
+// build. A failure to start it is logged and otherwise ignored: it is a
+// developer convenience, not a capability the application depends on.
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 	a.transferService.SetContext(ctx)
 	a.fileManagerService.SetContext(ctx)
+
+	if addr := os.Getenv(pprofAddrEnvVar); addr != "" {
+		stop, err := profiling.EnableDebugServer(addr)
+		if err != nil {
+			//nolint:gosec // addr comes from THREEV_PPROF_ADDR, a local developer-set env var, not attacker-controlled input; logged as-is for diagnosability.
+			log.Printf("threev: start pprof debug server on %s: %v", addr, err)
+		} else {
+			a.pprofStop = stop
+			//nolint:gosec // see rationale above
+			log.Printf("threev: pprof debug server listening on %s", addr)
+		}
+	}
 }
 
 // shutdown is called when the app terminates, releasing the database
-// connection opened in NewApp.
+// connection opened in NewApp and, if it was started, stopping the pprof
+// debug server started in startup.
 func (a *App) shutdown(_ context.Context) {
+	if a.pprofStop != nil {
+		a.pprofStop()
+	}
+
 	if a.db == nil {
 		return
 	}
