@@ -6,7 +6,9 @@
     "close": "Close",
     "loading": "Loading…",
     "retry": "Retry",
-    "copyToClipboardError": "Failed to copy to clipboard"
+    "copyToClipboardError": "Failed to copy to clipboard",
+    "confirmTitle": "Confirm",
+    "confirm": "Confirm"
   },
   "sidebar": {
     "appName": "S3 Client",

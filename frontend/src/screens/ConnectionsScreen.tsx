@@ -5,6 +5,7 @@ import { ConnectionForm } from '../components/connection/ConnectionForm';
 import { ConnectionList } from '../components/connection/ConnectionList';
 import { Button } from '../components/ui/Button';
 import { getConnection } from '../lib/wails/connection';
+import { confirmDialog } from '../lib/confirm';
 import { useConnectionStore } from '../stores/useConnectionStore';
 import { useFileManagerStore } from '../stores/useFileManagerStore';
 import type { Connection, ConnectionSummary } from '../types';
@@ -28,11 +29,14 @@ export interface ConnectionsScreenProps {
  * The spec's "Import" button next to "+ Новое" is deferred (Stage 1 plan
  * constraint #12) and intentionally not rendered here.
  *
- * "Дублировать" and delete are instant actions (no intermediate modal):
- * duplicate re-saves the fetched record with `id: 0` (create-new, per
- * `SaveProfile` semantics) and a "(копия)" suffix; delete uses a native
- * `window.confirm` since no generic confirmation-dialog component exists
- * yet in this build.
+ * "Дублировать" is an instant action (no intermediate modal): it re-saves
+ * the fetched record with `id: 0` (create-new, per `SaveProfile` semantics)
+ * and a "(копия)" suffix. Delete goes through `confirmDialog`
+ * (`components/ui/ConfirmDialog.tsx`), a React-rendered confirmation dialog
+ * — not `window.confirm`, which silently no-ops in the packaged WKWebView
+ * app (Wails' macOS webview doesn't implement the native confirm/alert
+ * panel without an explicit `WKUIDelegate`, which this project doesn't
+ * wire up).
  *
  * The card menu's "Тестировать" opens the same edit modal as
  * "Редактировать" (rather than testing silently in the background) — there
@@ -92,7 +96,11 @@ export function ConnectionsScreen({
   }
 
   async function handleDelete(summary: ConnectionSummary) {
-    if (!window.confirm(t('connections.screen.deleteConfirm', { name: summary.name }))) return;
+    const confirmed = await confirmDialog(t('connections.screen.deleteConfirm', { name: summary.name }), {
+      danger: true,
+      confirmLabel: t('common.delete'),
+    });
+    if (!confirmed) return;
     await deleteConnection(summary.id);
     // Deleting the profile the File Manager session is currently pointed at
     // must drop that session too — otherwise the Sidebar's active-connection

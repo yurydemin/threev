@@ -14,6 +14,8 @@ import { SettingsScreen } from './screens/SettingsScreen';
 import { WelcomeScreen } from './screens/WelcomeScreen';
 import { UnlockScreen } from './screens/UnlockScreen';
 import { ToastContainer } from './components/ui/ToastContainer';
+import { ConfirmDialog } from './components/ui/ConfirmDialog';
+import { confirmDialog } from './lib/confirm';
 import { isLocked as apiIsLocked } from './lib/wails/appsettings';
 import type { ConnectionSummary } from './types';
 
@@ -85,7 +87,7 @@ function App() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    function handleConnect(connection: ConnectionSummary) {
+    async function handleConnect(connection: ConnectionSummary) {
         // Only reset/reload File Manager state (buckets, navigation history,
         // selection, ...) when actually switching to a *different* profile —
         // re-clicking "Подключиться" on the already-open profile's own card
@@ -98,12 +100,12 @@ function App() {
         // one for the first time, or just returning to the same one) loses
         // that session's current folder/navigation history/selection — the
         // files themselves aren't touched, only the browsing position — so
-        // confirm before discarding it (Stage 4 Block L4). Native
-        // `window.confirm`, same lightweight pattern as
-        // `ConnectionsScreen#handleDelete` — a full modal is unwarranted for
-        // this.
+        // confirm before discarding it (Stage 4 Block L4). Goes through
+        // `confirmDialog` (React-rendered `ConfirmDialog`), not
+        // `window.confirm`, which silently no-ops in the packaged WKWebView
+        // app — see `useConfirmStore`'s doc comment.
         if (isSwitchingToAnotherProfile) {
-            const confirmed = window.confirm(
+            const confirmed = await confirmDialog(
                 t('connections.screen.switchSessionConfirm', {
                     currentName: activeProfileName,
                     newName: connection.name,
@@ -159,6 +161,7 @@ function App() {
             <div className="flex h-screen bg-bg-primary text-fg-primary">
                 <UnlockScreen onUnlocked={() => setBoot({ status: 'unlocked' })} />
                 <ToastContainer />
+                <ConfirmDialog />
             </div>
         );
     }
@@ -196,6 +199,7 @@ function App() {
                 />
             )}
             <ToastContainer />
+            <ConfirmDialog />
         </div>
     );
 }

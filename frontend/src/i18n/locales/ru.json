@@ -6,7 +6,9 @@
     "close": "Закрыть",
     "loading": "Загрузка…",
     "retry": "Повторить",
-    "copyToClipboardError": "Не удалось скопировать в буфер обмена"
+    "copyToClipboardError": "Не удалось скопировать в буфер обмена",
+    "confirmTitle": "Подтверждение",
+    "confirm": "Подтвердить"
   },
   "sidebar": {
     "appName": "S3 Client",
