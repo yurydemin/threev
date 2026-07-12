@@ -16,6 +16,7 @@ import { ContextMenu, type ContextMenuItem } from '../ui/ContextMenu';
 import { getPresignedUrl } from '../../lib/wails/fileManager';
 import { pickDownloadDestination, pickDownloadDirectory } from '../../lib/wails/transfer';
 import { useTransferStore } from '../../stores/useTransferStore';
+import { downloadSelectedObjects } from '../../lib/downloadSelected';
 import { getPreviewKind } from '../../lib/preview';
 import { copyToClipboard, getEntryDisplayName } from '../../lib/utils';
 import { toast } from '../../lib/toast';
@@ -136,30 +137,7 @@ export function ObjectContextMenu({
         disabled: !activeProfileId || !selectedBucket,
         onClick: () => {
           if (!activeProfileId || !selectedBucket) return;
-          void pickDownloadDirectory()
-            .then((dir) => {
-              if (!dir) return;
-              // Each `queueDownload` swallows its own errors internally
-              // (`useTransferStore.queueDownload` catches and returns `null`
-              // rather than rejecting), so one failing key never stops the
-              // rest of the loop from being queued.
-              for (const key of keys) {
-                void useTransferStore.getState().queueDownload({
-                  profileId: activeProfileId,
-                  bucket: selectedBucket,
-                  key,
-                  localPath: `${dir}/${key.split('/').pop()}`,
-                  priority: 0,
-                });
-              }
-            })
-            .catch((err) => {
-              console.error('[ObjectContextMenu] pickDownloadDirectory failed:', err);
-              toast.error(
-                err instanceof ApiError ? err.message : t('fileManager.objectContextMenu.pickDownloadDirError'),
-                err instanceof ApiError ? err.raw : undefined,
-              );
-            });
+          void downloadSelectedObjects(activeProfileId, selectedBucket, keys);
         },
       },
       {

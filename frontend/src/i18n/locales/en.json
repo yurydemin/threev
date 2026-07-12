@@ -95,7 +95,11 @@
       "upload": "Upload",
       "pickFiles": "Choose files…",
       "pickFolder": "Choose folder…",
-      "pickFolderError": "Failed to choose a folder to upload"
+      "pickFolderError": "Failed to choose a folder to upload",
+      "bulkDownload": "Download selected",
+      "bulkCopy": "Copy selected",
+      "bulkMove": "Move selected",
+      "bulkDelete": "Delete selected ({{count}})"
     },
     "bucketPanel": {
       "empty": "No buckets available"

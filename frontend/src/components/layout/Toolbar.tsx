@@ -2,13 +2,17 @@ import { useState } from 'react';
 import {
   ChevronLeft,
   ChevronRight,
+  CopyPlus,
+  Download,
   FileUp,
+  FolderInput,
   FolderPlus,
   FolderUp,
   LayoutGrid,
   List,
   RotateCcw,
   Search,
+  Trash2,
   Upload,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -17,6 +21,7 @@ import { useFileManagerStore } from '../../stores/useFileManagerStore';
 import { useTransferStore } from '../../stores/useTransferStore';
 import { pickUploadDirectory } from '../../lib/wails/transfer';
 import { pickAndQueueUploadFiles } from '../../lib/uploadFiles';
+import { downloadSelectedObjects } from '../../lib/downloadSelected';
 import { toast } from '../../lib/toast';
 import { ApiError } from '../../lib/wails/errors';
 import { Button } from '../ui/Button';
@@ -40,6 +45,12 @@ export interface ToolbarProps {
    */
   view: FileManagerView;
   onViewChange: (view: FileManagerView) => void;
+  /** Opens `DestinationPickerModal` in copy mode for the given keys. */
+  onBulkCopy: (keys: string[]) => void;
+  /** Opens `DestinationPickerModal` in move mode for the given keys. */
+  onBulkMove: (keys: string[]) => void;
+  /** Opens `DeleteConfirmModal` for the given keys. */
+  onBulkDelete: (keys: string[]) => void;
 }
 
 /**
@@ -49,7 +60,7 @@ export interface ToolbarProps {
  * `searchQuery`) directly from `useFileManagerStore` — like `BucketPanel`,
  * it has no meaningful behavior independent of that store.
  */
-export function Toolbar({ view, onViewChange }: ToolbarProps) {
+export function Toolbar({ view, onViewChange, onBulkCopy, onBulkMove, onBulkDelete }: ToolbarProps) {
   const { t } = useTranslation();
   const history = useFileManagerStore((state) => state.history);
   const historyIndex = useFileManagerStore((state) => state.historyIndex);
@@ -57,6 +68,7 @@ export function Toolbar({ view, onViewChange }: ToolbarProps) {
   const selectedBucket = useFileManagerStore((state) => state.selectedBucket);
   const currentPrefix = useFileManagerStore((state) => state.currentPrefix);
   const searchQuery = useFileManagerStore((state) => state.searchQuery);
+  const selectedKeys = useFileManagerStore((state) => state.selectedKeys);
   const goBack = useFileManagerStore((state) => state.goBack);
   const goForward = useFileManagerStore((state) => state.goForward);
   const refresh = useFileManagerStore((state) => state.refresh);
@@ -183,6 +195,62 @@ export function Toolbar({ view, onViewChange }: ToolbarProps) {
             </Button>
           </Tooltip>
         </div>
+
+        {selectedKeys.size > 0 && (
+          <>
+            <div className="flex items-center gap-0.5">
+              <Tooltip content={t('fileManager.toolbar.bulkDownload')}>
+                <Button
+                  iconOnly
+                  variant="ghost"
+                  disabled={!activeProfileId || !selectedBucket}
+                  onClick={() => {
+                    if (!activeProfileId || !selectedBucket) return;
+                    void downloadSelectedObjects(activeProfileId, selectedBucket, Array.from(selectedKeys));
+                  }}
+                  aria-label={t('fileManager.toolbar.bulkDownload')}
+                >
+                  <Download className="h-5 w-5" aria-hidden="true" />
+                </Button>
+              </Tooltip>
+              <Tooltip content={t('fileManager.toolbar.bulkCopy')}>
+                <Button
+                  iconOnly
+                  variant="ghost"
+                  disabled={!activeProfileId || !selectedBucket}
+                  onClick={() => onBulkCopy(Array.from(selectedKeys))}
+                  aria-label={t('fileManager.toolbar.bulkCopy')}
+                >
+                  <CopyPlus className="h-5 w-5" aria-hidden="true" />
+                </Button>
+              </Tooltip>
+              <Tooltip content={t('fileManager.toolbar.bulkMove')}>
+                <Button
+                  iconOnly
+                  variant="ghost"
+                  disabled={!activeProfileId || !selectedBucket}
+                  onClick={() => onBulkMove(Array.from(selectedKeys))}
+                  aria-label={t('fileManager.toolbar.bulkMove')}
+                >
+                  <FolderInput className="h-5 w-5" aria-hidden="true" />
+                </Button>
+              </Tooltip>
+              <Tooltip content={t('fileManager.toolbar.bulkDelete', { count: selectedKeys.size })}>
+                <Button
+                  iconOnly
+                  variant="ghost"
+                  disabled={!activeProfileId || !selectedBucket}
+                  onClick={() => onBulkDelete(Array.from(selectedKeys))}
+                  aria-label={t('fileManager.toolbar.bulkDelete', { count: selectedKeys.size })}
+                >
+                  <Trash2 className="h-5 w-5" aria-hidden="true" />
+                </Button>
+              </Tooltip>
+            </div>
+
+            <div className="mx-1 h-6 w-px shrink-0 bg-border" aria-hidden="true" />
+          </>
+        )}
 
         <Button
           variant="secondary"

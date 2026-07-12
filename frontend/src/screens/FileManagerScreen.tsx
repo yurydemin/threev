@@ -160,7 +160,13 @@ export function FileManagerScreen({
       <BucketPanel />
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <Toolbar view={view} onViewChange={setView} />
+        <Toolbar
+          view={view}
+          onViewChange={setView}
+          onBulkCopy={(keys) => setActiveModal({ kind: 'copy', keys })}
+          onBulkMove={(keys) => setActiveModal({ kind: 'move', keys })}
+          onBulkDelete={(keys) => setActiveModal({ kind: 'delete', keys })}
+        />
 
         <main
           className="relative flex min-h-0 flex-1 flex-col overflow-hidden"
