@@ -151,7 +151,12 @@ export function FileManagerScreen({
 
   return (
     <div className="flex h-screen w-full">
-      <Sidebar onSelectConnections={onExit} onSelectTransfers={onSelectTransfers} onSelectSettings={onSelectSettings} />
+      <Sidebar
+        onSelectConnections={onExit}
+        onSelectTransfers={onSelectTransfers}
+        onSelectSettings={onSelectSettings}
+        hideActiveConnectionIndicator
+      />
       <BucketPanel />
 
       <div className="flex min-w-0 flex-1 flex-col">

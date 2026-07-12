@@ -84,13 +84,33 @@ function App() {
     }, []);
 
     function handleConnect(connection: ConnectionSummary) {
-        useFileManagerStore.getState().enterProfile(connection.id, connection.name);
+        // Only reset/reload File Manager state (buckets, navigation history,
+        // selection, ...) when actually switching to a *different* profile —
+        // re-clicking "Подключиться" on the already-open profile's own card
+        // (or navigating back into it) must not blow away where the user
+        // currently is, per the Block L2 fix.
+        if (useFileManagerStore.getState().activeProfileId !== connection.id) {
+            useFileManagerStore.getState().enterProfile(connection.id, connection.name);
+        }
         setScreen({ name: 'fileManager', profileId: connection.id, profileName: connection.name });
     }
 
     function handleExitFileManager() {
         useFileManagerStore.getState().reset();
         setScreen({ name: 'connections' });
+    }
+
+    // Returns to the already-open File Manager session from the Sidebar's
+    // active-connection indicator (Block L2) — reads the still-live
+    // `activeProfileId`/`activeProfileName` from the store rather than
+    // keeping a second copy of them in `App`'s own state. The `null` guard
+    // is defensive only: the indicator that calls this hides itself
+    // whenever there's no active profile, so in practice this is never
+    // invoked while both are `null`.
+    function handleReturnToFileManager() {
+        const { activeProfileId, activeProfileName } = useFileManagerStore.getState();
+        if (activeProfileId === null || activeProfileName === null) return;
+        setScreen({ name: 'fileManager', profileId: activeProfileId, profileName: activeProfileName });
     }
 
     function handleSelectTransfers() {
@@ -136,9 +156,17 @@ function App() {
                     onSelectSettings={handleSelectSettings}
                 />
             ) : screen.name === 'transfers' ? (
-                <TransferScreen onSelectConnections={handleSelectConnections} onSelectSettings={handleSelectSettings} />
+                <TransferScreen
+                    onSelectConnections={handleSelectConnections}
+                    onSelectSettings={handleSelectSettings}
+                    onSelectFileManager={handleReturnToFileManager}
+                />
             ) : screen.name === 'settings' ? (
-                <SettingsScreen onSelectConnections={handleSelectConnections} onSelectTransfers={handleSelectTransfers} />
+                <SettingsScreen
+                    onSelectConnections={handleSelectConnections}
+                    onSelectTransfers={handleSelectTransfers}
+                    onSelectFileManager={handleReturnToFileManager}
+                />
             ) : showWelcome ? (
                 <WelcomeScreen />
             ) : (
@@ -146,6 +174,7 @@ function App() {
                     onConnect={handleConnect}
                     onSelectTransfers={handleSelectTransfers}
                     onSelectSettings={handleSelectSettings}
+                    onSelectFileManager={handleReturnToFileManager}
                 />
             )}
             <ToastContainer />

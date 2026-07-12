@@ -3,6 +3,8 @@ import type { LucideIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
 import { APP_VERSION } from '../../lib/appVersion';
+import { useFileManagerStore } from '../../stores/useFileManagerStore';
+import { ActiveConnectionIndicator } from './ActiveConnectionIndicator';
 
 interface NavItem {
   label: string;
@@ -34,6 +36,21 @@ export interface SidebarProps {
   onSelectTransfers?: () => void;
   /** Called when "Настройки" is clicked (Stage 4, Block G). Same optionality rationale as `onSelectConnections`. */
   onSelectSettings?: () => void;
+  /**
+   * Called when the active-connection indicator (Stage 4, Block L2) is
+   * clicked, returning to the already-open File Manager session. Optional
+   * for the same reason as `onSelectConnections`/etc — `FileManagerScreen`
+   * doesn't pass it at all (see `hideActiveConnectionIndicator`, its
+   * indicator would be redundant there).
+   */
+  onSelectFileManager?: () => void;
+  /**
+   * Hides the active-connection indicator even if a session is open — set
+   * by `FileManagerScreen`'s own `<Sidebar>` usage, since the indicator
+   * would be redundant there (the active profile is already shown in
+   * `BucketPanel`).
+   */
+  hideActiveConnectionIndicator?: boolean;
 }
 
 /**
@@ -49,8 +66,17 @@ export interface SidebarProps {
  * "История" remains an inert placeholder (Stage 1 plan constraint #12)
  * until its own stage lands.
  */
-export function Sidebar({ activeItem, onSelectConnections, onSelectTransfers, onSelectSettings }: SidebarProps) {
+export function Sidebar({
+  activeItem,
+  onSelectConnections,
+  onSelectTransfers,
+  onSelectSettings,
+  onSelectFileManager,
+  hideActiveConnectionIndicator,
+}: SidebarProps) {
   const { t } = useTranslation();
+  const activeProfileId = useFileManagerStore((state) => state.activeProfileId);
+  const activeProfileName = useFileManagerStore((state) => state.activeProfileName);
   const resolvedActiveItem = activeItem ?? 'connections';
   const navItems: NavItem[] = [
     {
@@ -104,6 +130,19 @@ export function Sidebar({ activeItem, onSelectConnections, onSelectTransfers, on
           </button>
         ))}
       </nav>
+
+      {/*
+        Placed directly below `nav` (not down by the version footer) so it
+        reads as "where the active session lives, relative to navigation" —
+        a one-click way back into it — rather than as incidental metadata
+        tucked away at the bottom of the panel.
+      */}
+      {!hideActiveConnectionIndicator && activeProfileId !== null && activeProfileName !== null && (
+        <>
+          <div className="border-t border-border" />
+          <ActiveConnectionIndicator profileName={activeProfileName} onClick={onSelectFileManager} />
+        </>
+      )}
 
       <div className="mt-auto p-4 text-2xs text-fg-muted">{APP_VERSION}</div>
     </aside>

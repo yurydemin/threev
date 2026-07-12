@@ -40,9 +40,11 @@ export interface TransferScreenProps {
   onSelectConnections: () => void;
   /** Navigates to the Settings screen (Sidebar "Настройки"). */
   onSelectSettings: () => void;
+  /** Returns to an already-open File Manager session (Sidebar active-connection indicator, Block L2). */
+  onSelectFileManager: () => void;
 }
 
-export function TransferScreen({ onSelectConnections, onSelectSettings }: TransferScreenProps) {
+export function TransferScreen({ onSelectConnections, onSelectSettings, onSelectFileManager }: TransferScreenProps) {
   const { t } = useTranslation();
   const [tab, setTab] = useState<TransferTab>('active');
   const queue = useTransferStore((state) => state.queue);
@@ -73,7 +75,12 @@ export function TransferScreen({ onSelectConnections, onSelectSettings }: Transf
 
   return (
     <div className="flex h-screen w-full">
-      <Sidebar activeItem="transfers" onSelectConnections={onSelectConnections} onSelectSettings={onSelectSettings} />
+      <Sidebar
+        activeItem="transfers"
+        onSelectConnections={onSelectConnections}
+        onSelectSettings={onSelectSettings}
+        onSelectFileManager={onSelectFileManager}
+      />
 
       <div className="flex flex-1 flex-col overflow-hidden">
         <header className="flex h-header shrink-0 items-center justify-between border-b border-border bg-bg-secondary px-4">

@@ -13,7 +13,9 @@
     "connections": "Connections",
     "transfers": "Transfers",
     "history": "History",
-    "settings": "Settings"
+    "settings": "Settings",
+    "activeConnection": "Connected: {{name}}",
+    "activeConnectionTooltip": "Return to File Manager ({{name}})"
   },
   "welcome": {
     "title": "S3 Desktop Client",
@@ -32,7 +34,6 @@
   "connections": {
     "screen": {
       "title": "Connections",
-      "newButton": "+ New",
       "addButton": "+ Add connection",
       "duplicateSuffix": "{{name}} (copy)",
       "deleteConfirm": "Delete connection \"{{name}}\"?"

@@ -13,7 +13,9 @@
     "connections": "Подключения",
     "transfers": "Передачи",
     "history": "История",
-    "settings": "Настройки"
+    "settings": "Настройки",
+    "activeConnection": "Подключено: {{name}}",
+    "activeConnectionTooltip": "Вернуться к файловому менеджеру ({{name}})"
   },
   "welcome": {
     "title": "S3 Desktop Client",
@@ -32,7 +34,6 @@
   "connections": {
     "screen": {
       "title": "Подключения",
-      "newButton": "+ Новое",
       "addButton": "+ Добавить подключение",
       "duplicateSuffix": "{{name}} (копия)",
       "deleteConfirm": "Удалить подключение «{{name}}»?"

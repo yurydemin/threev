@@ -17,6 +17,8 @@ export interface ConnectionsScreenProps {
   onSelectTransfers: () => void;
   /** Navigates to the Settings screen (Sidebar "Настройки"). */
   onSelectSettings: () => void;
+  /** Returns to an already-open File Manager session (Sidebar active-connection indicator, Block L2). */
+  onSelectFileManager: () => void;
 }
 
 /**
@@ -36,7 +38,12 @@ export interface ConnectionsScreenProps {
  * is no toast/notification system yet to surface a background test result,
  * so routing through the form's own test UI is the honest choice.
  */
-export function ConnectionsScreen({ onConnect, onSelectTransfers, onSelectSettings }: ConnectionsScreenProps) {
+export function ConnectionsScreen({
+  onConnect,
+  onSelectTransfers,
+  onSelectSettings,
+  onSelectFileManager,
+}: ConnectionsScreenProps) {
   const { t } = useTranslation();
   const connections = useConnectionStore((state) => state.connections);
   const isLoading = useConnectionStore((state) => state.isLoading);
@@ -90,14 +97,16 @@ export function ConnectionsScreen({ onConnect, onSelectTransfers, onSelectSettin
 
   return (
     <div className="flex h-screen w-full">
-      <Sidebar activeItem="connections" onSelectTransfers={onSelectTransfers} onSelectSettings={onSelectSettings} />
+      <Sidebar
+        activeItem="connections"
+        onSelectTransfers={onSelectTransfers}
+        onSelectSettings={onSelectSettings}
+        onSelectFileManager={onSelectFileManager}
+      />
 
       <div className="flex flex-1 flex-col overflow-hidden">
         <header className="flex h-header shrink-0 items-center justify-between border-b border-border bg-bg-secondary px-4">
           <h1 className="text-[13px] font-semibold text-fg-primary">{t('connections.screen.title')}</h1>
-          <Button variant="primary" onClick={openCreate}>
-            {t('connections.screen.newButton')}
-          </Button>
         </header>
 
         <main className="flex flex-1 flex-col gap-4 overflow-y-auto p-4">
