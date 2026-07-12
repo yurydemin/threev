@@ -53,8 +53,8 @@ type ActiveModalState =
 export interface FileManagerScreenProps {
   profileId: number;
   profileName: string;
-  /** Returns to the Connections screen (also resets `useFileManagerStore`). */
-  onExit: () => void;
+  /** Navigates to the Connections screen (Sidebar "Подключения") — a plain navigation, no `useFileManagerStore` reset (Stage 4 Block L5). */
+  onSelectConnections: () => void;
   /** Navigates to the Transfers screen (Sidebar "Передачи" and the `StatusBar` transfer indicator). */
   onSelectTransfers: () => void;
   /** Navigates to the Settings screen (Sidebar "Настройки"). */
@@ -82,7 +82,7 @@ export interface FileManagerScreenProps {
 export function FileManagerScreen({
   profileId,
   profileName,
-  onExit,
+  onSelectConnections,
   onSelectTransfers,
   onSelectSettings,
 }: FileManagerScreenProps) {
@@ -153,7 +153,7 @@ export function FileManagerScreen({
     <div className="flex h-screen w-full">
       <Sidebar
         activeItem="fileManager"
-        onSelectConnections={onExit}
+        onSelectConnections={onSelectConnections}
         onSelectTransfers={onSelectTransfers}
         onSelectSettings={onSelectSettings}
       />

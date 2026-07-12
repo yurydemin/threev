@@ -118,11 +118,6 @@ function App() {
         setScreen({ name: 'fileManager', profileId: connection.id, profileName: connection.name });
     }
 
-    function handleExitFileManager() {
-        useFileManagerStore.getState().reset();
-        setScreen({ name: 'connections' });
-    }
-
     // Returns to the already-open File Manager session from the Sidebar's
     // active-connection indicator (Block L2) — reads the still-live
     // `activeProfileId`/`activeProfileName` from the store rather than
@@ -174,7 +169,7 @@ function App() {
                 <FileManagerScreen
                     profileId={screen.profileId}
                     profileName={screen.profileName}
-                    onExit={handleExitFileManager}
+                    onSelectConnections={handleSelectConnections}
                     onSelectTransfers={handleSelectTransfers}
                     onSelectSettings={handleSelectSettings}
                 />

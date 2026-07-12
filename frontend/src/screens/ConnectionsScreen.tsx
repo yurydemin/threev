@@ -6,6 +6,7 @@ import { ConnectionList } from '../components/connection/ConnectionList';
 import { Button } from '../components/ui/Button';
 import { getConnection } from '../lib/wails/connection';
 import { useConnectionStore } from '../stores/useConnectionStore';
+import { useFileManagerStore } from '../stores/useFileManagerStore';
 import type { Connection, ConnectionSummary } from '../types';
 
 type FormState = { open: false } | { open: true; initialValues?: Connection };
@@ -93,6 +94,14 @@ export function ConnectionsScreen({
   async function handleDelete(summary: ConnectionSummary) {
     if (!window.confirm(t('connections.screen.deleteConfirm', { name: summary.name }))) return;
     await deleteConnection(summary.id);
+    // Deleting the profile the File Manager session is currently pointed at
+    // must drop that session too — otherwise the Sidebar's active-connection
+    // indicator (Block L2) keeps referencing a now-nonexistent profile, and
+    // clicking it re-enters a File Manager for a connection that's gone
+    // (Stage 4 Block L5).
+    if (useFileManagerStore.getState().activeProfileId === summary.id) {
+      useFileManagerStore.getState().reset();
+    }
   }
 
   return (
