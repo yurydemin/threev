@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=threev
+Comment=S3-compatible object storage desktop client
+Exec=threev
+Icon=threev
+Categories=Utility;
