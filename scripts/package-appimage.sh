@@ -10,7 +10,8 @@
 #
 # Code signing: The AppImage is unsigned by nature.
 #
-# Prerequisites: Linux, wails CLI, wget or curl, standard build tools
+# Prerequisites: Linux, wails CLI, wget or curl, ImageMagick (`convert`),
+# standard build tools
 # Invoke from repo root: ./scripts/package-appimage.sh
 #
 
@@ -112,13 +113,24 @@ if [ ! -f "$DESKTOP_FILE" ]; then
   exit 1
 fi
 
-# Prepare icon: convert or copy to standard location
-# linuxdeploy expects icons in standard locations; we'll symlink from build/appicon.png
-ICON_SOURCE="${BUILD_DIR}/appicon.png"
-if [ ! -f "$ICON_SOURCE" ]; then
-  echo "ERROR: Icon not found at $ICON_SOURCE"
+# Prepare icon. build/appicon.png is 1024x1024, but linuxdeploy only
+# accepts a fixed set of square icon resolutions (8x8 up to 512x512) and
+# rejects anything else outright ("invalid x resolution") - resize down to
+# 512x512 (the largest accepted size) before handing it to linuxdeploy.
+ICON_SOURCE_ORIGINAL="${BUILD_DIR}/appicon.png"
+if [ ! -f "$ICON_SOURCE_ORIGINAL" ]; then
+  echo "ERROR: Icon not found at $ICON_SOURCE_ORIGINAL"
   exit 1
 fi
+if ! command -v convert &> /dev/null; then
+  echo "ERROR: ImageMagick's 'convert' command not found - required to resize" \
+       "build/appicon.png (1024x1024) down to a resolution linuxdeploy accepts" \
+       "(max 512x512). Install ImageMagick (e.g. 'apt-get install -y imagemagick')."
+  exit 1
+fi
+ICON_SOURCE="${BIN_DIR}/threev-icon-512.png"
+convert "$ICON_SOURCE_ORIGINAL" -resize 512x512 "$ICON_SOURCE"
+
 mkdir -p "$APPDIR/usr/share/pixmaps"
 cp "$ICON_SOURCE" "$APPDIR/usr/share/pixmaps/threev.png"
 

@@ -88,6 +88,10 @@ jobs:
         # distros (internal/system/packagemanager/apt.go in the wails v2.13.0
         # module): libgtk-3-dev, libwebkit2gtk-4.0-dev, build-essential,
         # pkg-config. `npm` is already provided by actions/setup-node above.
+        # imagemagick is scripts/package-appimage.sh's own dependency (not
+        # wails'): appicon.png is 1024x1024, but linuxdeploy only accepts
+        # square icons up to 512x512 and rejects anything else outright, so
+        # the script resizes it down with `convert` before handing it off.
         #
         # IMPORTANT: this is *why* the matrix uses ubuntu-22.04 rather than
         # ubuntu-latest. scripts/package-appimage.sh calls
@@ -104,7 +108,7 @@ jobs:
         # mismatch without having to modify the packaging script itself.
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev build-essential pkg-config
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev build-essential pkg-config imagemagick
 
       - name: Package macOS (.dmg)
         if: matrix.os == 'macos-latest'

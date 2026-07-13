@@ -42,6 +42,24 @@ try {
   $NsisPath = Get-Command makensis -ErrorAction SilentlyContinue
   if (-not $NsisPath) {
     choco install nsis -y
+    if ($LASTEXITCODE -ne 0) {
+      Write-Error "choco install nsis failed with exit code $LASTEXITCODE"
+      exit 1
+    }
+
+    # choco install writes makensis's location into the machine/user PATH
+    # registry values, but this already-running PowerShell process's own
+    # $env:PATH is a snapshot taken at process start - it does NOT pick up
+    # the change automatically. Without this, `wails build -nsis` below
+    # would shell out to `makensis` and fail with "not found" even though
+    # choco just installed it successfully.
+    $env:PATH = [System.Environment]::GetEnvironmentVariable("PATH", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("PATH", "User")
+
+    $NsisPath = Get-Command makensis -ErrorAction SilentlyContinue
+    if (-not $NsisPath) {
+      Write-Error "makensis still not found on PATH after choco install and PATH refresh"
+      exit 1
+    }
   }
 } catch {
   Write-Error "Failed to install NSIS: $_"
