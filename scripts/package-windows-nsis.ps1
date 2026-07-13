@@ -47,29 +47,27 @@ try {
       exit 1
     }
 
-    # choco install writes makensis's location into the machine/user PATH
-    # registry values, but this already-running PowerShell process's own
-    # $env:PATH is a snapshot taken at process start - it does NOT pick up
-    # the change automatically. Without this, `wails build -nsis` below
-    # would shell out to `makensis` and fail with "not found" even though
-    # choco just installed it successfully.
-    $env:PATH = [System.Environment]::GetEnvironmentVariable("PATH", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("PATH", "User")
-
-    # Belt-and-braces: observed in practice that the `nsis`/`nsis.install`
-    # Chocolatey package does not actually register itself in the
-    # machine/user PATH registry values at all (the refresh above alone is
-    # not enough) - it only reports "Deployed to 'C:\Program Files
-    # (x86)\NSIS'" in its own install log. Add that fixed, well-known
-    # install location directly rather than depend on choco's own PATH
-    # registration behavior.
+    # choco install doesn't update this already-running PowerShell process's
+    # $env:PATH automatically - and in practice, the nsis/nsis.install
+    # Chocolatey package doesn't register itself in the machine/user PATH
+    # registry values at all either, only reporting "Deployed to
+    # 'C:\Program Files (x86)\NSIS'" in its own install log. Append (never
+    # replace/reassign wholesale) that fixed, well-known install location to
+    # the CURRENT $env:PATH - replacing $env:PATH outright from the
+    # Machine/User registry values would silently drop anything added to
+    # this process's PATH by earlier steps that isn't itself registry-backed
+    # (e.g. actions/setup-go's own GOPATH/bin addition, which is where the
+    # `wails` CLI installed two steps above actually lives - confirmed by a
+    # real CI failure where `wails` became "not recognized" right after such
+    # a wholesale reassignment).
     $NsisInstallDir = "C:\Program Files (x86)\NSIS"
     if ((Test-Path $NsisInstallDir) -and ($env:PATH -notlike "*${NsisInstallDir}*")) {
-      $env:PATH = "$NsisInstallDir;$env:PATH"
+      $env:PATH = "$env:PATH;$NsisInstallDir"
     }
 
     $NsisPath = Get-Command makensis -ErrorAction SilentlyContinue
     if (-not $NsisPath) {
-      Write-Error "makensis still not found on PATH after choco install, PATH refresh, and appending $NsisInstallDir"
+      Write-Error "makensis still not found on PATH after choco install and appending $NsisInstallDir"
       exit 1
     }
   }
