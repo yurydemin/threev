@@ -1,6 +1,11 @@
+# Wails build output (installers/binaries are published via GitHub Releases,
+# not committed - see .github/workflows/release.yml)
 build/bin
+
+# Node / frontend
 node_modules
 frontend/dist
+frontend/package.json.md5
 
 # Compiled binary produced by `go build ./...` in repo root
 /threev
@@ -11,18 +16,36 @@ frontend/dist
 *.test
 *.out
 
-# SQLite database files
+# SQLite database files (local dev/test databases only - the app's real
+# data directory lives outside the repo, see internal/config/paths.go)
 *.db
 *.db-journal
 *.db-wal
 *.db-shm
 
+# Secrets / local environment overrides
+.env
+.env.*
+!.env.example
+
+# go tool pprof output (profiles saved when hitting the opt-in debug
+# server from internal/profiling, see docs/02-tech-spec.md AC-005/AC-006)
+pprof/
+*.pprof
+
+# Logs
+*.log
+
 # IDE
 .vscode/
 .idea/
+*.swp
+*.swo
+*~
 
 # OS
 .DS_Store
+Thumbs.db
 
-# Wails build cache
-frontend/package.json.md5
+# Claude Code local settings (machine-specific permission overrides)
+.claude/settings.local.json

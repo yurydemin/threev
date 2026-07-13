@@ -1,19 +1,31 @@
-# README
+# threev
 
-## About
+Кроссплатформенный десктопный клиент для S3-совместимых хранилищ (AWS S3, MinIO и другие) — быстрая работа с бакетами и файлами без браузерной консоли.
 
-This is the official Wails React-TS template.
+## Возможности
 
-You can configure the project by editing `wails.json`. More information about the project settings can be found
-here: https://wails.io/docs/reference/project-config
+- Несколько подключений с шифрованием credentials (AES-256-GCM), опционально — под мастер-паролем
+- Файловый менеджер: навигация по бакетам/папкам, поиск, сортировка, предпросмотр изображений/PDF/текста
+- Загрузка и скачивание с multipart/range, устойчивостью к обрывам сети и возобновлением
+- Массовые операции: удаление, копирование, перемещение
+- Presigned URL, метаданные объектов, создание папок
+- Тёмная/светлая тема, масштаб интерфейса, горячие клавиши
+- Локализация: русский и английский
 
-## Live Development
+## Скриншоты
 
-To run in live development mode, run `wails dev` in the project directory. This will run a Vite development
-server that will provide very fast hot reload of your frontend changes. If you want to develop in a browser
-and have access to your Go methods, there is also a dev server that runs on http://localhost:34115. Connect
-to this in your browser, and you can call your Go code from devtools.
+_Скоро._
 
-## Building
+## Стек
 
-To build a redistributable, production mode package, use `wails build`.
+Go 1.25 + [Wails v2](https://wails.io/) (нативный WebView) · React 19 + TypeScript · Zustand · Tailwind CSS · SQLite · AWS SDK for Go v2
+
+## Установка
+
+Готовые сборки для macOS, Windows и Linux — на странице [Releases](https://github.com/yurydemin/threev/releases).
+
+Сборка из исходников — см. `BUILD.md` (появится в ближайшее время).
+
+## Статус
+
+Проект в активной разработке, идёт финальный этап подготовки к релизу (QA & Release).
