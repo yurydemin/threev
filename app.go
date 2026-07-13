@@ -9,6 +9,9 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
+
+	"github.com/wailsapp/wails/v2/pkg/runtime"
 
 	"threev/internal/appsettings"
 	"threev/internal/config"
@@ -65,6 +68,26 @@ const pprofAddrEnvVar = "THREEV_PPROF_ADDR"
 // randomly-generated Argon2id salt used to derive the credential encryption
 // key is persisted, so the same key can be re-derived on every app launch.
 const cryptoSaltSettingKey = "crypto_salt"
+
+// Window geometry setting keys, persisted in the same generic "settings"
+// table as cryptoSaltSettingKey (not domain.AppSettings/appsettings.
+// SettingsService - window geometry is auto-saved behind the scenes on
+// every close, not a user-configured field on the Settings screen).
+const (
+	windowWidthSettingKey     = "window_width"
+	windowHeightSettingKey    = "window_height"
+	windowXSettingKey         = "window_x"
+	windowYSettingKey         = "window_y"
+	windowMaximizedSettingKey = "window_maximized"
+)
+
+// minWindowWidth/minWindowHeight guard restoreWindowGeometry against
+// restoring a saved size too small to be usable (e.g. a corrupted or
+// hand-edited settings row).
+const (
+	minWindowWidth  = 480
+	minWindowHeight = 360
+)
 
 // App struct
 type App struct {
@@ -306,6 +329,7 @@ func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 	a.transferService.SetContext(ctx)
 	a.fileManagerService.SetContext(ctx)
+	a.restoreWindowGeometry(ctx)
 
 	if addr := os.Getenv(pprofAddrEnvVar); addr != "" {
 		stop, err := profiling.EnableDebugServer(addr)
@@ -318,6 +342,101 @@ func (a *App) startup(ctx context.Context) {
 			log.Printf("threev: pprof debug server listening on %s", addr)
 		}
 	}
+}
+
+// restoreWindowGeometry applies any previously saved window size/position/
+// maximized state (see saveWindowGeometry, called from beforeClose) at
+// startup. Each of the three pieces of state is applied independently and
+// silently skipped if missing or malformed (first launch, or a corrupted
+// row) - there is no scenario where a partial restore should block the
+// window from opening.
+func (a *App) restoreWindowGeometry(ctx context.Context) {
+	width, widthOK := a.getSettingInt(ctx, windowWidthSettingKey)
+	height, heightOK := a.getSettingInt(ctx, windowHeightSettingKey)
+	if widthOK && heightOK && width >= minWindowWidth && height >= minWindowHeight {
+		runtime.WindowSetSize(ctx, width, height)
+	}
+
+	x, xOK := a.getSettingInt(ctx, windowXSettingKey)
+	y, yOK := a.getSettingInt(ctx, windowYSettingKey)
+	if xOK && yOK {
+		runtime.WindowSetPosition(ctx, x, y)
+	}
+
+	if maximized, ok := a.getSettingInt(ctx, windowMaximizedSettingKey); ok && maximized == 1 {
+		runtime.WindowMaximise(ctx)
+	}
+}
+
+// saveWindowGeometry persists the window's current size/position/maximized
+// state, called from beforeClose just before the app exits.
+//
+// If the window is currently maximized, only the maximized flag is saved -
+// WindowGetSize/WindowGetPosition would return the maximized bounds, and
+// overwriting the last real "normal" bounds with those would mean
+// un-maximizing later restores a full-screen-sized window instead of
+// whatever size the user actually had before maximizing.
+func (a *App) saveWindowGeometry(ctx context.Context) {
+	maximized := runtime.WindowIsMaximised(ctx)
+	a.setSettingInt(ctx, windowMaximizedSettingKey, boolToInt(maximized))
+
+	if maximized {
+		return
+	}
+
+	width, height := runtime.WindowGetSize(ctx)
+	a.setSettingInt(ctx, windowWidthSettingKey, width)
+	a.setSettingInt(ctx, windowHeightSettingKey, height)
+
+	x, y := runtime.WindowGetPosition(ctx)
+	a.setSettingInt(ctx, windowXSettingKey, x)
+	a.setSettingInt(ctx, windowYSettingKey, y)
+}
+
+// beforeClose saves window geometry (see saveWindowGeometry) before the
+// window is destroyed. It never prevents the app from closing.
+func (a *App) beforeClose(ctx context.Context) bool {
+	a.saveWindowGeometry(ctx)
+	return false
+}
+
+// getSettingInt reads and parses an integer setting, returning ok=false if
+// the key is missing or its value is not a valid integer (never an error a
+// caller needs to handle specially - see restoreWindowGeometry's doc
+// comment).
+func (a *App) getSettingInt(ctx context.Context, key string) (int, bool) {
+	raw, err := storage.GetSetting(ctx, a.db, key)
+	if err != nil {
+		return 0, false
+	}
+
+	value, err := strconv.Atoi(raw)
+	if err != nil {
+		return 0, false
+	}
+
+	return value, true
+}
+
+// setSettingInt persists an integer setting. Errors are logged, not
+// returned - saveWindowGeometry runs from beforeClose, where there is no
+// meaningful way to surface a failure to the user and no reason to block
+// the app from closing over it.
+func (a *App) setSettingInt(ctx context.Context, key string, value int) {
+	if err := storage.SetSetting(ctx, a.db, key, strconv.Itoa(value)); err != nil {
+		log.Printf("threev: save window geometry setting %q: %v", key, err)
+	}
+}
+
+// boolToInt converts a bool to the 0/1 representation stored in the
+// "settings" table (a TEXT column - there is no native boolean type to use
+// instead).
+func boolToInt(b bool) int {
+	if b {
+		return 1
+	}
+
+	return 0
 }
 
 // shutdown is called when the app terminates, releasing the database
