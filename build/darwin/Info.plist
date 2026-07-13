@@ -23,6 +23,27 @@
         <string>true</string>
         <key>NSHumanReadableCopyright</key>
         <string>{{.Info.Copyright}}</string>
+        <!--
+          threev is an S3-compatible client that connects to
+          user-configured, arbitrary endpoints - many self-hosted
+          MinIO/S3-compatible servers run over plain HTTP (no TLS),
+          especially for local/internal use. macOS's App Transport
+          Security blocks all non-HTTPS network requests by default,
+          including <img>/<iframe> loads inside the embedded WKWebView
+          (e.g. object preview via presigned URLs) - without this
+          exception, image/PDF preview silently fails to load for any
+          HTTP endpoint on macOS specifically (Windows/WebView2 and
+          Linux/WebKitGTK have no equivalent restriction, which is why
+          the same build only shows this on macOS). NSAllowsArbitraryLoads
+          is appropriate here since the app is a controlled S3 client
+          talking to endpoints the user themselves configures, not a
+          general-purpose browser loading arbitrary third-party sites.
+        -->
+        <key>NSAppTransportSecurity</key>
+        <dict>
+            <key>NSAllowsArbitraryLoads</key>
+            <true/>
+        </dict>
         {{if .Info.FileAssociations}}
         <key>CFBundleDocumentTypes</key>
         <array>

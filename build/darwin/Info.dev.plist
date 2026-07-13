@@ -59,9 +59,16 @@
           {{end}}
         </array>
         {{end}}
+        <!-- See Info.plist's own comment: threev talks to arbitrary
+             user-configured S3 endpoints, some of which are plain HTTP
+             and not on the local network (e.g. a real public IP running
+             self-hosted MinIO) - NSAllowsLocalNetworking alone doesn't
+             cover that case, which is why dev-mode preview testing
+             against such an endpoint can silently fail to load images
+             without this. -->
         <key>NSAppTransportSecurity</key>
         <dict>
-            <key>NSAllowsLocalNetworking</key>
+            <key>NSAllowsArbitraryLoads</key>
             <true/>
         </dict>
     </dict>
