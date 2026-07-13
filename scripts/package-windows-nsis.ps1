@@ -55,9 +55,21 @@ try {
     # choco just installed it successfully.
     $env:PATH = [System.Environment]::GetEnvironmentVariable("PATH", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("PATH", "User")
 
+    # Belt-and-braces: observed in practice that the `nsis`/`nsis.install`
+    # Chocolatey package does not actually register itself in the
+    # machine/user PATH registry values at all (the refresh above alone is
+    # not enough) - it only reports "Deployed to 'C:\Program Files
+    # (x86)\NSIS'" in its own install log. Add that fixed, well-known
+    # install location directly rather than depend on choco's own PATH
+    # registration behavior.
+    $NsisInstallDir = "C:\Program Files (x86)\NSIS"
+    if ((Test-Path $NsisInstallDir) -and ($env:PATH -notlike "*${NsisInstallDir}*")) {
+      $env:PATH = "$NsisInstallDir;$env:PATH"
+    }
+
     $NsisPath = Get-Command makensis -ErrorAction SilentlyContinue
     if (-not $NsisPath) {
-      Write-Error "makensis still not found on PATH after choco install and PATH refresh"
+      Write-Error "makensis still not found on PATH after choco install, PATH refresh, and appending $NsisInstallDir"
       exit 1
     }
   }
