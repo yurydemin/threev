@@ -93,6 +93,9 @@ export function SetPasswordModal({ isOpen, onClose, mode }: SetPasswordModalProp
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' && !isLoading) void handleSubmit();
+          }}
           error={fieldError ?? undefined}
           autoFocus
         />
@@ -101,6 +104,9 @@ export function SetPasswordModal({ isOpen, onClose, mode }: SetPasswordModalProp
           type="password"
           value={confirmPassword}
           onChange={(e) => setConfirmPassword(e.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' && !isLoading) void handleSubmit();
+          }}
           error={confirmFieldError ?? undefined}
         />
       </div>

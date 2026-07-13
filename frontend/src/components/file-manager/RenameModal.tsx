@@ -79,6 +79,9 @@ export function RenameModal({ isOpen, onClose, profileId, bucket, entry, current
         label={t('fileManager.renameModal.nameLabel')}
         value={newName}
         onChange={(event) => setNewName(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' && !isLoading) void handleRename();
+        }}
         autoFocus
       />
     </Modal>

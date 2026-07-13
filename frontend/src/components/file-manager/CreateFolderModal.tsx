@@ -74,6 +74,9 @@ export function CreateFolderModal({ isOpen, onClose, profileId, bucket, prefix }
           setName(event.target.value);
           if (error) setError(undefined);
         }}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' && !isLoading) void handleCreate();
+        }}
         error={error}
         autoFocus
       />

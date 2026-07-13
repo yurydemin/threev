@@ -76,6 +76,9 @@ export function RemovePasswordModal({ isOpen, onClose }: RemovePasswordModalProp
           type="password"
           value={currentPassword}
           onChange={(e) => setCurrentPassword(e.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' && !isLoading) void handleSubmit();
+          }}
           error={fieldError ?? undefined}
           autoFocus
         />
