@@ -44,7 +44,7 @@ export function BulkProgressOverlay() {
       <div className="flex items-center gap-3">
         <div className="min-w-0 flex-1">
           <p className="truncate text-[13px] text-fg-primary">
-            {t('fileManager.bulkProgressOverlay.progressLine', { verb, total: active.total })}
+            {t('fileManager.bulkProgressOverlay.progressLine', { verb, total: active.total, count: active.total })}
           </p>
           <ProgressBar value={percent} variant="upload" className="mt-1.5" />
           {active.failedCount > 0 && (

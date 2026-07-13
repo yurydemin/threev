@@ -85,7 +85,10 @@
     "screen": {
       "selectBucketHint": "Выберите бакет слева, чтобы просмотреть его содержимое",
       "statusFiltered": "{{filtered}} из {{total}} объектов",
+      "statusFiltered_one": "{{filtered}} из {{total}} объекта",
       "statusAll": "{{total}} объектов",
+      "statusAll_one": "{{total}} объект",
+      "statusAll_few": "{{total}} объекта",
       "statusSelectedSuffix": " • {{count}} выбрано"
     },
     "toolbar": {
@@ -115,6 +118,8 @@
       "copyEllipsis": "Копировать...",
       "moveEllipsis": "Переместить...",
       "deleteCount": "Удалить {{count}} объектов",
+      "deleteCount_one": "Удалить {{count}} объект",
+      "deleteCount_few": "Удалить {{count}} объекта",
       "downloadEllipsis": "Скачать...",
       "openPreview": "Открыть / Предпросмотр",
       "copyUrl": "Копировать URL",
@@ -139,7 +144,11 @@
       "title": "Удалить объекты",
       "confirmSingle": "Вы уверены, что хотите удалить объект «{{name}}»?",
       "confirmMultiple": "Вы уверены, что хотите удалить {{count}} объектов?",
+      "confirmMultiple_one": "Вы уверены, что хотите удалить {{count}} объект?",
+      "confirmMultiple_few": "Вы уверены, что хотите удалить {{count}} объекта?",
       "confirmFolder": "Папка «{{name}}» и всё её содержимое ({{count}} объектов) будут удалены безвозвратно. Это действие нельзя отменить.",
+      "confirmFolder_one": "Папка «{{name}}» и всё её содержимое ({{count}} объект) будут удалены безвозвратно. Это действие нельзя отменить.",
+      "confirmFolder_few": "Папка «{{name}}» и всё её содержимое ({{count}} объекта) будут удалены безвозвратно. Это действие нельзя отменить.",
       "listingFolder": "Подсчёт объектов в папке...",
       "listFolderError": "Не удалось получить список объектов в папке"
     },
@@ -157,6 +166,8 @@
       "prefixPlaceholder": "например, backup/2026/",
       "resultSingle": "Файл будет",
       "resultMultiple": "{{count}} файлов будут",
+      "resultMultiple_one": "{{count}} файл будет",
+      "resultMultiple_few": "{{count}} файла будут",
       "resultSuffix": "с сохранением исходных имён."
     },
     "presignedUrlModal": {
@@ -201,6 +212,8 @@
       "verbMove": "Перемещение",
       "verbFallback": "Обработка",
       "progressLine": "{{verb}} {{total}} объектов…",
+      "progressLine_one": "{{verb}} {{count}} объект…",
+      "progressLine_few": "{{verb}} {{count}} объекта…",
       "failedCount": "{{count}} не удалось"
     },
     "fileList": {
@@ -235,7 +248,8 @@
       "copyStartError": "Не удалось начать копирование объектов",
       "moveStartError": "Не удалось начать перемещение объектов",
       "cancelError": "Не удалось отменить операцию",
-      "partialFailure": "{{failed}} из {{total}} объектов не удалось обработать"
+      "partialFailure": "{{failed}} из {{total}} объектов не удалось обработать",
+      "partialFailure_one": "{{failed}} из {{total}} объекта не удалось обработать"
     }
   },
   "transfers": {
@@ -267,7 +281,9 @@
       "cancelled": "Отменено"
     },
     "transferIndicator": {
-      "active": "{{count}} активных передач"
+      "active": "{{count}} активных передач",
+      "active_one": "{{count}} активная передача",
+      "active_few": "{{count}} активные передачи"
     }
   },
   "settings": {

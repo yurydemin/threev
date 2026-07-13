@@ -163,6 +163,7 @@ export const useBulkOperationStore = create<BulkOperationState>()((set, get) => 
             i18n.t('fileManager.bulkOperationStore.partialFailure', {
               failed: event.failedCount,
               total: event.total,
+              count: event.total,
             }),
           );
         }

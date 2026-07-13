@@ -85,7 +85,9 @@
     "screen": {
       "selectBucketHint": "Select a bucket on the left to view its contents",
       "statusFiltered": "{{filtered}} of {{total}} objects",
+      "statusFiltered_one": "{{filtered}} of {{total}} object",
       "statusAll": "{{total}} objects",
+      "statusAll_one": "{{total}} object",
       "statusSelectedSuffix": " • {{count}} selected"
     },
     "toolbar": {
@@ -115,6 +117,7 @@
       "copyEllipsis": "Copy...",
       "moveEllipsis": "Move...",
       "deleteCount": "Delete {{count}} objects",
+      "deleteCount_one": "Delete {{count}} object",
       "downloadEllipsis": "Download...",
       "openPreview": "Open / Preview",
       "copyUrl": "Copy URL",
@@ -139,7 +142,9 @@
       "title": "Delete objects",
       "confirmSingle": "Are you sure you want to delete the object \"{{name}}\"?",
       "confirmMultiple": "Are you sure you want to delete {{count}} objects?",
+      "confirmMultiple_one": "Are you sure you want to delete {{count}} object?",
       "confirmFolder": "The folder \"{{name}}\" and everything inside it ({{count}} objects) will be permanently deleted. This cannot be undone.",
+      "confirmFolder_one": "The folder \"{{name}}\" and everything inside it ({{count}} object) will be permanently deleted. This cannot be undone.",
       "listingFolder": "Counting objects in folder...",
       "listFolderError": "Failed to list objects in folder"
     },
@@ -157,6 +162,7 @@
       "prefixPlaceholder": "e.g. backup/2026/",
       "resultSingle": "The file will be",
       "resultMultiple": "{{count}} files will be",
+      "resultMultiple_one": "{{count}} file will be",
       "resultSuffix": "keeping their original names."
     },
     "presignedUrlModal": {
@@ -201,6 +207,7 @@
       "verbMove": "Moving",
       "verbFallback": "Processing",
       "progressLine": "{{verb}} {{total}} objects…",
+      "progressLine_one": "{{verb}} {{count}} object…",
       "failedCount": "{{count}} failed"
     },
     "fileList": {
@@ -235,7 +242,8 @@
       "copyStartError": "Failed to start copying objects",
       "moveStartError": "Failed to start moving objects",
       "cancelError": "Failed to cancel operation",
-      "partialFailure": "{{failed}} of {{total}} objects failed to process"
+      "partialFailure": "{{failed}} of {{total}} objects failed to process",
+      "partialFailure_one": "{{failed}} of {{total}} object could not be processed"
     }
   },
   "transfers": {
@@ -267,7 +275,8 @@
       "cancelled": "Cancelled"
     },
     "transferIndicator": {
-      "active": "{{count}} active transfers"
+      "active": "{{count}} active transfers",
+      "active_one": "{{count}} active transfer"
     }
   },
   "settings": {

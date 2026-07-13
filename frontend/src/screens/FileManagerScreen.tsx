@@ -172,8 +172,12 @@ export function FileManagerScreen({
     selectedKeys.size > 0 ? t('fileManager.screen.statusSelectedSuffix', { count: selectedKeys.size }) : '';
   const statusLeft = selectedBucket
     ? (hasSearchQuery
-        ? t('fileManager.screen.statusFiltered', { filtered: filteredEntries.length, total: entries.length })
-        : t('fileManager.screen.statusAll', { total: entries.length })) + selectionSuffix
+        ? t('fileManager.screen.statusFiltered', {
+            filtered: filteredEntries.length,
+            total: entries.length,
+            count: entries.length,
+          })
+        : t('fileManager.screen.statusAll', { total: entries.length, count: entries.length })) + selectionSuffix
     : undefined;
 
   function handleOpenFile(entry: ObjectEntry) {
