@@ -18,11 +18,22 @@ interface AppState {
   sidebarCollapsed: boolean;
   /** UI language (see `useLanguageSync`). Defaults to 'ru'. */
   language: Language;
+  /**
+   * Displayed app version (e.g. "v0.2.0"), fetched once at boot via
+   * `lib/wails/app.ts#getAppVersion` (see `App.tsx`) - empty string until
+   * that resolves. Deliberately NOT persisted (see `partialize` below):
+   * unlike theme/scale/language, this has no meaningful value to guess
+   * before the backend answers, and persisting a stale version across app
+   * upgrades would defeat the whole point of reading it fresh from the
+   * embedded wails.json on every launch.
+   */
+  appVersion: string;
   setTheme: (theme: ThemePreference) => void;
   setUiScalePercent: (percent: number) => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
   toggleSidebarCollapsed: () => void;
   setLanguage: (language: Language) => void;
+  setAppVersion: (appVersion: string) => void;
 }
 
 /**
@@ -42,12 +53,14 @@ export const useAppStore = create<AppState>()(
       uiScalePercent: 100,
       sidebarCollapsed: false,
       language: 'ru',
+      appVersion: '',
       setTheme: (theme) => set({ theme }),
       setUiScalePercent: (uiScalePercent) => set({ uiScalePercent }),
       setSidebarCollapsed: (sidebarCollapsed) => set({ sidebarCollapsed }),
       toggleSidebarCollapsed: () =>
         set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
       setLanguage: (language) => set({ language }),
+      setAppVersion: (appVersion) => set({ appVersion }),
     }),
     {
       name: 'threev-app-store',

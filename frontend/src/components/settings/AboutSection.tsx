@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { APP_VERSION } from '../../lib/appVersion';
+import { useAppStore } from '../../stores/useAppStore';
 import { SettingField } from './SettingField';
 import { SettingGroup } from './SettingGroup';
 
@@ -12,11 +12,12 @@ import { SettingGroup } from './SettingGroup';
  */
 export function AboutSection() {
   const { t } = useTranslation();
+  const appVersion = useAppStore((state) => state.appVersion);
   return (
     <div className="flex flex-col">
       <SettingGroup>
         <SettingField label={t('settings.about.versionLabel')}>
-          <span className="text-[13px] text-fg-primary">{APP_VERSION}</span>
+          <span className="text-[13px] text-fg-primary">{appVersion}</span>
         </SettingField>
       </SettingGroup>
     </div>

@@ -2,7 +2,7 @@ import { ArrowLeftRight, Cloud, History, Settings } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
-import { APP_VERSION } from '../../lib/appVersion';
+import { useAppStore } from '../../stores/useAppStore';
 import { useFileManagerStore } from '../../stores/useFileManagerStore';
 import { ActiveConnectionIndicator } from './ActiveConnectionIndicator';
 
@@ -67,6 +67,7 @@ export function Sidebar({
   onSelectFileManager,
 }: SidebarProps) {
   const { t } = useTranslation();
+  const appVersion = useAppStore((state) => state.appVersion);
   const activeProfileId = useFileManagerStore((state) => state.activeProfileId);
   const activeProfileName = useFileManagerStore((state) => state.activeProfileName);
   const resolvedActiveItem = activeItem ?? 'connections';
@@ -140,7 +141,7 @@ export function Sidebar({
         </>
       )}
 
-      <div className="mt-auto p-4 text-2xs text-fg-muted">{APP_VERSION}</div>
+      <div className="mt-auto p-4 text-2xs text-fg-muted">{appVersion}</div>
     </aside>
   );
 }

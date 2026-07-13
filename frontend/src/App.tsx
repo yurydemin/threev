@@ -17,6 +17,8 @@ import { ToastContainer } from './components/ui/ToastContainer';
 import { ConfirmDialog } from './components/ui/ConfirmDialog';
 import { confirmDialog } from './lib/confirm';
 import { isLocked as apiIsLocked } from './lib/wails/appsettings';
+import { getAppVersion } from './lib/wails/app';
+import { useAppStore } from './stores/useAppStore';
 import type { ConnectionSummary } from './types';
 
 /**
@@ -74,6 +76,18 @@ function App() {
                 console.error('[App] IsLocked check failed:', err);
                 setBoot({ status: 'unlocked' });
             });
+    }, []);
+
+    // Fetched once at boot, independent of the lock-gate above — the
+    // version display doesn't need credentials/unlock state, just the
+    // embedded wails.json (see app.go's GetAppVersion). A fetch failure is
+    // silently ignored beyond the console log: useAppStore's appVersion
+    // simply stays '', and Sidebar/AboutSection already handle that as
+    // "nothing to show yet" rather than crashing.
+    useEffect(() => {
+        void getAppVersion()
+            .then((version) => useAppStore.getState().setAppVersion(`v${version}`))
+            .catch((err) => console.error('[App] GetAppVersion failed:', err));
     }, []);
 
     const connections = useConnectionStore((state) => state.connections);

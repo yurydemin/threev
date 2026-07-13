@@ -3,7 +3,9 @@ package main
 import (
 	"context"
 	"database/sql"
+	_ "embed"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -18,6 +20,39 @@ import (
 	"threev/internal/storage"
 	"threev/internal/transfer"
 )
+
+// wailsConfigJSON embeds wails.json verbatim at compile time, so
+// GetAppVersion (below) can read info.productVersion straight from it - the
+// exact same field Wails' own build-time templating uses for
+// CFBundleShortVersionString/the Windows exe's file version - without a
+// second, hand-maintained copy of the version string anywhere in the
+// frontend. Previously frontend/src/lib/appVersion.ts hardcoded its own
+// "vX.Y.Z" constant, completely independent of wails.json, and silently
+// went stale on every version bump until someone remembered to edit it too.
+//
+//go:embed wails.json
+var wailsConfigJSON []byte
+
+// GetAppVersion returns the app's version string (without a leading "v"),
+// parsed from the embedded wails.json's info.productVersion - the single
+// source of truth for the version baked into every build (also used by
+// scripts/package-*.sh/.ps1 for installer filenames and by release.yml's
+// check-version job). Returns an error only if wails.json's embedded
+// content is somehow malformed, which would indicate a build-time problem,
+// not a runtime one.
+func (a *App) GetAppVersion() (string, error) {
+	var cfg struct {
+		Info struct {
+			ProductVersion string `json:"productVersion"`
+		} `json:"info"`
+	}
+
+	if err := json.Unmarshal(wailsConfigJSON, &cfg); err != nil {
+		return "", fmt.Errorf("parse embedded wails.json: %w", err)
+	}
+
+	return cfg.Info.ProductVersion, nil
+}
 
 // pprofAddrEnvVar is the environment variable that, when set to a
 // non-empty address (e.g. "localhost:6060"), opts the running app into
