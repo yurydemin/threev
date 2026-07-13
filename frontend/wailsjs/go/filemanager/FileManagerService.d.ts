@@ -17,6 +17,8 @@ export function GetTextPreview(arg1:number,arg2:string,arg3:string):Promise<doma
 
 export function HeadObject(arg1:number,arg2:string,arg3:string):Promise<domain.ObjectMeta>;
 
+export function ListAllKeysUnderPrefix(arg1:number,arg2:string,arg3:string):Promise<Array<string>>;
+
 export function ListBuckets(arg1:number):Promise<Array<domain.Bucket>>;
 
 export function ListObjects(arg1:domain.ListObjectsRequest):Promise<domain.ListObjectsResponse>;

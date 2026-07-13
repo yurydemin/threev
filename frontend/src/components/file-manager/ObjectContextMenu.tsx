@@ -36,6 +36,8 @@ export interface ObjectContextMenuProps {
   onOpenPreview: (entry: ObjectEntry) => void;
   /** Bulk or single delete — `keys` is `[entry.key]` outside a multi-selection context. */
   onDelete: (keys: string[]) => void;
+  /** Recursive folder delete — the caller lists every real key under `entry.key`'s prefix (async) before opening the delete confirmation, since this component does not own modal state (see below). */
+  onDeleteFolder: (entry: ObjectEntry) => void;
   /** Bulk or single copy — opens `DestinationPickerModal` mode="copy". */
   onCopy: (keys: string[]) => void;
   /** Bulk or single move — opens `DestinationPickerModal` mode="move". */
@@ -78,6 +80,7 @@ export function ObjectContextMenu({
   onClose,
   onOpenPreview,
   onDelete,
+  onDeleteFolder,
   onCopy,
   onMove,
   onRename,
@@ -121,6 +124,13 @@ export function ObjectContextMenu({
         label: t('fileManager.objectContextMenu.open'),
         icon: <FolderOpen className="h-4 w-4" aria-hidden="true" />,
         onClick: () => navigateToPrefix(entry.key),
+      },
+      { separator: true },
+      {
+        label: t('common.delete'),
+        icon: <Trash2 className="h-4 w-4" aria-hidden="true" />,
+        destructive: true,
+        onClick: () => onDeleteFolder(entry),
       },
     ];
     return <ContextMenu x={x} y={y} items={items} onClose={onClose} />;

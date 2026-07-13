@@ -20,6 +20,7 @@ import {
   GetPresignedURL,
   GetTextPreview,
   HeadObject,
+  ListAllKeysUnderPrefix,
   ListBuckets,
   ListObjects,
   MoveObjects,
@@ -96,6 +97,11 @@ function fromTextPreviewResult(result: domain.TextPreviewResult): TextPreviewRes
 
 export async function listBuckets(profileId: number): Promise<Bucket[]> {
   return call(async () => (await ListBuckets(profileId)).map(fromBucket));
+}
+
+/** Recursively lists every real object key under a folder's prefix (S3 has no native delete-by-prefix — this discovers what "delete folder" must actually remove). */
+export async function listAllKeysUnderPrefix(profileId: number, bucket: string, prefix: string): Promise<string[]> {
+  return call(() => ListAllKeysUnderPrefix(profileId, bucket, prefix));
 }
 
 export async function listObjects(request: ListObjectsRequest): Promise<ListObjectsResponse> {

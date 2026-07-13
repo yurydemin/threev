@@ -138,7 +138,10 @@
     "deleteConfirmModal": {
       "title": "Delete objects",
       "confirmSingle": "Are you sure you want to delete the object \"{{name}}\"?",
-      "confirmMultiple": "Are you sure you want to delete {{count}} objects?"
+      "confirmMultiple": "Are you sure you want to delete {{count}} objects?",
+      "confirmFolder": "The folder \"{{name}}\" and everything inside it ({{count}} objects) will be permanently deleted. This cannot be undone.",
+      "listingFolder": "Counting objects in folder...",
+      "listFolderError": "Failed to list objects in folder"
     },
     "destinationPickerModal": {
       "titleCopy": "Copy objects",

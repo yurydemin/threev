@@ -9,6 +9,15 @@ export interface DeleteConfirmModalProps {
   isOpen: boolean;
   onClose: () => void;
   keys: string[];
+  /**
+   * Display name of the folder being recursively deleted — set only when
+   * `keys` was populated via `listAllKeysUnderPrefix` (a "delete folder"
+   * ПКМ action, `FileManagerScreen#handleDeleteFolder`), `undefined` for the
+   * existing single/multi-file delete paths. When set, `keys` may contain
+   * thousands of entries, so the usual per-key `<ul>` is skipped in favor of
+   * a single count-based warning.
+   */
+  folderName?: string;
   /** Starts the bulk delete and closes the modal immediately — progress is shown by `BulkProgressOverlay`, this modal never waits for completion. */
   onConfirm: () => void;
 }
@@ -20,10 +29,11 @@ export interface DeleteConfirmModalProps {
  * derive display names via `getEntryDisplayName`, the same convention
  * `ObjectContextMenu` already uses.
  */
-export function DeleteConfirmModal({ isOpen, onClose, keys, onConfirm }: DeleteConfirmModalProps) {
+export function DeleteConfirmModal({ isOpen, onClose, keys, folderName, onConfirm }: DeleteConfirmModalProps) {
   const { t } = useTranslation();
   const currentPrefix = useFileManagerStore((state) => state.currentPrefix);
 
+  const isFolder = folderName !== undefined;
   const isSingle = keys.length === 1;
   const singleName = isSingle ? getEntryDisplayName(keys[0], currentPrefix) : '';
 
@@ -53,11 +63,13 @@ export function DeleteConfirmModal({ isOpen, onClose, keys, onConfirm }: DeleteC
         <AlertTriangle className="h-8 w-8 shrink-0 text-danger" aria-hidden="true" />
         <div className="min-w-0 flex-1">
           <p className="text-[13px] text-fg-primary">
-            {isSingle
-              ? t('fileManager.deleteConfirmModal.confirmSingle', { name: singleName })
-              : t('fileManager.deleteConfirmModal.confirmMultiple', { count: keys.length })}
+            {isFolder
+              ? t('fileManager.deleteConfirmModal.confirmFolder', { name: folderName, count: keys.length })
+              : isSingle
+                ? t('fileManager.deleteConfirmModal.confirmSingle', { name: singleName })
+                : t('fileManager.deleteConfirmModal.confirmMultiple', { count: keys.length })}
           </p>
-          {!isSingle && (
+          {!isFolder && !isSingle && (
             <ul className="mt-2 max-h-[200px] overflow-y-auto rounded border border-border bg-bg-secondary p-2">
               {keys.map((key) => (
                 <li key={key} className="truncate py-0.5 text-[13px] text-fg-secondary">

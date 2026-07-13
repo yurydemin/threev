@@ -1,5 +1,6 @@
 import { useMemo, useState, type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Loader2 } from 'lucide-react';
 import { Sidebar } from '../components/layout/Sidebar';
 import { Toolbar, type FileManagerView } from '../components/layout/Toolbar';
 import { StatusBar } from '../components/layout/StatusBar';
@@ -22,8 +23,11 @@ import { useBulkOperationStore } from '../stores/useBulkOperationStore';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import { useFileDropUpload } from '../hooks/useFileDropUpload';
 import { useBulkOperationEvents } from '../hooks/useBulkOperationEvents';
-import { filterEntriesByQuery } from '../lib/utils';
+import { filterEntriesByQuery, getEntryDisplayName } from '../lib/utils';
 import { isPreviewSupported } from '../lib/preview';
+import { listAllKeysUnderPrefix } from '../lib/wails/fileManager';
+import { ApiError } from '../lib/wails/errors';
+import { toast } from '../lib/toast';
 import type { ObjectEntry } from '../types';
 
 /** Local shape for the currently open ПКМ context menu (`null` = hidden). */
@@ -42,7 +46,7 @@ interface ContextMenuState {
  * sync with each other.
  */
 type ActiveModalState =
-  | { kind: 'delete'; keys: string[] }
+  | { kind: 'delete'; keys: string[]; folderName?: string }
   | { kind: 'copy'; keys: string[] }
   | { kind: 'move'; keys: string[] }
   | { kind: 'rename'; entry: ObjectEntry }
@@ -91,6 +95,7 @@ export function FileManagerScreen({
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [previewEntry, setPreviewEntry] = useState<ObjectEntry | null>(null);
   const [activeModal, setActiveModal] = useState<ActiveModalState>(null);
+  const [isListingFolder, setIsListingFolder] = useState(false);
   const activeProfileId = useFileManagerStore((state) => state.activeProfileId);
   const selectedBucket = useFileManagerStore((state) => state.selectedBucket);
   const entries = useFileManagerStore((state) => state.entries);
@@ -107,6 +112,37 @@ export function FileManagerScreen({
   function handleDeleteSelected() {
     if (selectedKeys.size === 0) return;
     setActiveModal({ kind: 'delete', keys: Array.from(selectedKeys) });
+  }
+
+  /**
+   * "Удалить" on a folder in `ObjectContextMenu` — S3 has no delete-by-prefix,
+   * so this first recursively walks every real key under `entry.key`
+   * (`listAllKeysUnderPrefix`, backend `ListAllKeysUnderPrefix`) before
+   * opening the existing delete confirmation flow with the full key list.
+   * An empty result (a folder with no real objects underneath, only its own
+   * placeholder key never existed or was already the sole key) reuses the
+   * plain single-key delete path unchanged — there's nothing "recursive" to
+   * warn about in that case.
+   */
+  async function handleDeleteFolder(entry: ObjectEntry) {
+    if (!activeProfileId || !selectedBucket) return;
+    setIsListingFolder(true);
+    try {
+      const keys = await listAllKeysUnderPrefix(activeProfileId, selectedBucket, entry.key);
+      if (keys.length === 0) {
+        setActiveModal({ kind: 'delete', keys: [entry.key] });
+        return;
+      }
+      setActiveModal({ kind: 'delete', keys, folderName: getEntryDisplayName(entry.key, currentPrefix) });
+    } catch (err) {
+      console.error('[FileManagerScreen] listAllKeysUnderPrefix failed:', err);
+      toast.error(
+        err instanceof ApiError ? err.message : t('fileManager.deleteConfirmModal.listFolderError'),
+        err instanceof ApiError ? err.raw : undefined,
+      );
+    } finally {
+      setIsListingFolder(false);
+    }
   }
 
   function handleRenameSelected() {
@@ -204,12 +240,22 @@ export function FileManagerScreen({
           onClose={() => setContextMenu(null)}
           onOpenPreview={setPreviewEntry}
           onDelete={(keys) => setActiveModal({ kind: 'delete', keys })}
+          onDeleteFolder={(entry) => void handleDeleteFolder(entry)}
           onCopy={(keys) => setActiveModal({ kind: 'copy', keys })}
           onMove={(keys) => setActiveModal({ kind: 'move', keys })}
           onRename={(entry) => setActiveModal({ kind: 'rename', entry })}
           onEditMetadata={(entry) => setActiveModal({ kind: 'metadata', entry })}
           onGetPresignedUrl={(entry) => setActiveModal({ kind: 'presignedUrl', entry })}
         />
+      )}
+
+      {isListingFolder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20">
+          <div className="flex items-center gap-2 rounded bg-bg-elevated px-4 py-3 shadow-[0_4px_16px_rgba(0,0,0,0.20)]">
+            <Loader2 className="h-4 w-4 animate-spin text-fg-primary" aria-hidden="true" />
+            <span className="text-[13px] text-fg-primary">{t('fileManager.deleteConfirmModal.listingFolder')}</span>
+          </div>
+        </div>
       )}
 
       <ObjectPreviewModal
@@ -223,6 +269,7 @@ export function FileManagerScreen({
           isOpen
           onClose={() => setActiveModal(null)}
           keys={activeModal.keys}
+          folderName={activeModal.folderName}
           onConfirm={() =>
             void useBulkOperationStore.getState().startDelete(activeProfileId, selectedBucket, activeModal.keys)
           }

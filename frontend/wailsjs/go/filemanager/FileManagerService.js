@@ -30,6 +30,10 @@ export function HeadObject(arg1, arg2, arg3) {
   return window['go']['filemanager']['FileManagerService']['HeadObject'](arg1, arg2, arg3);
 }
 
+export function ListAllKeysUnderPrefix(arg1, arg2, arg3) {
+  return window['go']['filemanager']['FileManagerService']['ListAllKeysUnderPrefix'](arg1, arg2, arg3);
+}
+
 export function ListBuckets(arg1) {
   return window['go']['filemanager']['FileManagerService']['ListBuckets'](arg1);
 }
