@@ -3,6 +3,7 @@ package filemanager
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
@@ -152,6 +153,90 @@ func (f *FileManagerService) runDeleteObjects(ctx context.Context, opID int64, r
 		OperationID: opID, Type: "delete", Total: total,
 		Completed: processed, FailedCount: failedCount, Status: status,
 	})
+
+	// Recursive folder delete (right-click a folder -> Delete) needs a
+	// SECOND, separate wave of object:change notifications beyond the
+	// per-batch one already emitted above inside the loop - see
+	// folderDeleteParentPrefixes' doc comment for exactly why
+	// objectPrefixOf(batch[0]) alone cannot cover this case: every key
+	// deleted as part of a folder (the folder's own placeholder key, and any
+	// nested children) lives INSIDE that folder, so objectPrefixOf never
+	// produces the folder's PARENT prefix - which is the view the folder
+	// itself was actually listed in, and the one that needs to refresh for
+	// the deleted folder's row to disappear.
+	//
+	// Gated on processed > 0 (at least one batch was actually attempted,
+	// success or failure) rather than status == "completed": a cancelled
+	// operation that still got through part of req.Keys before being
+	// interrupted may well have already deleted the folder placeholder
+	// itself (batches are processed in req.Keys order, and callers today
+	// always place the placeholder key first), so the parent view can
+	// already be stale too - emitting here is harmless best-effort UI
+	// plumbing either way (see emitObjectChangeEvent's own doc comment).
+	if processed > 0 {
+		for _, parentPrefix := range folderDeleteParentPrefixes(req.Keys) {
+			f.emitObjectChangeEvent(req.Bucket, parentPrefix, "delete")
+		}
+	}
+}
+
+// folderDeleteParentPrefixes scans keys (the same req.Keys a DeleteObjects
+// call received) for folder-placeholder keys - keys ending in "/", e.g.
+// "myfolder/" or a nested "a/b/c/" - and returns the DISTINCT parent
+// prefixes each such folder was listed under, deduplicated: the prefix a
+// FileManagerScreen would need to refresh for that folder's own row to
+// disappear from its listing.
+//
+// This exists because objectPrefixOf (bulkops.go) is the WRONG function for
+// this job when called directly on a folder's own key: objectPrefixOf finds
+// everything up to and including the LAST "/" in its argument, which for a
+// key that already ENDS in "/" is that very same trailing slash - so
+// objectPrefixOf("myfolder/") returns "myfolder/" itself, not "" (its
+// parent, the root). That is one level too deep, and it never equals
+// whatever prefix the user was actually viewing when they deleted the
+// folder (the folder's PARENT, where "myfolder/" was listed as one item
+// among others). A nested child's own key (e.g. "myfolder/photo.jpg")
+// resolves even deeper still, for the same reason. This mismatch is the
+// entire root cause of the folder-delete-doesn't-auto-refresh bug this
+// function fixes - do not "simplify" it away by calling objectPrefixOf
+// directly on these keys again.
+//
+// The fix: strip the trailing "/" first, then take objectPrefixOf of what's
+// left. E.g. "myfolder/" -> "myfolder" -> objectPrefixOf -> "" (root,
+// correct - LastIndex finds no more "/", objectPrefixOf's own -1 case);
+// "a/b/c/" -> "a/b/c" -> objectPrefixOf -> "a/b/" (correct - that's the view
+// where "c/" itself was listed as an item).
+//
+// Deliberately a small, pure function (no S3 client, no Wails runtime)
+// callable directly from tests without any of runDeleteObjects' async
+// machinery - runDeleteObjects itself only uses the returned prefixes for
+// their side effect of driving one extra emitObjectChangeEvent call each,
+// once per whole DeleteObjects call (not once per batch - see
+// runDeleteObjects' own doc comment for why), IN ADDITION to (never instead
+// of) the existing per-batch objectPrefixOf(batch[0]) emit already inside
+// its loop, which remains correct and necessary on its own for the regular
+// multi-file-select case (every selected file's own parent already equals
+// the prefix the user is currently viewing).
+func folderDeleteParentPrefixes(keys []string) []string {
+	seen := make(map[string]struct{}, len(keys))
+
+	var parents []string
+
+	for _, k := range keys {
+		if !strings.HasSuffix(k, "/") {
+			continue
+		}
+
+		parent := objectPrefixOf(strings.TrimSuffix(k, "/"))
+		if _, dup := seen[parent]; dup {
+			continue
+		}
+
+		seen[parent] = struct{}{}
+		parents = append(parents, parent)
+	}
+
+	return parents
 }
 
 // deleteObjectBatch issues one S3 DeleteObjects call for keys (at most

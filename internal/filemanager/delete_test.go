@@ -252,6 +252,108 @@ func TestFileManagerServiceDeleteObjectsPartialPerKeyErrorsAreNotRetried(t *test
 	}
 }
 
+// TestFolderDeleteParentPrefixes is a table-driven unit test of the pure
+// prefix-computation logic runDeleteObjects relies on to make a recursive
+// folder delete auto-refresh the folder's PARENT view - see
+// folderDeleteParentPrefixes' own doc comment for the exact
+// objectPrefixOf-resolves-one-level-too-deep mismatch this works around.
+// Exercised directly, with no Wails runtime/httptest server involved at all,
+// since the logic itself is pure.
+func TestFolderDeleteParentPrefixes(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		keys []string
+		want []string
+	}{
+		{
+			name: "no folder placeholder keys",
+			keys: []string{"file1.txt", "dir/file2.txt"},
+			want: nil,
+		},
+		{
+			name: "single root-level folder placeholder",
+			keys: []string{"myfolder/"},
+			want: []string{""},
+		},
+		{
+			name: "root-level folder placeholder plus nested children",
+			keys: []string{"myfolder/", "myfolder/a.txt", "myfolder/sub/b.txt"},
+			want: []string{""},
+		},
+		{
+			name: "nested folder placeholder",
+			keys: []string{"a/b/c/", "a/b/c/child.txt"},
+			want: []string{"a/b/"},
+		},
+		{
+			name: "two distinct folder placeholders under different parents",
+			keys: []string{"a/b/c/", "x/y/"},
+			want: []string{"a/b/", "x/"},
+		},
+		{
+			name: "duplicate folder placeholders under the same parent are deduped",
+			keys: []string{"a/b/", "a/c/"},
+			want: []string{"a/"},
+		},
+		{
+			name: "empty keys",
+			keys: nil,
+			want: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := folderDeleteParentPrefixes(tt.keys)
+
+			if len(got) != len(tt.want) {
+				t.Fatalf("folderDeleteParentPrefixes(%v) = %v, want %v", tt.keys, got, tt.want)
+			}
+
+			for i := range got {
+				if got[i] != tt.want[i] {
+					t.Fatalf("folderDeleteParentPrefixes(%v) = %v, want %v", tt.keys, got, tt.want)
+				}
+			}
+		})
+	}
+}
+
+// TestFileManagerServiceDeleteObjectsFolderPlaceholderKeyStillDeletesNormally
+// is an end-to-end regression check that a recursive folder delete's request
+// shape (a folder-placeholder key ending in "/", plus its nested children)
+// flows through runDeleteObjects exactly like any other batch of keys -
+// folderDeleteParentPrefixes only drives an extra notification emit (see its
+// own doc comment and TestFolderDeleteParentPrefixes for that logic in
+// isolation); it must never change which keys are actually sent to S3.
+func TestFileManagerServiceDeleteObjectsFolderPlaceholderKeyStillDeletesNormally(t *testing.T) {
+	t.Parallel()
+
+	mock := &deleteMock{}
+	server := newDeleteMockServer(t, mock)
+
+	fm, repo, key := newTestFileManagerService(t)
+	profileID := saveTestProfile(t, repo, key, server.URL)
+
+	keys := []string{"myfolder/", "myfolder/a.txt", "myfolder/sub/b.txt"}
+
+	opID, err := fm.DeleteObjects(domain.DeleteObjectsRequest{ProfileID: profileID, Bucket: "bucket1", Keys: keys})
+	if err != nil {
+		t.Fatalf("DeleteObjects() returned error: %v", err)
+	}
+
+	waitForBulkOpDone(t, fm, opID)
+
+	batches := mock.getReceivedBatches()
+	if len(batches) != 1 || len(batches[0]) != len(keys) {
+		t.Fatalf("received batches = %+v, want one batch of %d keys", batches, len(keys))
+	}
+}
+
 // TestFileManagerServiceDeleteObjectsCancelBetweenBatchesStopsSecondBatch
 // verifies CancelBulkOperation against a genuinely in-flight delete: the
 // mock blocks the FIRST batch's request; the test waits for it to arrive,
