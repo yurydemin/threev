@@ -1,55 +1,106 @@
 # Архитектура threev
 
-> Документ находится в процессе наполнения (Этап 5, QA & Release). Разделы «Модули Go», «Схема SQLite», «Диаграмма потока данных» и «Известные ограничения» будут добавлены в суб-этапе 5.5 (документация). Ниже — раздел, законченный в рамках суб-этапа 5.3 (профилирование).
+Кроссплатформенный десктопный S3-клиент: Go-бэкенд + React/TypeScript-фронтенд в одном процессе через [Wails v2](https://wails.io/) (WebView встроен в нативное окно — WKWebView на macOS, WebView2 на Windows, WebKitGTK на Linux).
 
-## Профилирование производительности
+## Стек
 
-Измерено на macOS arm64 (Apple Silicon), сборка через `wails build` (release, self-signed ad-hoc), 2026-07-13. Единственная измеренная платформа — ограничение baseline, не гарантия для Windows/Linux (см. согласованные ограничения Этапа 5).
+- **Backend**: Go 1.25, `aws-sdk-go-v2` (S3), `modernc.org/sqlite` (чистый Go, без CGO), `golang.org/x/crypto` (Argon2id), `github.com/denisbrodbeck/machineid`.
+- **Frontend**: React 19 + TypeScript, Zustand (стейт), Tailwind CSS 3 + Headless UI, react-i18next.
+- **Мост**: Wails v2.13 — Go-методы биндятся напрямую во фронтенд (`frontend/wailsjs/go/**`, автогенерируется при `wails build`/`wails dev`), события идут через `runtime.EventsEmit`/`EventsOn`.
 
-### Методология
+## Backend: модули (`internal/`)
 
-- Приложение собрано командой `wails build` (release-режим, `-tags` не заданы).
-- Запущено напрямую (`build/bin/threev.app/Contents/MacOS/threev`) с `THREEV_PPROF_ADDR=127.0.0.1:6061` для возможности снять live-профиль через `go tool pprof`.
-- Простой (idle) — без открытых подключений, без активных передач, приложение только что запущено и не получало пользовательского ввода.
-- RSS снят дважды через `ps -o rss`: сразу после запуска (~5с) и после 60с простоя — оба значения совпали (расхождение <1%), подтверждая, что это устойчивое состояние, а не переходный пик загрузки.
-- Замерены ДВА процесса отдельно, как того требует методология AC-005: сам Go-хост-процесс (`threev`) и дочерний `com.apple.WebKit.WebContent` (WKWebView рендерит контент в отдельном XPC-процессе на macOS, а не внутри Go-процесса).
-
-### Результаты (AC-005, простой)
-
-| Процесс | RSS (60с простоя) |
+| Пакет | Назначение |
 |---|---|
-| `threev` (Go-хост) | ≈172 МБ (176320 КБ) |
-| `com.apple.WebKit.WebContent` | ≈59 МБ (60608 КБ) |
-| **Сумма** | **≈231 МБ** |
+| `domain` | Общие доменные типы и ошибки (`Profile`, `ObjectEntry`, `TransferTask`, `AppSettings`, события, `ErrLocked` и т.д.) — без логики, только структуры. |
+| `config` | Кроссплатформенные пути (`AppDataDir`, `DBPath`) через `os.UserConfigDir()`. |
+| `storage` | Открытие SQLite, embed-миграции, репозитории (`ProfileRepository`, `TransferQueueRepository`, `TransferHistoryRepository`), generic k/v `settings`-таблица (`GetSetting`/`SetSetting`). |
+| `crypto` | Argon2id-деривация ключа, AES-256-GCM Encrypt/Decrypt, `KeyBox` — потокобезопасный контейнер над ключом шифрования (пуст, пока приложение заблокировано мастер-паролем). |
+| `connection` | `ConnectionService` — CRUD профилей подключения, валидация, `TestConnection` (реальный `ListBuckets` с таймаутом). |
+| `s3client` | Фабрика `*s3.Client` из профиля, `ConnectionManager` (кэш клиентов на профиль, pooled/fresh HTTP-транспорт), `CircuitBreaker` (на уровне хоста), `WithRetry` (backoff + jitter, адаптивный timeout). SDK-ретрай отключён (`aws.NopRetryer{}`) — единственный источник повторов свой. |
+| `filemanager` | `FileManagerService` — листинг бакетов/объектов (с сортировкой/кэшем страницы), `HeadObject`, presigned URL, текстовое превью, массовые delete/copy/move/rename/metadata/create-folder с прогрессом и отменой. |
+| `transfer` | `TransferService` — очередь загрузок/скачиваний: multipart upload и range download воркер-пулами, adaptive part size, resume через `ListParts`/размер локального файла, bandwidth limiter, scheduler с семафором на параллелизм. |
+| `appsettings` | `SettingsService` — чтение/запись `AppSettings` (Общие/Внешний вид/Передачи), master-password (`Unlock`/`SetMasterPassword`/`RemoveMasterPassword`), синхронно применяет настройки к `TransferService`. |
+| `mimetype` | Статическая карта расширение→MIME (детерминированная на всех ОС, в отличие от `mime.TypeByExtension`). |
+| `profiling` | Опциональный HTTP pprof-сервер, включается только через `THREEV_PPROF_ADDR` (dev-only, никогда не активен в обычной сборке). |
+| `integration` | Чёрно-ящичные тесты (`//go:build integration`) против реального MinIO — см. «Тестирование» ниже. |
 
-**Целевой порог AC-005 (`docs/02-tech-spec.md` раздел 13) — 150 МБ. Порог не выполнен**: измеренная сумма превышает цель примерно на 54%.
+Точка входа — `main.go` (создаёт `App`, конфигурирует `options.App`, вызывает `wails.Run`) и `app.go` (конструирует и связывает все сервисы, реализует `App.startup`/`App.shutdown`/`App.beforeClose`, хранит и восстанавливает геометрию окна).
 
-### Диагностика причины
+## Frontend (`frontend/src/`)
 
-Снят live heap-профиль работающего процесса (`go tool pprof -top -sample_index=inuse_space http://127.0.0.1:6061/debug/pprof/heap`) — фактически используемая Go-куча составила **~4 МБ**, целиком в служебных структурах рантайма (`runtime.allocm`/`runtime.malg`, инициализация `modernc.org/libc`), без единого байта, приписываемого доменной логике приложения (сервисам, кэшам, репозиториям).
+- `screens/` — экраны верхнего уровня: `WelcomeScreen`, `ConnectionsScreen`, `FileManagerScreen`, `TransferScreen`, `SettingsScreen`, `UnlockScreen`.
+- `stores/` — состояние на Zustand, по одному стору на предметную область (`useConnectionStore`, `useFileManagerStore`, `useTransferStore`, `useSettingsStore`, `useSecurityStore`, `useBulkOperationStore`, `useToastStore`, `useConfirmStore`, `useAppStore` — тема/масштаб/язык).
+- `lib/wails/` — типизированные обёртки над автогенерированными Wails-биндингами (`app.ts`, `connection.ts`, `fileManager.ts`, `transfer.ts`, `appsettings.ts`, `errors.ts` — маппинг Go-ошибок в понятный фронтенду формат).
+- `components/` — по предметным областям (`connection/`, `file-manager/`, `transfer/`, `settings/`, `layout/`, `ui/` — базовые примитивы).
+- `i18n/` — `react-i18next`, `locales/{ru,en}.json`, суффиксы `_one`/`_few`/`_many` для русской плюрализации.
 
-Вывод: 172 МБ RSS Go-процесса **не являются** утечкой или разрастанием кучи прикладного кода — это накладные расходы самого процесса на macOS: cgo-мост к нативным Cocoa/WebKit-фреймворкам (необходим для встраивания WKWebView, а не отдельного Chromium, как в Electron), инициализация Go-рантайма и статически слинкованные библиотеки (`modernc.org/sqlite`, AWS SDK и т.д.), часть из которых `ps`-метрика RSS учитывает по процессу целиком, даже если часть страниц физически разделяется ОС между процессами через dyld shared cache.
+## База данных
 
-Практическое следствие: тюнинг Go GC (`GOGC`, `debug.SetMemoryLimit`) **не даст измеримого эффекта** — сокращать нечего, реальная куча приложения уже минимальна. Существенное снижение RSS потребовало бы отказа от архитектуры на базе WKWebView в пользу более лёгкого встраивания рендеринга, что находится вне рамок MVP и текущего технологического стека (Wails).
+SQLite-файл `threev.db` в каталоге приложения (см. «Расположение данных» ниже), схема — `internal/storage/migrations/0001_init.sql`, применяется embed-раннером при каждом запуске.
 
-Контекст для сравнения: 231 МБ идла — заметно ниже типичного простоя Electron-приложений (обычно 300–500+ МБ за счёт полностью забандленного Chromium), хотя и выше жёсткого порога тех-спека в 150 МБ.
+- **`profiles`** — сохранённые подключения. `secret_access_key`/`session_token` хранятся зашифрованными (AES-256-GCM), в остальном как введены (`endpoint_url`, `region`, `path_style`, `verify_ssl`, `custom_headers` как JSON).
+- **`transfer_queue`** — активные/приостановленные задачи передачи. `multipart_upload_id` используется для resume; `parts_completed`/`file_offset` в схеме присутствуют, но не являются источником истины (см. `docs/backlog.md`).
+- **`transfer_history`** — завершённые/проваленные/отменённые задачи, переносятся из `transfer_queue` одной транзакцией при достижении терминального статуса.
+- **`settings`** — общая k/v-таблица: Argon2id-соль, поля `AppSettings`, master-password verifier, геометрия окна (`window_width/height/x/y/maximized`).
 
-### Статус AC-005
+## Безопасность credentials
 
-**Не выполнен буквально, но объяснён архитектурно.** Зафиксировано как известное ограничение, а не скрытая недоработка — итоговое значение является структурным следствием выбора WKWebView-архитектуры (см. диагностику выше), а не дефектом реализации, и повторное измерение на новой версии GC/рантайма Go не изменит картину без изменения самой архитектуры рендеринга.
+- Ключ шифрования — Argon2id из machine-specific seed (`machineid`, с fallback на файл-сид) либо, если установлен мастер-пароль, из пароля пользователя — та же соль в обоих случаях.
+- `KeyBox` — единственный держатель актуального ключа в памяти, общий для всех сервисов; пока пуст (мастер-пароль не введён после запуска) — все методы, которым нужны credentials, возвращают `domain.ErrLocked`.
+- Смена мастер-пароля — одна SQL-транзакция, расшифровывающая все профили старым ключом и зашифровывающая новым; ключ в `KeyBox` заменяется только после успешного commit.
+- Zeroing ключа в памяти при `KeyBox.Clear()` — best-effort (Go GC не даёт криптографических гарантий).
 
-### AC-006 (10 параллельных передач, отзывчивость UI)
+## Передачи: multipart upload / range download
 
-Прогнано вручную (2026-07-13) на реальной сборке (`wails build`), с настройкой «Максимум одновременных передач» (Настройки → Передачи) поднятой с дефолта 2 до 10, против реального S3-совместимого сервера пользователя. Загружено 10 файлов одновременно; во время передачи выполнялась навигация между экранами (Передачи/Подключения), переключение темы, скроллинг списка объектов.
+- Adaptive part/chunk size по итоговому размеру файла (от 5 МБ до 128 МБ), с клэмпом под лимит S3 в 10000 частей.
+- Resume upload — сверка через `ListParts` (не через `parts_completed` в БД). Resume download — сверка размера локального файла.
+- Верификация целостности: composite ETag (`hex(md5(concat(part_md5)))-N`) для multipart, обычный MD5 для single-part; при нестандартном формате ETag (SSE-KMS и т.п.) верификация пропускается.
+- Circuit breaker на уровне хоста (не IP): 5 подряд `network`/`timeout`-ошибок → open на 60с → half-open → closed/open. `auth`/4xx-ошибки breaker не открывают.
+- Pause = отмена `context.Context` конкретной задачи (не graceful drain) — недокачанная часть перекачивается заново при Resume.
+- Прогресс — atomic-счётчик байт, throttled события в UI (`transfer:progress`, ~500 мс) и в БД (~3 с) отдельно.
 
-**Результат: UI оставался отзывчивым на всём протяжении** — переключение вкладок и скроллинг проходили плавно, без подвисаний (прямое наблюдение пользователя).
+## Wails-события
 
-Дополнительно снят профиль работающего процесса сразу после завершения всех 10 передач (`go tool pprof`/`/debug/pprof/goroutine`):
-- Live-куча Go-процесса — ~8.7 МБ (выросла с ~4 МБ на простое, но осталась незначительной — никакого разрастания/утечки после обработки 10 реальных передач).
-- Активных горутин — 14 (то же порядка, что и на простое) — воркер-горутины `TransferService`'а корректно завершаются по окончании каждой задачи, зависших/подвешенных не осталось.
+| Событие | Источник | Назначение |
+|---|---|---|
+| `transfer:progress` | `TransferService` | live-прогресс задачи передачи (throttled ~500мс) |
+| `object:change` | `TransferService`, `FileManagerService` | инвалидация текущего листинга во фронтенде при изменении содержимого префикса |
+| `bulk:progress` | `FileManagerService` | live-прогресс массовой операции (delete/copy/move), throttled ~250мс, считает объекты, не байты |
 
-Непрерывный time-series RSS/CPU по ходу самого прогона не был захвачен (в процессе тестирования пользователь обнаружил и заблокировал прогон отдельным багом — см. `git log` коммит `ca72817`, `window.confirm` не работал в собранном приложении; после фикса и пересборки прогон был повторён успешно). Это не мешает выводу: основной критерий AC-006 — отсутствие подвисаний UI — прямо и однозначно подтверждён пользователем на реальной сборке, а профиль после нагрузки исключает утечку ресурсов как скрытую причину деградации при более длительной работе.
+## Тестирование
 
-### Статус AC-006
+- Юнит-тесты — `httptest`-моки, во всех пакетах кроме `integration`, без внешних зависимостей.
+- `internal/integration` (`go test -tags=integration ./internal/integration/...`) — чёрный ящик против реального MinIO (`docker run` локально, либо `bitnamilegacy/minio` service container в CI): `ConnectionService.TestConnection`, `ListBuckets`/`ListObjects`, upload/download round-trip с проверкой ETag, `DeleteObjects`/`CopyObject`/`MoveObject`. Пропускается целиком (`t.Skip`), если эндпоинт недоступен на старте пакета.
+- Параметры интеграционных тестов полностью заданы через переменные окружения (`THREEV_INTEGRATION_S3_ENDPOINT`/`_ACCESS_KEY`/`_SECRET_KEY`) — тот же набор тестов пройдёт и против реального AWS S3 при смене этих переменных, без изменения кода.
+- `go test ./... -race` — обязателен для `transfer`/`filemanager`/`crypto` (конкурентный доступ к scheduler/`KeyBox`/circuit breaker).
 
-**Выполнен.** Отзывчивость UI под нагрузкой 10 параллельных передач подтверждена вручную на реальной сборке; последующий профиль процесса не показывает признаков утечки памяти/горутин.
+## CI/CD
+
+- `.github/workflows/ci.yml` — на каждый push/PR: `lint` (golangci-lint, один раз на ubuntu), `frontend` (`npm ci && npm run build`, публикует `frontend/dist` артефактом), `unit-tests` (матрица ubuntu/macos/windows, `go test ./... -race`), `integration-tests` (ubuntu + MinIO service container).
+- `.github/workflows/release.yml` — по тегу `v*.*.*`: `check-version` (сверяет тег с `wails.json`'s `productVersion`) → `package` (матрица 3 ОС, `scripts/package-{dmg,windows-nsis,appimage}`) → `publish` (`gh release create` с тремя инсталляторами).
+- Ни один инсталлятор не подписан сертификатом разработчика (macOS — ad-hoc self-signed, Windows/Linux — без подписи вовсе); пользователь увидит предупреждение Gatekeeper/SmartScreen при первом запуске.
+
+## Расположение данных
+
+`config.AppDataDir()` = `os.UserConfigDir() + "/threev"`:
+
+| ОС | Путь |
+|---|---|
+| Windows | `%AppData%\threev` |
+| macOS | `~/Library/Application Support/threev` |
+| Linux | `~/.config/threev` |
+
+Файл базы данных — `threev.db` внутри этого каталога.
+
+## Производительность (измерено на macOS arm64, релизная сборка, 2026-07-13)
+
+**RAM в простое (AC-005)**: `threev` (Go-хост) ≈172 МБ + `com.apple.WebKit.WebContent` ≈59 МБ ≈ **231 МБ суммарно**, при целевом пороге тех-спека в 150 МБ. Live heap-профиль (`go tool pprof`) показал фактическую Go-кучу приложения ~4 МБ — превышение порога не является утечкой, а структурными накладными расходами WKWebView-архитектуры (cgo-мост к Cocoa/WebKit, статически слинкованные библиотеки). Для сравнения — заметно ниже типичного простоя Electron-приложений (300–500+ МБ за счёт бандленного Chromium).
+
+**Отзывчивость под нагрузкой (AC-006)**: 10 параллельных передач против реального S3-совместимого сервера — UI оставался отзывчивым (навигация, смена темы, скроллинг без подвисаний). После завершения — Go-куча ~8.7 МБ, 14 активных горутин (тот же порядок, что и на простое) — признаков утечки нет.
+
+Baseline измерен только на macOS arm64 — для Windows/Linux аналогичных цифр нет (см. `docs/backlog.md`).
+
+## Известные ограничения
+
+Полный и актуальный список — `docs/backlog.md` (функциональность, технический долг, инфраструктура/релиз, локализация).

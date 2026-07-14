@@ -14,7 +14,12 @@
 
 ## Скриншоты
 
-_Скоро._
+| | |
+|---|---|
+| ![Подключения](docs/images/connections.png) Подключения | ![Файловый менеджер](docs/images/file-manager-list.png) Файловый менеджер |
+| ![Сетка](docs/images/file-manager-grid.png) Вид сеткой | ![Контекстное меню](docs/images/context-menu.png) Контекстное меню объекта |
+| ![Предпросмотр](docs/images/preview-image.png) Предпросмотр изображения | ![Передачи](docs/images/transfers-active.png) Активные передачи |
+| ![История передач](docs/images/transfers-history.png) История передач | ![Настройки](docs/images/settings.png) Настройки |
 
 ## Стек
 
@@ -22,10 +27,14 @@ Go 1.25 + [Wails v2](https://wails.io/) (нативный WebView) · React 19 +
 
 ## Установка
 
-Готовые сборки для macOS, Windows и Linux — на странице [Releases](https://github.com/yurydemin/threev/releases).
+Готовые сборки для macOS, Windows и Linux — на странице [Releases](https://github.com/yurydemin/threev/releases). Инсталляторы не подписаны сертификатом разработчика — при первом запуске macOS/Windows покажут предупреждение (Gatekeeper/SmartScreen).
 
-Сборка из исходников — см. `BUILD.md` (появится в ближайшее время).
+Сборка из исходников и архитектура проекта — см. [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Статус
 
-Проект в активной разработке, идёт финальный этап подготовки к релизу (QA & Release).
+Активно развивается, релизы публикуются по мере готовности (текущая версия — см. [Releases](https://github.com/yurydemin/threev/releases)). Список известных ограничений и запланированных доработок — [docs/backlog.md](docs/backlog.md).
+
+## Лицензия
+
+[MIT](LICENSE)
