@@ -14,7 +14,7 @@ interface NavItem {
   onClick?: () => void;
 }
 
-export type SidebarActiveItem = 'connections' | 'transfers' | 'settings' | 'fileManager';
+export type SidebarActiveItem = 'connections' | 'transfers' | 'history' | 'settings' | 'fileManager';
 
 export interface SidebarProps {
   /**
@@ -36,6 +36,8 @@ export interface SidebarProps {
   onSelectConnections?: () => void;
   /** Called when "Передачи" is clicked. Same optionality rationale as `onSelectConnections`. */
   onSelectTransfers?: () => void;
+  /** Called when "История" is clicked. Same optionality rationale as `onSelectConnections`. */
+  onSelectHistory?: () => void;
   /** Called when "Настройки" is clicked (Stage 4, Block G). Same optionality rationale as `onSelectConnections`. */
   onSelectSettings?: () => void;
   /**
@@ -54,15 +56,15 @@ export interface SidebarProps {
  * by the file-manager-specific sidebar from UX-spec section 5.4.2 (that
  * becomes the separate `BucketPanel`, Block G).
  *
- * "Подключения", "Передачи" (Stage 3 Block K) and "Настройки" (Stage 4
- * Block G) are all live navigation targets, highlighted via `activeItem`.
- * "История" remains an inert placeholder (Stage 1 plan constraint #12)
- * until its own stage lands.
+ * "Подключения", "Передачи" (Stage 3 Block K), "История" and "Настройки"
+ * (Stage 4 Block G) are all live navigation targets, highlighted via
+ * `activeItem`.
  */
 export function Sidebar({
   activeItem,
   onSelectConnections,
   onSelectTransfers,
+  onSelectHistory,
   onSelectSettings,
   onSelectFileManager,
 }: SidebarProps) {
@@ -84,7 +86,12 @@ export function Sidebar({
       active: resolvedActiveItem === 'transfers',
       onClick: onSelectTransfers,
     },
-    { label: t('sidebar.history'), icon: History, disabled: true },
+    {
+      label: t('sidebar.history'),
+      icon: History,
+      active: resolvedActiveItem === 'history',
+      onClick: onSelectHistory,
+    },
     {
       label: t('sidebar.settings'),
       icon: Settings,

@@ -17,6 +17,8 @@ export interface ConnectionsScreenProps {
   onConnect: (connection: ConnectionSummary) => void;
   /** Navigates to the Transfers screen (Sidebar "Передачи"). */
   onSelectTransfers: () => void;
+  /** Navigates to the History screen (Sidebar "История"). */
+  onSelectHistory: () => void;
   /** Navigates to the Settings screen (Sidebar "Настройки"). */
   onSelectSettings: () => void;
   /** Returns to an already-open File Manager session (Sidebar active-connection indicator, Block L2). */
@@ -46,6 +48,7 @@ export interface ConnectionsScreenProps {
 export function ConnectionsScreen({
   onConnect,
   onSelectTransfers,
+  onSelectHistory,
   onSelectSettings,
   onSelectFileManager,
 }: ConnectionsScreenProps) {
@@ -117,6 +120,7 @@ export function ConnectionsScreen({
       <Sidebar
         activeItem="connections"
         onSelectTransfers={onSelectTransfers}
+        onSelectHistory={onSelectHistory}
         onSelectSettings={onSelectSettings}
         onSelectFileManager={onSelectFileManager}
       />

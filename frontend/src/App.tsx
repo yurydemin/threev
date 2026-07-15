@@ -10,6 +10,7 @@ import { useFileManagerStore } from './stores/useFileManagerStore';
 import { ConnectionsScreen } from './screens/ConnectionsScreen';
 import { FileManagerScreen } from './screens/FileManagerScreen';
 import { TransferScreen } from './screens/TransferScreen';
+import { HistoryScreen } from './screens/HistoryScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
 import { WelcomeScreen } from './screens/WelcomeScreen';
 import { UnlockScreen } from './screens/UnlockScreen';
@@ -36,12 +37,15 @@ type BootState = { status: 'checking' } | { status: 'locked' } | { status: 'unlo
  * "Подключиться" on a connection card (Stage 2, Block F) — `transfers` is
  * the "Передачи" screen, reachable from the Sidebar of either other screen
  * (Stage 3, Block K) — `settings` is the "Настройки" screen, same
- * reachability (Stage 4, Block G).
+ * reachability (Stage 4, Block G) — `history` is the "История" screen, same
+ * reachability, promoted out of the Transfers screen's own tabs into its own
+ * top-level Sidebar entry.
  */
 type Screen =
   | { name: 'connections' }
   | { name: 'fileManager'; profileId: number; profileName: string }
   | { name: 'transfers' }
+  | { name: 'history' }
   | { name: 'settings' };
 
 function App() {
@@ -151,6 +155,10 @@ function App() {
         setScreen({ name: 'transfers' });
     }
 
+    function handleSelectHistory() {
+        setScreen({ name: 'history' });
+    }
+
     function handleSelectConnections() {
         setScreen({ name: 'connections' });
     }
@@ -188,11 +196,20 @@ function App() {
                     profileName={screen.profileName}
                     onSelectConnections={handleSelectConnections}
                     onSelectTransfers={handleSelectTransfers}
+                    onSelectHistory={handleSelectHistory}
                     onSelectSettings={handleSelectSettings}
                 />
             ) : screen.name === 'transfers' ? (
                 <TransferScreen
                     onSelectConnections={handleSelectConnections}
+                    onSelectHistory={handleSelectHistory}
+                    onSelectSettings={handleSelectSettings}
+                    onSelectFileManager={handleReturnToFileManager}
+                />
+            ) : screen.name === 'history' ? (
+                <HistoryScreen
+                    onSelectConnections={handleSelectConnections}
+                    onSelectTransfers={handleSelectTransfers}
                     onSelectSettings={handleSelectSettings}
                     onSelectFileManager={handleReturnToFileManager}
                 />
@@ -200,6 +217,7 @@ function App() {
                 <SettingsScreen
                     onSelectConnections={handleSelectConnections}
                     onSelectTransfers={handleSelectTransfers}
+                    onSelectHistory={handleSelectHistory}
                     onSelectFileManager={handleReturnToFileManager}
                 />
             ) : showWelcome ? (
@@ -208,6 +226,7 @@ function App() {
                 <ConnectionsScreen
                     onConnect={handleConnect}
                     onSelectTransfers={handleSelectTransfers}
+                    onSelectHistory={handleSelectHistory}
                     onSelectSettings={handleSelectSettings}
                     onSelectFileManager={handleReturnToFileManager}
                 />

@@ -249,14 +249,7 @@
   "transfers": {
     "screen": {
       "title": "Transfers",
-      "emptyActive": "No active transfers",
-      "emptyCompleted": "No completed transfers",
-      "emptyAll": "No transfers"
-    },
-    "tabs": {
-      "active": "Active",
-      "completed": "Completed",
-      "all": "All"
+      "emptyActive": "No active transfers"
     },
     "groupActions": {
       "pauseAll": "Pause all",
@@ -277,6 +270,15 @@
     "transferIndicator": {
       "active": "{{count}} active transfers",
       "active_one": "{{count}} active transfer"
+    }
+  },
+  "history": {
+    "screen": {
+      "title": "History",
+      "empty": "No completed transfers",
+      "clearButton": "Clear history",
+      "clearConfirmTitle": "Clear history?",
+      "clearConfirmMessage": "All completed transfer records will be deleted. This cannot be undone."
     }
   },
   "settings": {

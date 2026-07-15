@@ -255,14 +255,7 @@
   "transfers": {
     "screen": {
       "title": "Передачи",
-      "emptyActive": "Нет активных передач",
-      "emptyCompleted": "Нет завершённых передач",
-      "emptyAll": "Нет передач"
-    },
-    "tabs": {
-      "active": "Активные",
-      "completed": "Завершённые",
-      "all": "Все"
+      "emptyActive": "Нет активных передач"
     },
     "groupActions": {
       "pauseAll": "Пауза все",
@@ -284,6 +277,15 @@
       "active": "{{count}} активных передач",
       "active_one": "{{count}} активная передача",
       "active_few": "{{count}} активные передачи"
+    }
+  },
+  "history": {
+    "screen": {
+      "title": "История",
+      "empty": "Нет завершённых передач",
+      "clearButton": "Очистить историю",
+      "clearConfirmTitle": "Очистить историю?",
+      "clearConfirmMessage": "Все записи о завершённых передачах будут удалены. Это действие нельзя отменить."
     }
   },
   "settings": {

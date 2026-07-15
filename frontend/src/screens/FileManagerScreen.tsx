@@ -61,6 +61,8 @@ export interface FileManagerScreenProps {
   onSelectConnections: () => void;
   /** Navigates to the Transfers screen (Sidebar "Передачи" and the `StatusBar` transfer indicator). */
   onSelectTransfers: () => void;
+  /** Navigates to the History screen (Sidebar "История"). */
+  onSelectHistory: () => void;
   /** Navigates to the Settings screen (Sidebar "Настройки"). */
   onSelectSettings: () => void;
 }
@@ -88,6 +90,7 @@ export function FileManagerScreen({
   profileName,
   onSelectConnections,
   onSelectTransfers,
+  onSelectHistory,
   onSelectSettings,
 }: FileManagerScreenProps) {
   const { t } = useTranslation();
@@ -195,6 +198,7 @@ export function FileManagerScreen({
         activeItem="fileManager"
         onSelectConnections={onSelectConnections}
         onSelectTransfers={onSelectTransfers}
+        onSelectHistory={onSelectHistory}
         onSelectSettings={onSelectSettings}
       />
       <BucketPanel />

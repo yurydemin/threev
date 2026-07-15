@@ -30,6 +30,8 @@ export interface SettingsScreenProps {
   onSelectConnections: () => void;
   /** Navigates to the Transfers screen (Sidebar "Передачи"). */
   onSelectTransfers: () => void;
+  /** Navigates to the History screen (Sidebar "История"). */
+  onSelectHistory: () => void;
   /** Returns to an already-open File Manager session (Sidebar active-connection indicator, Block L2). */
   onSelectFileManager: () => void;
 }
@@ -55,7 +57,12 @@ export interface SettingsScreenProps {
  * `useSettingsStore`'s `settings` but does NOT clobber whatever unsaved
  * edits the user already made in `draft`.
  */
-export function SettingsScreen({ onSelectConnections, onSelectTransfers, onSelectFileManager }: SettingsScreenProps) {
+export function SettingsScreen({
+  onSelectConnections,
+  onSelectTransfers,
+  onSelectHistory,
+  onSelectFileManager,
+}: SettingsScreenProps) {
   const { t } = useTranslation();
   const SECTION_TITLES = getSectionTitles(t);
   const [section, setSection] = useState<SettingsSection>('general');
@@ -86,6 +93,7 @@ export function SettingsScreen({ onSelectConnections, onSelectTransfers, onSelec
         activeItem="settings"
         onSelectConnections={onSelectConnections}
         onSelectTransfers={onSelectTransfers}
+        onSelectHistory={onSelectHistory}
         onSelectFileManager={onSelectFileManager}
       />
       <SettingsSidebar activeSection={section} onSelectSection={setSection} />
