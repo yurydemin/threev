@@ -110,6 +110,10 @@ export function ObjectPreviewModal({ entry, isOpen, onClose }: ObjectPreviewModa
         </div>
       ) : previewKind === 'pdf' && presignedUrl ? (
         <iframe src={presignedUrl} title={title} className="h-full w-full border-0" />
+      ) : previewKind === 'video' && presignedUrl ? (
+        <div className="flex h-full items-center justify-center">
+          <video src={presignedUrl} controls className="mx-auto max-h-full max-w-full object-contain" />
+        </div>
       ) : previewKind === 'text' && textResult ? (
         <div>
           {textResult.truncated && (

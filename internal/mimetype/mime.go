@@ -67,11 +67,12 @@ var ContentTypeByExtension = map[string]string{
 	"7z":  "application/x-7z-compressed",
 
 	// Audio / video
-	"mp3": "audio/mpeg",
-	"wav": "audio/wav",
-	"mp4": "video/mp4",
-	"mov": "video/quicktime",
-	"avi": "video/x-msvideo",
+	"mp3":  "audio/mpeg",
+	"wav":  "audio/wav",
+	"mp4":  "video/mp4",
+	"mov":  "video/quicktime",
+	"avi":  "video/x-msvideo",
+	"webm": "video/webm",
 }
 
 // ContentTypeForKey returns a MIME type for key based solely on its file

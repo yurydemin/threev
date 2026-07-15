@@ -14,7 +14,7 @@
  * caller ever feeds this a real S3-reported Content-Type instead.
  */
 
-export type PreviewKind = 'image' | 'pdf' | 'text';
+export type PreviewKind = 'image' | 'pdf' | 'video' | 'text';
 
 const TEXT_LIKE_CONTENT_TYPES = new Set([
   'application/json',
@@ -32,6 +32,7 @@ export function getPreviewKind(contentType: string): PreviewKind | null {
   if (!contentType) return null;
   if (contentType.startsWith('image/')) return 'image';
   if (contentType === 'application/pdf') return 'pdf';
+  if (contentType.startsWith('video/')) return 'video';
   if (contentType.startsWith('text/') || TEXT_LIKE_CONTENT_TYPES.has(contentType)) return 'text';
   return null;
 }
