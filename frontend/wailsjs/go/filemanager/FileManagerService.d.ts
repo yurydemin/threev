@@ -11,6 +11,8 @@ export function CreateFolder(arg1:domain.CreateFolderRequest):Promise<void>;
 
 export function DeleteObjects(arg1:domain.DeleteObjectsRequest):Promise<number>;
 
+export function GetBucketSize(arg1:number,arg2:string,arg3:string):Promise<domain.BucketSizeResult>;
+
 export function GetPresignedURL(arg1:number,arg2:string,arg3:string,arg4:number):Promise<string>;
 
 export function GetTextPreview(arg1:number,arg2:string,arg3:string):Promise<domain.TextPreviewResult>;

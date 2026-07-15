@@ -90,7 +90,6 @@
   },
   "fileManager": {
     "screen": {
-      "selectBucketHint": "Выберите бакет слева, чтобы просмотреть его содержимое",
       "statusFiltered": "{{filtered}} из {{total}} объектов",
       "statusFiltered_one": "{{filtered}} из {{total}} объекта",
       "statusAll": "{{total}} объектов",
@@ -202,6 +201,17 @@
       "removePair": "Удалить пару",
       "loadError": "Не удалось загрузить свойства объекта",
       "saveError": "Не удалось сохранить метаданные"
+    },
+    "dashboard": {
+      "empty": "Нет доступных бакетов",
+      "calculating": "Считается…",
+      "objectsCount": "{{count}} объектов",
+      "objectsCount_one": "{{count}} объект",
+      "objectsCount_few": "{{count}} объекта",
+      "truncatedNotice": "Неполный подсчёт — превышен лимит времени",
+      "recalculate": "Посчитать заново",
+      "recalculateError": "Не удалось посчитать размер бакета",
+      "retry": "Повторить"
     },
     "renameModal": {
       "title": "Переименовать",

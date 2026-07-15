@@ -6,6 +6,7 @@ import { Toolbar, type FileManagerView } from '../components/layout/Toolbar';
 import { StatusBar } from '../components/layout/StatusBar';
 import { TransferIndicator } from '../components/layout/TransferIndicator';
 import { BucketPanel } from '../components/file-manager/BucketPanel';
+import { ConnectionDashboard } from '../components/file-manager/ConnectionDashboard';
 import { FileList } from '../components/file-manager/FileList';
 import { FileGrid } from '../components/file-manager/FileGrid';
 import { ObjectContextMenu } from '../components/file-manager/ObjectContextMenu';
@@ -235,11 +236,7 @@ export function FileManagerScreen({
               <FileGrid entries={filteredEntries} onOpenFile={handleOpenFile} onContextMenu={handleContextMenu} />
             )
           ) : (
-            <div className="flex flex-1 items-center justify-center">
-              <p className="text-sm text-fg-muted">
-                {t('fileManager.screen.selectBucketHint')}
-              </p>
-            </div>
+            <ConnectionDashboard />
           )}
           {isDraggingOver && <DropOverlay />}
           <BulkProgressOverlay />

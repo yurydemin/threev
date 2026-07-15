@@ -122,6 +122,14 @@ export interface TextPreviewResult {
   totalSize: number;
 }
 
+/** Mirrors `domain.BucketSizeResult` (see `filemanager/bucketsize.go`'s recursive walk, same shape as `ListAllKeysUnderPrefix` but summing size/count instead of collecting keys). */
+export interface BucketSizeResult {
+  totalBytes: number;
+  objectCount: number;
+  /** `true` if the recursive walk hit its internal timeout before finishing — the totals below are a partial count, not the real bucket size. */
+  truncated: boolean;
+}
+
 /** Mirrors `domain.TransferTask`. Status is one of "pending" | "running" | "paused" | "completed" | "failed" | "cancelled" (FR-QUEUE-002). */
 export interface TransferTask {
   id: number;

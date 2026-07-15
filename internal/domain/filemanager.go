@@ -68,6 +68,19 @@ type ObjectMeta struct {
 	Metadata map[string]string
 }
 
+// BucketSizeResult is the result of FileManagerService.GetBucketSize: the
+// aggregate size and object count of everything found under a bucket/prefix
+// by a recursive walk (docs backlog "Блок D — Дашборд размера бакета").
+type BucketSizeResult struct {
+	TotalBytes  int64
+	ObjectCount int64
+	// Truncated is true when the walk's time budget was exhausted before
+	// every object under the bucket/prefix could be visited: TotalBytes and
+	// ObjectCount hold the partial totals accumulated so far, not the true
+	// totals.
+	Truncated bool
+}
+
 // TextPreviewResult is the result of FileManagerService.GetTextPreview
 // (FR-FM-007): a bounded read of an object's contents for inline text
 // preview.

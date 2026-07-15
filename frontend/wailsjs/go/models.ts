@@ -59,6 +59,22 @@ export namespace domain {
 		    return a;
 		}
 	}
+	export class BucketSizeResult {
+	    TotalBytes: number;
+	    ObjectCount: number;
+	    Truncated: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new BucketSizeResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.TotalBytes = source["TotalBytes"];
+	        this.ObjectCount = source["ObjectCount"];
+	        this.Truncated = source["Truncated"];
+	    }
+	}
 	export class BulkCopyRequest {
 	    ProfileID: number;
 	    SourceBucket: string;

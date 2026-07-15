@@ -89,7 +89,6 @@
   },
   "fileManager": {
     "screen": {
-      "selectBucketHint": "Select a bucket on the left to view its contents",
       "statusFiltered": "{{filtered}} of {{total}} objects",
       "statusFiltered_one": "{{filtered}} of {{total}} object",
       "statusAll": "{{total}} objects",
@@ -196,6 +195,16 @@
       "removePair": "Remove pair",
       "loadError": "Failed to load object properties",
       "saveError": "Failed to save metadata"
+    },
+    "dashboard": {
+      "empty": "No buckets available",
+      "calculating": "Calculating…",
+      "objectsCount": "{{count}} objects",
+      "objectsCount_one": "{{count}} object",
+      "truncatedNotice": "Incomplete count — time limit exceeded",
+      "recalculate": "Recalculate",
+      "recalculateError": "Failed to calculate bucket size",
+      "retry": "Retry"
     },
     "renameModal": {
       "title": "Rename",

@@ -18,6 +18,10 @@ export function DeleteObjects(arg1) {
   return window['go']['filemanager']['FileManagerService']['DeleteObjects'](arg1);
 }
 
+export function GetBucketSize(arg1, arg2, arg3) {
+  return window['go']['filemanager']['FileManagerService']['GetBucketSize'](arg1, arg2, arg3);
+}
+
 export function GetPresignedURL(arg1, arg2, arg3, arg4) {
   return window['go']['filemanager']['FileManagerService']['GetPresignedURL'](arg1, arg2, arg3, arg4);
 }

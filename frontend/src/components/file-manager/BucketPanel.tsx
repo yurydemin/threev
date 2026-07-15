@@ -1,4 +1,4 @@
-import { AlertTriangle, Database } from 'lucide-react';
+import { Database, AlertTriangle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
 import { useFileManagerStore } from '../../stores/useFileManagerStore';

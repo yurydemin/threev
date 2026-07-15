@@ -17,6 +17,7 @@ import {
   CopyObjects,
   CreateFolder,
   DeleteObjects,
+  GetBucketSize,
   GetPresignedURL,
   GetTextPreview,
   HeadObject,
@@ -30,6 +31,7 @@ import {
 import { domain } from '../../../wailsjs/go/models';
 import type {
   Bucket,
+  BucketSizeResult,
   ListObjectsRequest,
   ListObjectsResponse,
   ObjectEntry,
@@ -95,6 +97,14 @@ function fromTextPreviewResult(result: domain.TextPreviewResult): TextPreviewRes
   };
 }
 
+function fromBucketSizeResult(result: domain.BucketSizeResult): BucketSizeResult {
+  return {
+    totalBytes: result.TotalBytes,
+    objectCount: result.ObjectCount,
+    truncated: result.Truncated,
+  };
+}
+
 export async function listBuckets(profileId: number): Promise<Bucket[]> {
   return call(async () => (await ListBuckets(profileId)).map(fromBucket));
 }
@@ -110,6 +120,11 @@ export async function listObjects(request: ListObjectsRequest): Promise<ListObje
 
 export async function headObject(profileId: number, bucket: string, key: string): Promise<ObjectMeta> {
   return call(async () => fromObjectMeta(await HeadObject(profileId, bucket, key)));
+}
+
+/** Recursive walk summing `Size`/counting objects under `prefix` (same traversal as `listAllKeysUnderPrefix`, opt-in per Block D — can be slow on large buckets). */
+export async function getBucketSize(profileId: number, bucket: string, prefix: string): Promise<BucketSizeResult> {
+  return call(async () => fromBucketSizeResult(await GetBucketSize(profileId, bucket, prefix)));
 }
 
 export async function getPresignedUrl(
