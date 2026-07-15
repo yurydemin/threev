@@ -7,6 +7,7 @@ import { useTransferEvents } from './hooks/useTransferEvents';
 import { useSettingsSync } from './hooks/useSettingsSync';
 import { useConnectionStore } from './stores/useConnectionStore';
 import { useFileManagerStore } from './stores/useFileManagerStore';
+import { useFavoritesStore } from './stores/useFavoritesStore';
 import { ConnectionsScreen } from './screens/ConnectionsScreen';
 import { FileManagerScreen } from './screens/FileManagerScreen';
 import { TransferScreen } from './screens/TransferScreen';
@@ -20,7 +21,7 @@ import { confirmDialog } from './lib/confirm';
 import { isLocked as apiIsLocked } from './lib/wails/appsettings';
 import { getAppVersion } from './lib/wails/app';
 import { useAppStore } from './stores/useAppStore';
-import type { ConnectionSummary } from './types';
+import type { ConnectionSummary, Favorite } from './types';
 
 /**
  * Whether the app is gated behind `UnlockScreen` on startup. Checked once,
@@ -105,6 +106,14 @@ function App() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
+    // Fetched once at boot, same "mount once at the root" rationale as
+    // `fetchConnections` above — the Sidebar's favorites section (visible on
+    // every screen) needs this hydrated regardless of which screen renders
+    // first.
+    useEffect(() => {
+        void useFavoritesStore.getState().fetchFavorites();
+    }, []);
+
     async function handleConnect(connection: ConnectionSummary) {
         // Only reset/reload File Manager state (buckets, navigation history,
         // selection, ...) when actually switching to a *different* profile —
@@ -136,6 +145,38 @@ function App() {
             useFileManagerStore.getState().enterProfile(connection.id, connection.name);
         }
         setScreen({ name: 'fileManager', profileId: connection.id, profileName: connection.name });
+    }
+
+    // Called when a Sidebar favorite row is clicked. If the favorite's
+    // profile is already the connected one, this is a plain navigation
+    // (`selectBucket` then `navigateToPrefix`). Otherwise it reuses
+    // `handleConnect`'s exact switch-session confirmation flow above — same
+    // check (`activeProfileId !== null && activeProfileId !== <target>`),
+    // same `confirmDialog` copy — before entering the favorite's profile and
+    // then navigating to its bucket/prefix.
+    async function handleSelectFavorite(favorite: Favorite) {
+        const { activeProfileId, activeProfileName } = useFileManagerStore.getState();
+        const isSwitchingToAnotherProfile = activeProfileId !== null && activeProfileId !== favorite.profileId;
+
+        if (isSwitchingToAnotherProfile) {
+            const confirmed = await confirmDialog(
+                t('connections.screen.switchSessionConfirm', {
+                    currentName: activeProfileName,
+                    newName: favorite.profileName,
+                }),
+            );
+            if (!confirmed) return;
+        }
+
+        if (activeProfileId !== favorite.profileId) {
+            useFileManagerStore.getState().enterProfile(favorite.profileId, favorite.profileName);
+        }
+        setScreen({ name: 'fileManager', profileId: favorite.profileId, profileName: favorite.profileName });
+
+        await useFileManagerStore.getState().selectBucket(favorite.bucket);
+        if (favorite.prefix) {
+            await useFileManagerStore.getState().navigateToPrefix(favorite.prefix);
+        }
     }
 
     // Returns to the already-open File Manager session from the Sidebar's
@@ -214,6 +255,7 @@ function App() {
                     onSelectHistory={handleSelectHistory}
                     onSelectSettings={handleSelectSettings}
                     onDisconnect={handleDisconnect}
+                    onSelectFavorite={handleSelectFavorite}
                 />
             ) : screen.name === 'transfers' ? (
                 <TransferScreen
@@ -222,6 +264,7 @@ function App() {
                     onSelectSettings={handleSelectSettings}
                     onSelectFileManager={handleReturnToFileManager}
                     onDisconnect={handleDisconnect}
+                    onSelectFavorite={handleSelectFavorite}
                 />
             ) : screen.name === 'history' ? (
                 <HistoryScreen
@@ -230,6 +273,7 @@ function App() {
                     onSelectSettings={handleSelectSettings}
                     onSelectFileManager={handleReturnToFileManager}
                     onDisconnect={handleDisconnect}
+                    onSelectFavorite={handleSelectFavorite}
                 />
             ) : screen.name === 'settings' ? (
                 <SettingsScreen
@@ -238,6 +282,7 @@ function App() {
                     onSelectHistory={handleSelectHistory}
                     onSelectFileManager={handleReturnToFileManager}
                     onDisconnect={handleDisconnect}
+                    onSelectFavorite={handleSelectFavorite}
                 />
             ) : showWelcome ? (
                 <WelcomeScreen />
@@ -249,6 +294,7 @@ function App() {
                     onSelectSettings={handleSelectSettings}
                     onSelectFileManager={handleReturnToFileManager}
                     onDisconnect={handleDisconnect}
+                    onSelectFavorite={handleSelectFavorite}
                 />
             )}
             <ToastContainer />

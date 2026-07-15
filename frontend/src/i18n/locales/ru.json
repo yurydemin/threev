@@ -20,7 +20,9 @@
     "activeConnectionTooltip": "Вернуться к файловому менеджеру ({{name}})",
     "activeConnectionCurrentTooltip": "Открыто: {{name}}",
     "disconnect": "Отключиться",
-    "disconnectTooltip": "Отключиться от «{{name}}»"
+    "disconnectTooltip": "Отключиться от «{{name}}»",
+    "favorites": "Избранное",
+    "favoritesToggleTooltip": "Свернуть/развернуть избранное"
   },
   "welcome": {
     "title": "S3 Desktop Client",
@@ -111,7 +113,9 @@
       "bulkDownload": "Скачать выбранное",
       "bulkCopy": "Копировать выбранное",
       "bulkMove": "Переместить выбранное",
-      "bulkDelete": "Удалить выбранное ({{count}})"
+      "bulkDelete": "Удалить выбранное ({{count}})",
+      "addFavorite": "Добавить в избранное",
+      "removeFavorite": "Убрать из избранного"
     },
     "bucketPanel": {
       "empty": "Нет доступных бакетов"

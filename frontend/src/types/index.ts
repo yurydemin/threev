@@ -54,6 +54,23 @@ export interface ConnectionTestResult {
  */
 export type ConnectionFormValues = Omit<Connection, 'id' | 'createdAt' | 'updatedAt'>;
 
+/**
+ * Bookmarked bucket/prefix location, mirrors `domain.Favorite`. Uniquely
+ * identified by (profileId, bucket, prefix) on the backend; deliberately has
+ * no label/name field — display text (`bucket`, or `bucket/prefix`) is
+ * always computed by the frontend from `bucket`/`prefix`, never stored.
+ */
+export interface Favorite {
+  id: number;
+  profileId: number;
+  /** Owning profile's display name, joined server-side — used to group the Sidebar's favorites list. */
+  profileName: string;
+  bucket: string;
+  /** Empty string = bucket root, never null. */
+  prefix: string;
+  createdAt: string;
+}
+
 /** Mirrors `domain.Bucket`. */
 export interface Bucket {
   name: string;

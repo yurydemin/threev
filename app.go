@@ -17,6 +17,7 @@ import (
 	"threev/internal/config"
 	"threev/internal/connection"
 	"threev/internal/crypto"
+	"threev/internal/favorites"
 	"threev/internal/filemanager"
 	"threev/internal/profiling"
 	"threev/internal/s3client"
@@ -116,6 +117,11 @@ type App struct {
 	// directly to the frontend (see main.go's options.App.Bind).
 	settingsService *appsettings.SettingsService
 
+	// favoritesService exposes bookmarked bucket/prefix locations for the
+	// Sidebar's global favorites list and is bound directly to the
+	// frontend (see main.go's options.App.Bind).
+	favoritesService *favorites.FavoritesService
+
 	// pprofStop, when non-nil, shuts down the opt-in profiling debug
 	// server started in startup (see pprofAddrEnvVar). It stays nil - and
 	// is simply never called by shutdown - unless THREEV_PPROF_ADDR was
@@ -206,6 +212,7 @@ func newApp() (*App, error) {
 	}
 
 	repo := storage.NewProfileRepository(db)
+	favoriteRepo := storage.NewFavoriteRepository(db)
 
 	queueRepo := storage.NewTransferQueueRepository(db)
 	historyRepo := storage.NewTransferHistoryRepository(db)
@@ -268,6 +275,7 @@ func newApp() (*App, error) {
 		fileManagerService: filemanager.NewFileManagerService(repo, keyBox, connMgr, breaker),
 		transferService:    transferService,
 		settingsService:    settingsService,
+		favoritesService:   favorites.NewFavoritesService(favoriteRepo),
 	}, nil
 }
 

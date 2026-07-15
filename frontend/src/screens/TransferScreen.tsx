@@ -5,6 +5,7 @@ import { GroupActions } from '../components/transfer/GroupActions';
 import { TransferCard } from '../components/transfer/TransferCard';
 import { EmptyState } from '../components/transfer/EmptyState';
 import { useTransferStore } from '../stores/useTransferStore';
+import type { Favorite } from '../types';
 
 /**
  * "Передачи" screen per docs/03-ux-ui-spec.md section 5.5.
@@ -32,6 +33,8 @@ export interface TransferScreenProps {
   onSelectFileManager: () => void;
   /** Closes the open File Manager session (Sidebar active-connection indicator's "X" button). */
   onDisconnect: () => void;
+  /** Handles a click on a Sidebar favorites-section row. */
+  onSelectFavorite: (favorite: Favorite) => void;
 }
 
 export function TransferScreen({
@@ -40,6 +43,7 @@ export function TransferScreen({
   onSelectSettings,
   onSelectFileManager,
   onDisconnect,
+  onSelectFavorite,
 }: TransferScreenProps) {
   const { t } = useTranslation();
   const queue = useTransferStore((state) => state.queue);
@@ -72,6 +76,7 @@ export function TransferScreen({
         onSelectSettings={onSelectSettings}
         onSelectFileManager={onSelectFileManager}
         onDisconnect={onDisconnect}
+        onSelectFavorite={onSelectFavorite}
       />
 
       <div className="flex flex-1 flex-col overflow-hidden">

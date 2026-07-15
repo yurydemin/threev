@@ -31,4 +31,12 @@ var (
 	// that will return it (суб-этап 4.4, KeyBox) is written, avoiding a
 	// second signature-touching pass over every service method later.
 	ErrLocked = errors.New("application is locked")
+
+	// ErrFavoriteNotFound is returned when a favorite lookup/delete by ID
+	// finds no matching row.
+	ErrFavoriteNotFound = errors.New("favorite not found")
+
+	// ErrDuplicateFavorite is returned when a favorite is created for a
+	// (profile_id, bucket, prefix) location that is already bookmarked.
+	ErrDuplicateFavorite = errors.New("this location is already bookmarked")
 )

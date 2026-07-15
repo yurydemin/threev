@@ -20,7 +20,9 @@
     "activeConnectionTooltip": "Return to File Manager ({{name}})",
     "activeConnectionCurrentTooltip": "Currently open: {{name}}",
     "disconnect": "Disconnect",
-    "disconnectTooltip": "Disconnect from \"{{name}}\""
+    "disconnectTooltip": "Disconnect from \"{{name}}\"",
+    "favorites": "Favorites",
+    "favoritesToggleTooltip": "Collapse/expand favorites"
   },
   "welcome": {
     "title": "S3 Desktop Client",
@@ -109,7 +111,9 @@
       "bulkDownload": "Download selected",
       "bulkCopy": "Copy selected",
       "bulkMove": "Move selected",
-      "bulkDelete": "Delete selected ({{count}})"
+      "bulkDelete": "Delete selected ({{count}})",
+      "addFavorite": "Add to favorites",
+      "removeFavorite": "Remove from favorites"
     },
     "bucketPanel": {
       "empty": "No buckets available"

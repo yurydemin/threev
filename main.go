@@ -36,6 +36,7 @@ func main() {
 			app.fileManagerService,
 			app.transferService,
 			app.settingsService,
+			app.favoritesService,
 		},
 	})
 

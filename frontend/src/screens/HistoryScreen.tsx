@@ -7,6 +7,7 @@ import { HistoryCard } from '../components/transfer/HistoryCard';
 import { EmptyState } from '../components/transfer/EmptyState';
 import { confirmDialog } from '../lib/confirm';
 import { useTransferStore } from '../stores/useTransferStore';
+import type { Favorite } from '../types';
 
 /** Passed to `fetchHistory` on mount - larger than the store's own
  * `DEFAULT_HISTORY_LIMIT` (100), since this screen now owns history
@@ -25,6 +26,8 @@ export interface HistoryScreenProps {
   onSelectFileManager: () => void;
   /** Closes the open File Manager session (Sidebar active-connection indicator's "X" button). */
   onDisconnect: () => void;
+  /** Handles a click on a Sidebar favorites-section row. */
+  onSelectFavorite: (favorite: Favorite) => void;
 }
 
 /**
@@ -45,6 +48,7 @@ export function HistoryScreen({
   onSelectSettings,
   onSelectFileManager,
   onDisconnect,
+  onSelectFavorite,
 }: HistoryScreenProps) {
   const { t } = useTranslation();
   const history = useTransferStore((state) => state.history);
@@ -77,6 +81,7 @@ export function HistoryScreen({
         onSelectSettings={onSelectSettings}
         onSelectFileManager={onSelectFileManager}
         onDisconnect={onDisconnect}
+        onSelectFavorite={onSelectFavorite}
       />
 
       <div className="flex flex-1 flex-col overflow-hidden">

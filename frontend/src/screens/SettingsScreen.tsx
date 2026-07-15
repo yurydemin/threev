@@ -12,7 +12,7 @@ import { PlaceholderSection } from '../components/settings/PlaceholderSection';
 import { AboutSection } from '../components/settings/AboutSection';
 import { Button } from '../components/ui/Button';
 import { useSettingsStore } from '../stores/useSettingsStore';
-import type { AppSettings } from '../types';
+import type { AppSettings, Favorite } from '../types';
 
 function getSectionTitles(t: TFunction): Record<SettingsSection, string> {
   return {
@@ -36,6 +36,8 @@ export interface SettingsScreenProps {
   onSelectFileManager: () => void;
   /** Closes the open File Manager session (Sidebar active-connection indicator's "X" button). */
   onDisconnect: () => void;
+  /** Handles a click on a Sidebar favorites-section row. */
+  onSelectFavorite: (favorite: Favorite) => void;
 }
 
 /**
@@ -65,6 +67,7 @@ export function SettingsScreen({
   onSelectHistory,
   onSelectFileManager,
   onDisconnect,
+  onSelectFavorite,
 }: SettingsScreenProps) {
   const { t } = useTranslation();
   const SECTION_TITLES = getSectionTitles(t);
@@ -99,6 +102,7 @@ export function SettingsScreen({
         onSelectHistory={onSelectHistory}
         onSelectFileManager={onSelectFileManager}
         onDisconnect={onDisconnect}
+        onSelectFavorite={onSelectFavorite}
       />
       <SettingsSidebar activeSection={section} onSelectSection={setSection} />
 

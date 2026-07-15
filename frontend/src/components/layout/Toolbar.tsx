@@ -12,6 +12,7 @@ import {
   List,
   RotateCcw,
   Search,
+  Star,
   Trash2,
   Upload,
 } from 'lucide-react';
@@ -19,6 +20,7 @@ import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
 import { useFileManagerStore } from '../../stores/useFileManagerStore';
 import { useTransferStore } from '../../stores/useTransferStore';
+import { useFavoritesStore, isFavorite } from '../../stores/useFavoritesStore';
 import { pickUploadDirectory } from '../../lib/wails/transfer';
 import { pickAndQueueUploadFiles } from '../../lib/uploadFiles';
 import { downloadSelectedObjects } from '../../lib/downloadSelected';
@@ -74,12 +76,35 @@ export function Toolbar({ view, onViewChange, onBulkCopy, onBulkMove, onBulkDele
   const refresh = useFileManagerStore((state) => state.refresh);
   const navigateToPrefix = useFileManagerStore((state) => state.navigateToPrefix);
   const setSearchQuery = useFileManagerStore((state) => state.setSearchQuery);
+  const favorites = useFavoritesStore((state) => state.favorites);
+  const addFavorite = useFavoritesStore((state) => state.addFavorite);
+  const removeFavorite = useFavoritesStore((state) => state.removeFavorite);
 
   const [uploadMenu, setUploadMenu] = useState<{ x: number; y: number } | null>(null);
   const [isCreateFolderOpen, setIsCreateFolderOpen] = useState(false);
 
   const canGoBack = historyIndex > 0;
   const canGoForward = historyIndex < history.length - 1;
+
+  // The current (profileId, bucket, prefix) location's own favorite record,
+  // if any - `isFavorite` (a plain derived-boolean helper, see
+  // `useFavoritesStore`'s doc comment) drives the star's filled/outline
+  // styling, while this lookup additionally carries the `id` needed by
+  // `removeFavorite`.
+  const isCurrentFavorite = isFavorite(activeProfileId, selectedBucket, currentPrefix);
+  const currentFavorite = favorites.find(
+    (favorite) =>
+      favorite.profileId === activeProfileId && favorite.bucket === selectedBucket && favorite.prefix === currentPrefix,
+  );
+
+  async function handleToggleFavorite() {
+    if (!activeProfileId || !selectedBucket) return;
+    if (currentFavorite) {
+      await removeFavorite(currentFavorite.id);
+    } else {
+      await addFavorite(activeProfileId, selectedBucket, currentPrefix);
+    }
+  }
 
   async function handlePickDirectory() {
     if (!activeProfileId || !selectedBucket) return;
@@ -145,7 +170,33 @@ export function Toolbar({ view, onViewChange, onBulkCopy, onBulkMove, onBulkDele
         <div className="mx-1 h-6 w-px shrink-0 bg-border" aria-hidden="true" />
 
         {selectedBucket && (
-          <Breadcrumbs bucket={selectedBucket} prefix={currentPrefix} onNavigate={navigateToPrefix} />
+          <>
+            <Breadcrumbs bucket={selectedBucket} prefix={currentPrefix} onNavigate={navigateToPrefix} />
+            <Tooltip
+              content={
+                isCurrentFavorite
+                  ? t('fileManager.toolbar.removeFavorite')
+                  : t('fileManager.toolbar.addFavorite')
+              }
+            >
+              <Button
+                iconOnly
+                variant="ghost"
+                onClick={() => void handleToggleFavorite()}
+                aria-label={
+                  isCurrentFavorite
+                    ? t('fileManager.toolbar.removeFavorite')
+                    : t('fileManager.toolbar.addFavorite')
+                }
+                aria-pressed={isCurrentFavorite}
+              >
+                <Star
+                  className={cn('h-5 w-5', isCurrentFavorite ? 'fill-current text-accent' : 'text-fg-secondary')}
+                  aria-hidden="true"
+                />
+              </Button>
+            </Tooltip>
+          </>
         )}
       </div>
 

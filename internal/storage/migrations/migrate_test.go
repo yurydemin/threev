@@ -113,9 +113,23 @@ func TestApply_IsIdempotent(t *testing.T) {
 	if err := db.QueryRow(`SELECT COUNT(*) FROM schema_migrations`).Scan(&count); err != nil {
 		t.Fatalf("count schema_migrations rows: %v", err)
 	}
-	if count != 1 {
-		t.Errorf("schema_migrations row count after two Apply() calls = %d, want 1", count)
+	if count != len(mustLoadMigrations(t)) {
+		t.Errorf("schema_migrations row count after two Apply() calls = %d, want %d (one row per embedded migration, not doubled)", count, len(mustLoadMigrations(t)))
 	}
+}
+
+// mustLoadMigrations returns every embedded migration, for tests that need
+// to assert against the current total migration count without hardcoding
+// it (and so silently going stale as new migration files are added).
+func mustLoadMigrations(t *testing.T) []migration {
+	t.Helper()
+
+	migs, err := loadMigrations()
+	if err != nil {
+		t.Fatalf("loadMigrations() returned error: %v", err)
+	}
+
+	return migs
 }
 
 func TestVersionFromName(t *testing.T) {

@@ -28,7 +28,7 @@ import { isPreviewSupported } from '../lib/preview';
 import { listAllKeysUnderPrefix } from '../lib/wails/fileManager';
 import { ApiError } from '../lib/wails/errors';
 import { toast } from '../lib/toast';
-import type { ObjectEntry } from '../types';
+import type { Favorite, ObjectEntry } from '../types';
 
 /** Local shape for the currently open ПКМ context menu (`null` = hidden). */
 interface ContextMenuState {
@@ -67,6 +67,8 @@ export interface FileManagerScreenProps {
   onSelectSettings: () => void;
   /** Closes this File Manager session (Sidebar active-connection indicator's "X" button). */
   onDisconnect: () => void;
+  /** Handles a click on a Sidebar favorites-section row. */
+  onSelectFavorite: (favorite: Favorite) => void;
 }
 
 /**
@@ -95,6 +97,7 @@ export function FileManagerScreen({
   onSelectHistory,
   onSelectSettings,
   onDisconnect,
+  onSelectFavorite,
 }: FileManagerScreenProps) {
   const { t } = useTranslation();
   const [view, setView] = useState<FileManagerView>('list');
@@ -204,6 +207,7 @@ export function FileManagerScreen({
         onSelectHistory={onSelectHistory}
         onSelectSettings={onSelectSettings}
         onDisconnect={onDisconnect}
+        onSelectFavorite={onSelectFavorite}
       />
       <BucketPanel />
 
