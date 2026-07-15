@@ -42,6 +42,8 @@
       "addButton": "+ Add connection",
       "duplicateSuffix": "{{name}} (copy)",
       "deleteConfirm": "Delete connection \"{{name}}\"?",
+      "deleteConfirmWithTransfers": "Delete connection \"{{name}}\"? {{count}} pending transfers will be cancelled.",
+      "deleteConfirmWithTransfers_one": "Delete connection \"{{name}}\"? {{count}} pending transfer will be cancelled.",
       "switchSessionConfirm": "The current browsing session for \"{{currentName}}\" will be closed. Switch to \"{{newName}}\"?"
     },
     "card": {

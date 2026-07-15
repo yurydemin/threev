@@ -5,9 +5,11 @@ import { ConnectionForm } from '../components/connection/ConnectionForm';
 import { ConnectionList } from '../components/connection/ConnectionList';
 import { Button } from '../components/ui/Button';
 import { getConnection } from '../lib/wails/connection';
+import { cancelTasksForProfile } from '../lib/wails/transfer';
 import { confirmDialog } from '../lib/confirm';
 import { useConnectionStore } from '../stores/useConnectionStore';
 import { useFileManagerStore } from '../stores/useFileManagerStore';
+import { useTransferStore } from '../stores/useTransferStore';
 import type { Connection, ConnectionSummary } from '../types';
 
 type FormState = { open: false } | { open: true; initialValues?: Connection };
@@ -102,11 +104,23 @@ export function ConnectionsScreen({
   }
 
   async function handleDelete(summary: ConnectionSummary) {
-    const confirmed = await confirmDialog(t('connections.screen.deleteConfirm', { name: summary.name }), {
+    const pendingCount = useTransferStore
+      .getState()
+      .queue.filter((task) => task.profileId === summary.id).length;
+
+    const confirmMessage =
+      pendingCount > 0
+        ? t('connections.screen.deleteConfirmWithTransfers', { name: summary.name, count: pendingCount })
+        : t('connections.screen.deleteConfirm', { name: summary.name });
+
+    const confirmed = await confirmDialog(confirmMessage, {
       danger: true,
       confirmLabel: t('common.delete'),
     });
     if (!confirmed) return;
+    if (pendingCount > 0) {
+      await cancelTasksForProfile(summary.id);
+    }
     await deleteConnection(summary.id);
     // Deleting the profile the File Manager session is currently pointed at
     // must drop that session too — otherwise the Sidebar's active-connection

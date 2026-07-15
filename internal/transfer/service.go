@@ -840,6 +840,62 @@ func (s *TransferService) abortOrphanedMultipartUpload(id int64, task domain.Tra
 	}
 }
 
+// CancelTasksForProfile cancels every transfer_queue task belonging to
+// profileID (in whatever status - pending/paused/failed/running - CancelTask
+// itself already knows how to handle), returning how many were successfully
+// cancelled.
+//
+// Why this exists: the transfer_queue table's profile_id column is a
+// FOREIGN KEY REFERENCES profiles(id) with no ON DELETE CASCADE
+// (internal/storage/migrations/0001_init.sql), and internal/storage/
+// sqlite.go turns on "PRAGMA foreign_keys = ON". Deleting a profile that
+// still has any transfer_queue row therefore fails at the SQLite layer with
+// a raw foreign-key-constraint error, not a clean, actionable one -
+// connection.ConnectionService.DeleteProfile has no way to avoid this
+// itself, since it only ever calls its own repo.Delete.
+//
+// Why it lives here rather than in ConnectionService: this codebase
+// deliberately never lets one Wails-bound service hold a reference to
+// another (see this type's own doc comment, and FileManagerService's
+// identical stance) - cross-cutting concerns are wired at the FRONTEND
+// layer instead. The intended caller is exactly that: the frontend's
+// profile-deletion flow (mirroring ConnectionsScreen.tsx's existing
+// handleDelete, which already separately reaches into
+// useFileManagerStore) is expected to call this method first, inspect the
+// returned count for its confirmation-dialog wording, and only then call
+// DeleteProfile - never the other way around, and never through a Go-level
+// dependency between the two services.
+//
+// A single task's CancelTask call failing (e.g. a race where it left its
+// terminal state between GetQueue and this call) is logged and skipped,
+// never aborting the rest - a caller here cares about "cancel as many as
+// possible so the profile can be deleted", not an all-or-nothing
+// transaction. Returns (0, nil), not an error, when profileID has no queued
+// tasks at all - the common case for most profile deletions.
+func (s *TransferService) CancelTasksForProfile(profileID int64) (int, error) {
+	tasks, err := s.GetQueue()
+	if err != nil {
+		return 0, fmt.Errorf("list transfer queue: %w", err)
+	}
+
+	cancelled := 0
+
+	for _, task := range tasks {
+		if task.ProfileID != profileID {
+			continue
+		}
+
+		if err := s.CancelTask(task.ID); err != nil {
+			log.Printf("transfer: cancel tasks for profile %d: cancel task %d: %v", profileID, task.ID, err)
+			continue
+		}
+
+		cancelled++
+	}
+
+	return cancelled, nil
+}
+
 // RetryTask resets a "failed" task id back to "pending" (clearing its
 // ErrorMessage) and calls dispatch(). It deliberately returns the SAME id
 // rather than creating a new transfer_queue row - a documented departure

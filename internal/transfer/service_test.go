@@ -683,6 +683,123 @@ func TestReorderTaskChangesQueueOrder(t *testing.T) {
 // TestEncodeSplitBucketKeyRoundTrip is a small table-driven unit test of
 // the SourcePath/DestinationPath encoding helpers used by QueueUpload/
 // QueueDownload/task.go's taskBucketKey.
+// TestCancelTasksForProfileCancelsAllQueuedTasks verifies
+// CancelTasksForProfile against a profile with two queued tasks in
+// different statuses (pending and paused, neither ever running - both
+// concurrency slots are held throughout by two unrelated occupier tasks
+// belonging to a different profile, mirroring
+// TestCancelPendingTaskArchivesDirectlyWithoutRunning's setup): both are
+// cancelled and archived to transfer_history, the returned count is 2, and
+// the unrelated occupier tasks (a different profile) are left untouched.
+func TestCancelTasksForProfileCancelsAllQueuedTasks(t *testing.T) {
+	t.Parallel()
+
+	deps := newTestTransferService(t)
+
+	if DefaultMaxConcurrentTasks != 2 {
+		t.Fatalf("this test assumes DefaultMaxConcurrentTasks == 2, got %d - update the number of occupier tasks below", DefaultMaxConcurrentTasks)
+	}
+
+	occupier1ID, _ := queueBlockingDownload(t, deps, "occupier1")
+	occupier2ID, _ := queueBlockingDownload(t, deps, "occupier2")
+
+	// Both concurrency slots are now held, so every task queued below stays
+	// "pending" (dispatch() has nowhere to run it) unless explicitly paused.
+	targetProfileID := createTestProfile(t, deps.profileRepo, deps.key, "http://127.0.0.1:1") // never actually contacted
+
+	pendingID, err := deps.svc.QueueDownload(domain.DownloadRequest{
+		ProfileID: targetProfileID,
+		Bucket:    "bucket1",
+		Key:       "pending-task",
+		LocalPath: filepath.Join(t.TempDir(), "pending.bin"),
+	})
+	if err != nil {
+		t.Fatalf("QueueDownload() returned error: %v", err)
+	}
+
+	pausedID, err := deps.svc.QueueDownload(domain.DownloadRequest{
+		ProfileID: targetProfileID,
+		Bucket:    "bucket1",
+		Key:       "paused-task",
+		LocalPath: filepath.Join(t.TempDir(), "paused.bin"),
+	})
+	if err != nil {
+		t.Fatalf("QueueDownload() returned error: %v", err)
+	}
+
+	// pausedID is still "pending" at this point (both slots are held) -
+	// PauseTask's non-running branch moves it straight to "paused" without
+	// it ever having run, giving this test its second, distinct status.
+	if err := deps.svc.PauseTask(pausedID); err != nil {
+		t.Fatalf("PauseTask() returned error: %v", err)
+	}
+
+	waitForTaskStatus(t, deps.svc, pausedID, "paused", 2*time.Second)
+
+	cancelled, err := deps.svc.CancelTasksForProfile(targetProfileID)
+	if err != nil {
+		t.Fatalf("CancelTasksForProfile() returned error: %v", err)
+	}
+
+	if cancelled != 2 {
+		t.Errorf("CancelTasksForProfile() cancelled = %d, want 2", cancelled)
+	}
+
+	for _, id := range []int64{pendingID, pausedID} {
+		entry := waitForHistoryEntry(t, deps.svc, id, 2*time.Second)
+		if entry.Status != "cancelled" {
+			t.Errorf("history entry for task %d status = %q, want %q", id, entry.Status, "cancelled")
+		}
+		requireNotInQueue(t, deps.svc, id)
+	}
+
+	// The unrelated occupier tasks (a different profile) must be untouched.
+	tasks, err := deps.svc.GetQueue()
+	if err != nil {
+		t.Fatalf("GetQueue() returned error: %v", err)
+	}
+
+	occupierIDs := map[int64]bool{occupier1ID: true, occupier2ID: true}
+	found := 0
+	for _, task := range tasks {
+		if occupierIDs[task.ID] {
+			found++
+		}
+	}
+	if found != 2 {
+		t.Errorf("found %d of the 2 occupier tasks still in GetQueue(), want 2 (untouched)", found)
+	}
+
+	// Clean up the two occupier tasks so their goroutines/mock HTTP
+	// requests don't outlive this test.
+	if err := deps.svc.CancelTask(occupier1ID); err != nil {
+		t.Errorf("CancelTask(occupier1) returned error: %v", err)
+	}
+	if err := deps.svc.CancelTask(occupier2ID); err != nil {
+		t.Errorf("CancelTask(occupier2) returned error: %v", err)
+	}
+}
+
+// TestCancelTasksForProfileNoTasksReturnsZero verifies CancelTasksForProfile
+// on a profile with no queued tasks at all - the common case for most
+// profile deletions - returns (0, nil), never an error.
+func TestCancelTasksForProfileNoTasksReturnsZero(t *testing.T) {
+	t.Parallel()
+
+	deps := newTestTransferService(t)
+
+	profileID := createTestProfile(t, deps.profileRepo, deps.key, "http://127.0.0.1:1")
+
+	cancelled, err := deps.svc.CancelTasksForProfile(profileID)
+	if err != nil {
+		t.Fatalf("CancelTasksForProfile() returned error: %v", err)
+	}
+
+	if cancelled != 0 {
+		t.Errorf("CancelTasksForProfile() cancelled = %d, want 0", cancelled)
+	}
+}
+
 func TestEncodeSplitBucketKeyRoundTrip(t *testing.T) {
 	t.Parallel()
 

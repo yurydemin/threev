@@ -20,6 +20,7 @@
  */
 import {
   CancelTask,
+  CancelTasksForProfile,
   ClearHistory,
   GetHistory,
   GetQueue,
@@ -129,6 +130,10 @@ export async function resumeTask(id: number): Promise<void> {
 
 export async function cancelTask(id: number): Promise<void> {
   return call(() => CancelTask(id));
+}
+
+export async function cancelTasksForProfile(profileId: number): Promise<number> {
+  return call(() => CancelTasksForProfile(profileId));
 }
 
 export async function retryTask(id: number): Promise<number> {

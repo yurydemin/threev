@@ -42,6 +42,9 @@
       "addButton": "+ Добавить подключение",
       "duplicateSuffix": "{{name}} (копия)",
       "deleteConfirm": "Удалить подключение «{{name}}»?",
+      "deleteConfirmWithTransfers": "Удалить подключение «{{name}}»? {{count}} незавершённых передач будет отменено.",
+      "deleteConfirmWithTransfers_one": "Удалить подключение «{{name}}»? {{count}} незавершённая передача будет отменена.",
+      "deleteConfirmWithTransfers_few": "Удалить подключение «{{name}}»? {{count}} незавершённые передачи будут отменены.",
       "switchSessionConfirm": "Текущая сессия просмотра «{{currentName}}» будет закрыта. Перейти к «{{newName}}»?"
     },
     "card": {

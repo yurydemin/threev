@@ -10,6 +10,10 @@ export function CancelTask(arg1) {
   return window['go']['transfer']['TransferService']['CancelTask'](arg1);
 }
 
+export function CancelTasksForProfile(arg1) {
+  return window['go']['transfer']['TransferService']['CancelTasksForProfile'](arg1);
+}
+
 export function ClearHistory() {
   return window['go']['transfer']['TransferService']['ClearHistory']();
 }

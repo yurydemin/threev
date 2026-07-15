@@ -7,6 +7,8 @@ export function AutoResumeIfEnabled(arg1:Array<number>,arg2:boolean):Promise<voi
 
 export function CancelTask(arg1:number):Promise<void>;
 
+export function CancelTasksForProfile(arg1:number):Promise<number>;
+
 export function ClearHistory():Promise<void>;
 
 export function GetHistory(arg1:number):Promise<Array<domain.TransferHistoryEntry>>;
