@@ -30,6 +30,8 @@ export interface TransferScreenProps {
   onSelectSettings: () => void;
   /** Returns to an already-open File Manager session (Sidebar active-connection indicator, Block L2). */
   onSelectFileManager: () => void;
+  /** Closes the open File Manager session (Sidebar active-connection indicator's "X" button). */
+  onDisconnect: () => void;
 }
 
 export function TransferScreen({
@@ -37,6 +39,7 @@ export function TransferScreen({
   onSelectHistory,
   onSelectSettings,
   onSelectFileManager,
+  onDisconnect,
 }: TransferScreenProps) {
   const { t } = useTranslation();
   const queue = useTransferStore((state) => state.queue);
@@ -68,6 +71,7 @@ export function TransferScreen({
         onSelectHistory={onSelectHistory}
         onSelectSettings={onSelectSettings}
         onSelectFileManager={onSelectFileManager}
+        onDisconnect={onDisconnect}
       />
 
       <div className="flex flex-1 flex-col overflow-hidden">

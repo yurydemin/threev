@@ -18,7 +18,9 @@
     "settings": "Settings",
     "activeConnection": "Connected: {{name}}",
     "activeConnectionTooltip": "Return to File Manager ({{name}})",
-    "activeConnectionCurrentTooltip": "Currently open: {{name}}"
+    "activeConnectionCurrentTooltip": "Currently open: {{name}}",
+    "disconnect": "Disconnect",
+    "disconnectTooltip": "Disconnect from \"{{name}}\""
   },
   "welcome": {
     "title": "S3 Desktop Client",

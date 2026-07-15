@@ -23,6 +23,8 @@ export interface HistoryScreenProps {
   onSelectSettings: () => void;
   /** Returns to an already-open File Manager session (Sidebar active-connection indicator, Block L2). */
   onSelectFileManager: () => void;
+  /** Closes the open File Manager session (Sidebar active-connection indicator's "X" button). */
+  onDisconnect: () => void;
 }
 
 /**
@@ -42,6 +44,7 @@ export function HistoryScreen({
   onSelectTransfers,
   onSelectSettings,
   onSelectFileManager,
+  onDisconnect,
 }: HistoryScreenProps) {
   const { t } = useTranslation();
   const history = useTransferStore((state) => state.history);
@@ -73,6 +76,7 @@ export function HistoryScreen({
         onSelectTransfers={onSelectTransfers}
         onSelectSettings={onSelectSettings}
         onSelectFileManager={onSelectFileManager}
+        onDisconnect={onDisconnect}
       />
 
       <div className="flex flex-1 flex-col overflow-hidden">

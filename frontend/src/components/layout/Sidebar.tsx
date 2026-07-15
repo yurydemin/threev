@@ -46,6 +46,12 @@ export interface SidebarProps {
    * for the same reason as `onSelectConnections`/etc.
    */
   onSelectFileManager?: () => void;
+  /**
+   * Called when the active-connection indicator's own "X" button is
+   * clicked, closing the open File Manager session. Optional for the same
+   * reason as `onSelectConnections`/etc.
+   */
+  onDisconnect?: () => void;
 }
 
 /**
@@ -67,6 +73,7 @@ export function Sidebar({
   onSelectHistory,
   onSelectSettings,
   onSelectFileManager,
+  onDisconnect,
 }: SidebarProps) {
   const { t } = useTranslation();
   const appVersion = useAppStore((state) => state.appVersion);
@@ -144,6 +151,7 @@ export function Sidebar({
             profileName={activeProfileName}
             isActive={resolvedActiveItem === 'fileManager'}
             onClick={onSelectFileManager}
+            onDisconnect={onDisconnect}
           />
         </>
       )}

@@ -23,6 +23,8 @@ export interface ConnectionsScreenProps {
   onSelectSettings: () => void;
   /** Returns to an already-open File Manager session (Sidebar active-connection indicator, Block L2). */
   onSelectFileManager: () => void;
+  /** Closes the open File Manager session (Sidebar active-connection indicator's "X" button). */
+  onDisconnect: () => void;
 }
 
 /**
@@ -51,6 +53,7 @@ export function ConnectionsScreen({
   onSelectHistory,
   onSelectSettings,
   onSelectFileManager,
+  onDisconnect,
 }: ConnectionsScreenProps) {
   const { t } = useTranslation();
   const connections = useConnectionStore((state) => state.connections);
@@ -123,6 +126,7 @@ export function ConnectionsScreen({
         onSelectHistory={onSelectHistory}
         onSelectSettings={onSelectSettings}
         onSelectFileManager={onSelectFileManager}
+        onDisconnect={onDisconnect}
       />
 
       <div className="flex flex-1 flex-col overflow-hidden">

@@ -34,6 +34,8 @@ export interface SettingsScreenProps {
   onSelectHistory: () => void;
   /** Returns to an already-open File Manager session (Sidebar active-connection indicator, Block L2). */
   onSelectFileManager: () => void;
+  /** Closes the open File Manager session (Sidebar active-connection indicator's "X" button). */
+  onDisconnect: () => void;
 }
 
 /**
@@ -62,6 +64,7 @@ export function SettingsScreen({
   onSelectTransfers,
   onSelectHistory,
   onSelectFileManager,
+  onDisconnect,
 }: SettingsScreenProps) {
   const { t } = useTranslation();
   const SECTION_TITLES = getSectionTitles(t);
@@ -95,6 +98,7 @@ export function SettingsScreen({
         onSelectTransfers={onSelectTransfers}
         onSelectHistory={onSelectHistory}
         onSelectFileManager={onSelectFileManager}
+        onDisconnect={onDisconnect}
       />
       <SettingsSidebar activeSection={section} onSelectSection={setSection} />
 

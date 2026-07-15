@@ -18,7 +18,9 @@
     "settings": "Настройки",
     "activeConnection": "Подключено: {{name}}",
     "activeConnectionTooltip": "Вернуться к файловому менеджеру ({{name}})",
-    "activeConnectionCurrentTooltip": "Открыто: {{name}}"
+    "activeConnectionCurrentTooltip": "Открыто: {{name}}",
+    "disconnect": "Отключиться",
+    "disconnectTooltip": "Отключиться от «{{name}}»"
   },
   "welcome": {
     "title": "S3 Desktop Client",

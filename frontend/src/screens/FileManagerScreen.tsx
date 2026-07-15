@@ -65,6 +65,8 @@ export interface FileManagerScreenProps {
   onSelectHistory: () => void;
   /** Navigates to the Settings screen (Sidebar "Настройки"). */
   onSelectSettings: () => void;
+  /** Closes this File Manager session (Sidebar active-connection indicator's "X" button). */
+  onDisconnect: () => void;
 }
 
 /**
@@ -92,6 +94,7 @@ export function FileManagerScreen({
   onSelectTransfers,
   onSelectHistory,
   onSelectSettings,
+  onDisconnect,
 }: FileManagerScreenProps) {
   const { t } = useTranslation();
   const [view, setView] = useState<FileManagerView>('list');
@@ -200,6 +203,7 @@ export function FileManagerScreen({
         onSelectTransfers={onSelectTransfers}
         onSelectHistory={onSelectHistory}
         onSelectSettings={onSelectSettings}
+        onDisconnect={onDisconnect}
       />
       <BucketPanel />
 

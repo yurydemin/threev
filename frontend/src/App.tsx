@@ -151,6 +151,21 @@ function App() {
         setScreen({ name: 'fileManager', profileId: activeProfileId, profileName: activeProfileName });
     }
 
+    // Closes the open File Manager session from the Sidebar's
+    // active-connection indicator "X" button — unlike `handleConnect`'s
+    // switch-session confirm, this is an explicit, self-explanatory,
+    // reversible action (the session can simply be reopened from
+    // Connections), so it skips `confirmDialog` entirely. Only navigates
+    // away if the user is currently looking at the File Manager screen
+    // itself; from every other screen, disconnecting just makes the Sidebar
+    // indicator disappear in place.
+    function handleDisconnect() {
+        useFileManagerStore.getState().reset();
+        if (screen.name === 'fileManager') {
+            setScreen({ name: 'connections' });
+        }
+    }
+
     function handleSelectTransfers() {
         setScreen({ name: 'transfers' });
     }
@@ -198,6 +213,7 @@ function App() {
                     onSelectTransfers={handleSelectTransfers}
                     onSelectHistory={handleSelectHistory}
                     onSelectSettings={handleSelectSettings}
+                    onDisconnect={handleDisconnect}
                 />
             ) : screen.name === 'transfers' ? (
                 <TransferScreen
@@ -205,6 +221,7 @@ function App() {
                     onSelectHistory={handleSelectHistory}
                     onSelectSettings={handleSelectSettings}
                     onSelectFileManager={handleReturnToFileManager}
+                    onDisconnect={handleDisconnect}
                 />
             ) : screen.name === 'history' ? (
                 <HistoryScreen
@@ -212,6 +229,7 @@ function App() {
                     onSelectTransfers={handleSelectTransfers}
                     onSelectSettings={handleSelectSettings}
                     onSelectFileManager={handleReturnToFileManager}
+                    onDisconnect={handleDisconnect}
                 />
             ) : screen.name === 'settings' ? (
                 <SettingsScreen
@@ -219,6 +237,7 @@ function App() {
                     onSelectTransfers={handleSelectTransfers}
                     onSelectHistory={handleSelectHistory}
                     onSelectFileManager={handleReturnToFileManager}
+                    onDisconnect={handleDisconnect}
                 />
             ) : showWelcome ? (
                 <WelcomeScreen />
@@ -229,6 +248,7 @@ function App() {
                     onSelectHistory={handleSelectHistory}
                     onSelectSettings={handleSelectSettings}
                     onSelectFileManager={handleReturnToFileManager}
+                    onDisconnect={handleDisconnect}
                 />
             )}
             <ToastContainer />
