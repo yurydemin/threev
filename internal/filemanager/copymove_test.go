@@ -99,6 +99,8 @@ func (m *copyMock) handler(w http.ResponseWriter, r *http.Request) {
 	copySource := r.Header.Get("X-Amz-Copy-Source")
 
 	switch {
+	case r.Method == http.MethodHead:
+		m.handleHead(w)
 	case r.Method == http.MethodPut && copySource != "":
 		m.handleCopy(w, r, copySource)
 	case r.Method == http.MethodDelete:
@@ -106,6 +108,16 @@ func (m *copyMock) handler(w http.ResponseWriter, r *http.Request) {
 	default:
 		http.Error(w, "copyMock: unexpected request "+r.Method+" "+r.URL.String(), http.StatusBadRequest)
 	}
+}
+
+// handleHead answers copyOneObject's own HeadObject call (added to check
+// the source object's size against maxSingleCopySize before deciding which
+// copy path to take) with a small, fixed Content-Length - every test in
+// this file exercises the ordinary single-shot CopyObject path, never
+// copyLargeObject's multipart path (see copylarge_test.go for that).
+func (m *copyMock) handleHead(w http.ResponseWriter) {
+	w.Header().Set("Content-Length", "1024")
+	w.WriteHeader(http.StatusOK)
 }
 
 func (m *copyMock) handleCopy(w http.ResponseWriter, r *http.Request, copySource string) {

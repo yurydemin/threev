@@ -289,24 +289,65 @@ func (f *FileManagerService) runCopyOrMove(ctx context.Context, opID int64, opTy
 func (f *FileManagerService) copyOneObject(ctx context.Context, pooled, fresh *s3.Client, host string, params bulkCopyMoveParams, sourceKey string) error {
 	destKey := params.DestPrefix + path.Base(sourceKey)
 
-	err := s3client.WithRetry(ctx, f.breaker, s3client.MetadataRetryPolicy, host, func(attemptCtx context.Context, isRetry bool) error {
+	var sourceSize int64
+
+	headErr := s3client.WithRetry(ctx, f.breaker, s3client.MetadataRetryPolicy, host, func(attemptCtx context.Context, isRetry bool) error {
 		client := pooled
 		if isRetry {
 			client = fresh
 		}
 
-		_, copyErr := client.CopyObject(attemptCtx, &s3.CopyObjectInput{
-			Bucket:     aws.String(params.DestBucket),
-			Key:        aws.String(destKey),
-			CopySource: aws.String(copySourceFor(params.SourceBucket, sourceKey)),
+		out, err := client.HeadObject(attemptCtx, &s3.HeadObjectInput{
+			Bucket: aws.String(params.SourceBucket),
+			Key:    aws.String(sourceKey),
 		})
+		if err != nil {
+			return err
+		}
 
-		return copyErr
+		sourceSize = aws.ToInt64(out.ContentLength)
+
+		return nil
 	})
-	if err != nil {
-		return fmt.Errorf("copy %s/%s -> %s/%s: %w", params.SourceBucket, sourceKey, params.DestBucket, destKey, err)
+	if headErr != nil {
+		return fmt.Errorf("copy %s/%s -> %s/%s: head source: %w", params.SourceBucket, sourceKey, params.DestBucket, destKey, headErr)
 	}
 
+	// S3's plain CopyObject has a hard ~5GiB source-object-size limit - see
+	// maxSingleCopySize's own doc comment (copylarge.go) for why that
+	// constant is set well below the real boundary. Anything over it must
+	// go through copyLargeObject's server-side multipart-copy path
+	// (CreateMultipartUpload + UploadPartCopy per byte range +
+	// CompleteMultipartUpload) instead.
+	if sourceSize > maxSingleCopySize {
+		if err := f.copyLargeObject(ctx, pooled, fresh, host, params.SourceBucket, sourceKey, params.DestBucket, destKey, sourceSize); err != nil {
+			return fmt.Errorf("copy %s/%s -> %s/%s: %w", params.SourceBucket, sourceKey, params.DestBucket, destKey, err)
+		}
+	} else {
+		err := s3client.WithRetry(ctx, f.breaker, s3client.MetadataRetryPolicy, host, func(attemptCtx context.Context, isRetry bool) error {
+			client := pooled
+			if isRetry {
+				client = fresh
+			}
+
+			_, copyErr := client.CopyObject(attemptCtx, &s3.CopyObjectInput{
+				Bucket:     aws.String(params.DestBucket),
+				Key:        aws.String(destKey),
+				CopySource: aws.String(copySourceFor(params.SourceBucket, sourceKey)),
+			})
+
+			return copyErr
+		})
+		if err != nil {
+			return fmt.Errorf("copy %s/%s -> %s/%s: %w", params.SourceBucket, sourceKey, params.DestBucket, destKey, err)
+		}
+	}
+
+	// Move ordering (copy-then-delete-THAT-SAME-key) applies identically
+	// to both the small-object single-shot path above and the large-object
+	// multipart-copy path: DeleteObject for sourceKey only ever runs after
+	// whichever copy path just succeeded - see this function's own doc
+	// comment for why that ordering is never reversed.
 	if !params.Move {
 		return nil
 	}
