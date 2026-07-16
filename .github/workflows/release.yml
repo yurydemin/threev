@@ -217,14 +217,36 @@ jobs:
         with:
           path: artifacts
 
-      - name: Create GitHub Release
+      - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # A release for this tag may already exist: the project convention
+        # (see memory/feedback_release_changelog.md) is to hand-write a
+        # curated changelog via `gh release create`/`gh release edit` before
+        # or shortly after tagging, rather than ship `--generate-notes`'
+        # commit-log dump. Unconditionally calling `gh release create` here
+        # would then fail outright ("a release with the same tag name
+        # already exists") - which is exactly what happened on v0.4.0's
+        # first release run. `gh release upload --clobber` attaches/replaces
+        # just the binaries onto that existing release without touching its
+        # title/notes; falling back to `gh release create --generate-notes`
+        # only if no release exists yet (e.g. someone pushes a tag without
+        # writing a changelog first) keeps this workflow usable either way.
         run: |
-          gh release create "${{ github.ref_name }}" \
-            --repo "${{ github.repository }}" \
-            --title "${{ github.ref_name }}" \
-            --generate-notes \
-            artifacts/macos-dmg/*.dmg \
-            artifacts/windows-installer/*.exe \
-            artifacts/linux-appimage/*.AppImage
+          if gh release view "${{ github.ref_name }}" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            echo "Release ${{ github.ref_name }} already exists - uploading artifacts to it."
+            gh release upload "${{ github.ref_name }}" \
+              --repo "${{ github.repository }}" \
+              --clobber \
+              artifacts/macos-dmg/*.dmg \
+              artifacts/windows-installer/*.exe \
+              artifacts/linux-appimage/*.AppImage
+          else
+            gh release create "${{ github.ref_name }}" \
+              --repo "${{ github.repository }}" \
+              --title "${{ github.ref_name }}" \
+              --generate-notes \
+              artifacts/macos-dmg/*.dmg \
+              artifacts/windows-installer/*.exe \
+              artifacts/linux-appimage/*.AppImage
+          fi
