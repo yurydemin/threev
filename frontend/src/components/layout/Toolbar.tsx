@@ -12,6 +12,7 @@ import {
   List,
   RotateCcw,
   Search,
+  SearchCheck,
   Star,
   Trash2,
   Upload,
@@ -33,6 +34,9 @@ import { Breadcrumbs } from '../file-manager/Breadcrumbs';
 import { CreateFolderModal } from '../file-manager/CreateFolderModal';
 
 export type FileManagerView = 'list' | 'grid';
+
+/** Minimum `searchQuery` length before the "Искать везде" trigger appears (FR-FM: "появляется от 3 символов"). */
+const MIN_SEARCH_EVERYWHERE_LENGTH = 3;
 
 export interface ToolbarProps {
   /**
@@ -70,12 +74,15 @@ export function Toolbar({ view, onViewChange, onBulkCopy, onBulkMove, onBulkDele
   const selectedBucket = useFileManagerStore((state) => state.selectedBucket);
   const currentPrefix = useFileManagerStore((state) => state.currentPrefix);
   const searchQuery = useFileManagerStore((state) => state.searchQuery);
+  const isSearchingAllFolders = useFileManagerStore((state) => state.isSearchingAllFolders);
+  const searchResults = useFileManagerStore((state) => state.searchResults);
   const selectedKeys = useFileManagerStore((state) => state.selectedKeys);
   const goBack = useFileManagerStore((state) => state.goBack);
   const goForward = useFileManagerStore((state) => state.goForward);
   const refresh = useFileManagerStore((state) => state.refresh);
   const navigateToPrefix = useFileManagerStore((state) => state.navigateToPrefix);
   const setSearchQuery = useFileManagerStore((state) => state.setSearchQuery);
+  const searchEverywhere = useFileManagerStore((state) => state.searchEverywhere);
   const favorites = useFavoritesStore((state) => state.favorites);
   const addFavorite = useFavoritesStore((state) => state.addFavorite);
   const removeFavorite = useFavoritesStore((state) => state.removeFavorite);
@@ -219,6 +226,21 @@ export function Toolbar({ view, onViewChange, onBulkCopy, onBulkMove, onBulkDele
             )}
           />
         </div>
+
+        {searchQuery.trim().length >= MIN_SEARCH_EVERYWHERE_LENGTH && (
+          <Tooltip content={t('fileManager.search.searchEverywhere')}>
+            <Button
+              iconOnly
+              variant={searchResults !== null ? 'secondary' : 'ghost'}
+              disabled={!selectedBucket || isSearchingAllFolders}
+              onClick={() => void searchEverywhere(searchQuery)}
+              aria-label={t('fileManager.search.searchEverywhere')}
+              aria-pressed={searchResults !== null}
+            >
+              <SearchCheck className="h-5 w-5" aria-hidden="true" />
+            </Button>
+          </Tooltip>
+        )}
 
         <div className="flex items-center gap-0.5 rounded-sm border border-border p-0.5">
           <Tooltip content={t('fileManager.toolbar.listView')}>

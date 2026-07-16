@@ -13,6 +13,8 @@ export interface FileGridItemProps {
   isSelected: boolean;
   /** Toggles/extends selection for `entry.key` — inspects `event.shiftKey` to decide between `toggleSelect`/`selectRange`. */
   onToggleSelect: (key: string, event: MouseEvent) => void;
+  /** "Искать везде" results mode (Block F) — see `FileRowProps.showFullPath`. */
+  showFullPath?: boolean;
 }
 
 /**
@@ -33,11 +35,14 @@ export function FileGridItem({
   onContextMenu,
   isSelected,
   onToggleSelect,
+  showFullPath = false,
 }: FileGridItemProps) {
-  const name = getEntryDisplayName(entry.key, currentPrefix);
+  const name = showFullPath ? entry.key : getEntryDisplayName(entry.key, currentPrefix);
 
   function handleClick(event: MouseEvent<HTMLDivElement>) {
-    if (entry.isFolder) return;
+    // Search-results mode (`showFullPath`) is view-only — see `FileGrid`'s
+    // doc comment on why bulk selection isn't wired up for it.
+    if (entry.isFolder || showFullPath) return;
     onToggleSelect(entry.key, event);
   }
 

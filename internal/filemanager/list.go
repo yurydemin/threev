@@ -6,6 +6,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 
 	"threev/internal/domain"
 	"threev/internal/mimetype"
@@ -190,19 +191,31 @@ func entriesFromPage(out *s3.ListObjectsV2Output, prefix string) []domain.Object
 			continue
 		}
 
-		entry := domain.ObjectEntry{
-			Key:          objKey,
-			IsFolder:     false,
-			Size:         aws.ToInt64(obj.Size),
-			ContentType:  mimetype.ContentTypeForKey(objKey),
-			StorageClass: string(obj.StorageClass),
-		}
-		if obj.LastModified != nil {
-			entry.LastModified = *obj.LastModified
-		}
-
-		entries = append(entries, entry)
+		entries = append(entries, objectEntryFromS3Object(obj))
 	}
 
 	return entries
+}
+
+// objectEntryFromS3Object maps a single S3 Contents entry into a
+// domain.ObjectEntry (Key, Size, ContentType via
+// mimetype.ContentTypeForKey, LastModified, StorageClass) - the shared
+// mapping logic used both by entriesFromPage above (bucket/prefix browsing)
+// and by SearchObjects (search.go), so the two do not drift apart over
+// time.
+func objectEntryFromS3Object(obj types.Object) domain.ObjectEntry {
+	objKey := aws.ToString(obj.Key)
+
+	entry := domain.ObjectEntry{
+		Key:          objKey,
+		IsFolder:     false,
+		Size:         aws.ToInt64(obj.Size),
+		ContentType:  mimetype.ContentTypeForKey(objKey),
+		StorageClass: string(obj.StorageClass),
+	}
+	if obj.LastModified != nil {
+		entry.LastModified = *obj.LastModified
+	}
+
+	return entry
 }

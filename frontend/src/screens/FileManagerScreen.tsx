@@ -1,6 +1,6 @@
 import { useMemo, useState, type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Loader2 } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Loader2 } from 'lucide-react';
 import { Sidebar } from '../components/layout/Sidebar';
 import { Toolbar, type FileManagerView } from '../components/layout/Toolbar';
 import { StatusBar } from '../components/layout/StatusBar';
@@ -18,6 +18,7 @@ import { DestinationPickerModal } from '../components/file-manager/DestinationPi
 import { RenameModal } from '../components/file-manager/RenameModal';
 import { PropertiesModal } from '../components/file-manager/PropertiesModal';
 import { PresignedUrlModal } from '../components/file-manager/PresignedUrlModal';
+import { Button } from '../components/ui/Button';
 import { useFileManagerStore } from '../stores/useFileManagerStore';
 import { useTransferStore } from '../stores/useTransferStore';
 import { useBulkOperationStore } from '../stores/useBulkOperationStore';
@@ -111,6 +112,10 @@ export function FileManagerScreen({
   const entries = useFileManagerStore((state) => state.entries);
   const currentPrefix = useFileManagerStore((state) => state.currentPrefix);
   const searchQuery = useFileManagerStore((state) => state.searchQuery);
+  const isSearchingAllFolders = useFileManagerStore((state) => state.isSearchingAllFolders);
+  const searchResults = useFileManagerStore((state) => state.searchResults);
+  const searchTruncated = useFileManagerStore((state) => state.searchTruncated);
+  const clearSearchResults = useFileManagerStore((state) => state.clearSearchResults);
   const refresh = useFileManagerStore((state) => state.refresh);
   const selectedKeys = useFileManagerStore((state) => state.selectedKeys);
   const selectAll = useFileManagerStore((state) => state.selectAll);
@@ -178,16 +183,24 @@ export function FileManagerScreen({
   );
 
   const hasSearchQuery = searchQuery.trim().length > 0;
+  // `searchResults !== null` = "Искать везде" results mode (Block F) —
+  // takes over both the main content area and this status line, alongside
+  // (not replacing) `filteredEntries`'s normal-browsing computation above,
+  // which still runs so flipping back via `clearSearchResults` has an
+  // up-to-date view ready immediately.
+  const isSearchMode = searchResults !== null;
   const selectionSuffix =
     selectedKeys.size > 0 ? t('fileManager.screen.statusSelectedSuffix', { count: selectedKeys.size }) : '';
   const statusLeft = selectedBucket
-    ? (hasSearchQuery
-        ? t('fileManager.screen.statusFiltered', {
-            filtered: filteredEntries.length,
-            total: entries.length,
-            count: entries.length,
-          })
-        : t('fileManager.screen.statusAll', { total: entries.length, count: entries.length })) + selectionSuffix
+    ? isSearchMode
+      ? t('fileManager.search.resultsCount', { count: searchResults.length })
+      : (hasSearchQuery
+          ? t('fileManager.screen.statusFiltered', {
+              filtered: filteredEntries.length,
+              total: entries.length,
+              count: entries.length,
+            })
+          : t('fileManager.screen.statusAll', { total: entries.length, count: entries.length })) + selectionSuffix
     : undefined;
 
   function handleOpenFile(entry: ObjectEntry) {
@@ -230,7 +243,46 @@ export function FileManagerScreen({
           {...dragHandlers}
         >
           {selectedBucket ? (
-            view === 'list' ? (
+            isSearchMode ? (
+              <div className="flex h-full min-h-0 flex-col overflow-hidden">
+                <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border bg-bg-secondary px-4 py-2">
+                  <div className="flex min-w-0 items-center gap-3 text-[13px] text-fg-secondary">
+                    <span>{t('fileManager.search.resultsCount', { count: searchResults.length })}</span>
+                    {searchTruncated && (
+                      <span className="flex items-center gap-1.5 text-warning">
+                        <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                        {t('fileManager.search.truncatedNotice')}
+                      </span>
+                    )}
+                  </div>
+                  <Button variant="ghost" onClick={clearSearchResults}>
+                    <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+                    {t('fileManager.search.backToFolder')}
+                  </Button>
+                </div>
+                <div className="min-h-0 flex-1">
+                  {searchResults.length === 0 ? (
+                    <div className="flex h-full flex-col items-center justify-center gap-2 py-16 text-center">
+                      <p className="text-sm text-fg-primary">{t('fileManager.search.emptyResults')}</p>
+                    </div>
+                  ) : view === 'list' ? (
+                    <FileList
+                      entries={searchResults}
+                      onOpenFile={handleOpenFile}
+                      onContextMenu={() => {}}
+                      showFullPath
+                    />
+                  ) : (
+                    <FileGrid
+                      entries={searchResults}
+                      onOpenFile={handleOpenFile}
+                      onContextMenu={() => {}}
+                      showFullPath
+                    />
+                  )}
+                </div>
+              </div>
+            ) : view === 'list' ? (
               <FileList entries={filteredEntries} onOpenFile={handleOpenFile} onContextMenu={handleContextMenu} />
             ) : (
               <FileGrid entries={filteredEntries} onOpenFile={handleOpenFile} onContextMenu={handleContextMenu} />
@@ -260,6 +312,15 @@ export function FileManagerScreen({
           onEditMetadata={(entry) => setActiveModal({ kind: 'metadata', entry })}
           onGetPresignedUrl={(entry) => setActiveModal({ kind: 'presignedUrl', entry })}
         />
+      )}
+
+      {isSearchingAllFolders && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20">
+          <div className="flex items-center gap-2 rounded bg-bg-elevated px-4 py-3 shadow-[0_4px_16px_rgba(0,0,0,0.20)]">
+            <Loader2 className="h-4 w-4 animate-spin text-fg-primary" aria-hidden="true" />
+            <span className="text-[13px] text-fg-primary">{t('fileManager.search.searching')}</span>
+          </div>
+        </div>
       )}
 
       {isListingFolder && (

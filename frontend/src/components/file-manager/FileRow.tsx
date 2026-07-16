@@ -26,6 +26,13 @@ export interface FileRowProps {
   isSelected: boolean;
   /** Toggles/extends selection for `entry.key` — the caller inspects `event.shiftKey` to decide between `toggleSelect`/`selectRange`. */
   onToggleSelect: (key: string, event: MouseEvent) => void;
+  /**
+   * "Искать везде" results mode (Block F): renders `entry.key` (the full
+   * path) instead of `getEntryDisplayName`'s bare basename — results come
+   * from many different folders under the bucket, so a bare filename would
+   * be ambiguous/uninformative. Defaults to `false` (normal browsing).
+   */
+  showFullPath?: boolean;
 }
 
 function formatModified(lastModified: string): string {
@@ -55,9 +62,10 @@ export function FileRow({
   onContextMenu,
   isSelected,
   onToggleSelect,
+  showFullPath = false,
 }: FileRowProps) {
   const { t } = useTranslation();
-  const name = getEntryDisplayName(entry.key, currentPrefix);
+  const name = showFullPath ? entry.key : getEntryDisplayName(entry.key, currentPrefix);
 
   function handleDoubleClick() {
     if (entry.isFolder) {
@@ -82,7 +90,7 @@ export function FileRow({
         isSelected ? 'border-l-accent bg-accent-subtle' : 'border-l-transparent',
       )}
     >
-      {entry.isFolder ? (
+      {entry.isFolder || showFullPath ? (
         <div className="w-9 shrink-0" />
       ) : (
         <div className="flex w-9 shrink-0 items-center justify-center">

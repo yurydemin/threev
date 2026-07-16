@@ -117,6 +117,16 @@
     "bucketPanel": {
       "empty": "No buckets available"
     },
+    "search": {
+      "searchEverywhere": "Search everywhere",
+      "searching": "Searching the bucket…",
+      "resultsCount": "{{count}} results found",
+      "resultsCount_one": "{{count}} result found",
+      "truncatedNotice": "Showing the first 500 results — narrow your search",
+      "emptyResults": "No matches found",
+      "backToFolder": "Back to folder",
+      "error": "Failed to search the bucket"
+    },
     "objectContextMenu": {
       "download": "Download",
       "open": "Open",

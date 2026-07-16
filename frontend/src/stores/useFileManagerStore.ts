@@ -1,6 +1,8 @@
 import { create } from 'zustand';
-import { listBuckets, listObjects } from '../lib/wails/fileManager';
+import { listBuckets, listObjects, searchObjects } from '../lib/wails/fileManager';
 import { ApiError } from '../lib/wails/errors';
+import { toast } from '../lib/toast';
+import i18n from '../i18n';
 import type { Bucket, ObjectEntry } from '../types';
 
 /** One entry of the browser-style back/forward navigation stack. */
@@ -26,6 +28,19 @@ interface FileManagerState {
   searchQuery: string;
   isLoadingEntries: boolean;
   entriesError: string | null;
+
+  /**
+   * "Искать везде" (Block F) — an explicit, opt-in whole-bucket recursive
+   * search, layered on top of (not replacing) `searchQuery`'s client-side
+   * current-page filter. `searchResults === null` means "not in
+   * search-results mode" (normal browsing); `[]` means "searched, zero
+   * matches" — these must stay distinguishable so the UI can tell "haven't
+   * searched" apart from "searched and found nothing".
+   */
+  isSearchingAllFolders: boolean;
+  searchResults: ObjectEntry[] | null;
+  /** `true` if the backend search hit its 500-match cap — mirrors `searchResults`'s lifecycle (reset alongside it). */
+  searchTruncated: boolean;
 
   /**
    * Browser-style history stack of visited {bucket, prefix} locations.
@@ -58,6 +73,17 @@ interface FileManagerState {
   setSort: (sortBy: string, sortOrder: string) => Promise<void>;
   /** Purely local filter over already-loaded `entries` — no backend call. */
   setSearchQuery: (query: string) => void;
+  /**
+   * Recursive whole-bucket search (Block F) — scoped to the whole bucket
+   * (empty prefix), not `currentPrefix`: "искать везде" per the feature
+   * name means the entire bucket regardless of where the user currently is
+   * browsing. No-op if `activeProfileId`/`selectedBucket` aren't set. On
+   * failure, resets `searchResults` to `null` (falls back to normal
+   * browsing) rather than leaving a stale/broken results screen up.
+   */
+  searchEverywhere: (query: string) => Promise<void>;
+  /** Exits search-results mode back to normal browsing of the current bucket/prefix (does not navigate). */
+  clearSearchResults: () => void;
   /** Reloads the current bucket/prefix with `Refresh: true` (bypasses backend cache). */
   refresh: () => Promise<void>;
   /** Clears all File Manager state (called when leaving back to Connections). */
@@ -94,6 +120,9 @@ const initialBrowsingState = {
   searchQuery: '',
   isLoadingEntries: false,
   entriesError: null as string | null,
+  isSearchingAllFolders: false,
+  searchResults: null as ObjectEntry[] | null,
+  searchTruncated: false,
   history: [] as HistoryEntry[],
   historyIndex: -1,
   selectedKeys: new Set<string>(),
@@ -164,6 +193,8 @@ export const useFileManagerStore = create<FileManagerState>()((set, get) => {
       entriesError: null,
       selectedKeys: new Set(),
       selectionAnchor: null,
+      searchResults: null,
+      searchTruncated: false,
     });
     await loadEntries(target.bucket, target.prefix);
   }
@@ -205,6 +236,8 @@ export const useFileManagerStore = create<FileManagerState>()((set, get) => {
         entriesError: null,
         selectedKeys: new Set(),
         selectionAnchor: null,
+        searchResults: null,
+        searchTruncated: false,
       });
       pushHistory({ bucket, prefix: '' });
       await loadEntries(bucket, '');
@@ -222,6 +255,8 @@ export const useFileManagerStore = create<FileManagerState>()((set, get) => {
         entriesError: null,
         selectedKeys: new Set(),
         selectionAnchor: null,
+        searchResults: null,
+        searchTruncated: false,
       });
       pushHistory({ bucket, prefix });
       await loadEntries(bucket, prefix);
@@ -252,7 +287,40 @@ export const useFileManagerStore = create<FileManagerState>()((set, get) => {
       await loadEntries(selectedBucket, currentPrefix);
     },
 
-    setSearchQuery: (query) => set({ searchQuery: query }),
+    // Editing the query while "Искать везде" results are on screen would
+    // otherwise leave stale matches (from the previous query) displayed
+    // next to the new, not-yet-searched text — exiting search-results mode
+    // here (falling back to normal browsing + the instant client-side
+    // filter) keeps what's on screen honest, and re-arms the "Искать везде"
+    // button for an explicit new search, same as `clearSearchResults`'s
+    // other call sites (selectBucket/navigateToPrefix/goBack/goForward).
+    setSearchQuery: (query) => {
+      if (get().searchResults !== null) {
+        set({ searchResults: null, searchTruncated: false });
+      }
+      set({ searchQuery: query });
+    },
+
+    searchEverywhere: async (query) => {
+      const { activeProfileId, selectedBucket } = get();
+      if (activeProfileId === null || !selectedBucket) return;
+      set({ isSearchingAllFolders: true });
+      try {
+        const response = await searchObjects(activeProfileId, selectedBucket, '', query);
+        set({ searchResults: response.entries, searchTruncated: response.truncated });
+      } catch (err) {
+        console.error('[useFileManagerStore] searchObjects failed:', err);
+        set({ searchResults: null, searchTruncated: false });
+        toast.error(
+          err instanceof ApiError ? err.message : i18n.t('fileManager.search.error'),
+          err instanceof ApiError ? err.raw : undefined,
+        );
+      } finally {
+        set({ isSearchingAllFolders: false });
+      }
+    },
+
+    clearSearchResults: () => set({ searchResults: null, searchTruncated: false }),
 
     refresh: async () => {
       const { selectedBucket, currentPrefix } = get();

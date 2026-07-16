@@ -81,6 +81,38 @@ type BucketSizeResult struct {
 	Truncated bool
 }
 
+// SearchObjectsRequest is the input to FileManagerService.SearchObjects
+// (docs backlog "Блок F — Поиск по всему бакету"): unlike the client-side
+// filename filter applied to an already-loaded listing page,
+// SearchObjects walks the whole scope server-side so a match nested many
+// folders deep - invisible to a filter over only what is currently on
+// screen - is still found.
+type SearchObjectsRequest struct {
+	ProfileID int64
+	Bucket    string
+	// Prefix scopes the search to everything nested under it; empty
+	// searches the whole bucket.
+	Prefix string
+	// Query is matched case-insensitively as a substring against each
+	// candidate key's basename - the last "/"-separated segment of the key,
+	// not the full key - mirroring how the frontend's own
+	// getEntryDisplayName already treats a key for display purposes. A
+	// search for "invoice" therefore matches "2024/reports/invoice.pdf" (the
+	// basename "invoice.pdf" contains it) even though "invoice" does not
+	// appear anywhere else in the path.
+	Query string
+}
+
+// SearchObjectsResponse is the result of FileManagerService.SearchObjects.
+type SearchObjectsResponse struct {
+	Entries []ObjectEntry
+	// Truncated mirrors BucketSizeResult.Truncated's meaning: either the
+	// walk's time budget or its result-count budget ran out before the
+	// whole scope could be covered, so Entries is a partial, not
+	// authoritative, result set.
+	Truncated bool
+}
+
 // TextPreviewResult is the result of FileManagerService.GetTextPreview
 // (FR-FM-007): a bounded read of an object's contents for inline text
 // preview.

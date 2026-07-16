@@ -14,13 +14,15 @@ export interface FileGridProps {
   entries: ObjectEntry[];
   onOpenFile: (entry: ObjectEntry) => void;
   onContextMenu: (entry: ObjectEntry, x: number, y: number) => void;
+  /** "Искать везде" results mode (Block F) — see `FileList`'s prop of the same name. */
+  showFullPath?: boolean;
 }
 
 /**
  * Grid view of the Object List, per docs/03-ux-ui-spec.md section 5.4.4.
  * Mirrors `FileList`'s state-reading conventions and loading/empty states.
  */
-export function FileGrid({ entries, onOpenFile, onContextMenu }: FileGridProps) {
+export function FileGrid({ entries, onOpenFile, onContextMenu, showFullPath = false }: FileGridProps) {
   const { t } = useTranslation();
   const rawEntryCount = useFileManagerStore((state) => state.entries.length);
   const activeProfileId = useFileManagerStore((state) => state.activeProfileId);
@@ -44,7 +46,11 @@ export function FileGrid({ entries, onOpenFile, onContextMenu }: FileGridProps) 
     }
   }
 
-  const isInitialLoading = isLoadingEntries && rawEntryCount === 0;
+  // See `FileList`'s identical guard — search-results mode's loading/error
+  // state is driven by `FileManagerScreen`'s `isSearchingAllFolders`
+  // overlay, not by the unrelated, still-backgrounded normal-browsing
+  // listing's `isLoadingEntries`/`entriesError`.
+  const isInitialLoading = !showFullPath && isLoadingEntries && rawEntryCount === 0;
 
   if (isInitialLoading) {
     return (
@@ -60,7 +66,7 @@ export function FileGrid({ entries, onOpenFile, onContextMenu }: FileGridProps) 
     );
   }
 
-  if (entriesError) {
+  if (!showFullPath && entriesError) {
     return <p className="px-4 py-6 text-center text-sm text-danger">{entriesError}</p>;
   }
 
@@ -96,10 +102,11 @@ export function FileGrid({ entries, onOpenFile, onContextMenu }: FileGridProps) 
             onContextMenu={onContextMenu}
             isSelected={selectedKeys.has(entry.key)}
             onToggleSelect={handleToggleSelect}
+            showFullPath={showFullPath}
           />
         ))}
       </div>
-      {isTruncated && (
+      {!showFullPath && isTruncated && (
         <div className="flex justify-center py-4">
           <Button variant="secondary" isLoading={isLoadingEntries} onClick={() => loadMore()}>
             {t('fileManager.fileGrid.loadMore')}

@@ -119,6 +119,17 @@
     "bucketPanel": {
       "empty": "Нет доступных бакетов"
     },
+    "search": {
+      "searchEverywhere": "Искать везде",
+      "searching": "Поиск по бакету…",
+      "resultsCount": "Найдено {{count}} объектов",
+      "resultsCount_one": "Найден {{count}} объект",
+      "resultsCount_few": "Найдено {{count}} объекта",
+      "truncatedNotice": "Показаны первые 500 результатов — сузьте запрос",
+      "emptyResults": "По запросу ничего не найдено",
+      "backToFolder": "Вернуться к папке",
+      "error": "Не удалось выполнить поиск по бакету"
+    },
     "objectContextMenu": {
       "download": "Скачать",
       "open": "Открыть",

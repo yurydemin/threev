@@ -26,6 +26,7 @@ import {
   ListObjects,
   MoveObjects,
   RenameObject,
+  SearchObjects,
   UpdateMetadata,
 } from '../../../wailsjs/go/filemanager/FileManagerService';
 import { domain } from '../../../wailsjs/go/models';
@@ -36,6 +37,7 @@ import type {
   ListObjectsResponse,
   ObjectEntry,
   ObjectMeta,
+  SearchObjectsResult,
   TextPreviewResult,
 } from '../../types';
 import { call, toIsoString } from './errors';
@@ -105,6 +107,13 @@ function fromBucketSizeResult(result: domain.BucketSizeResult): BucketSizeResult
   };
 }
 
+function fromSearchObjectsResponse(response: domain.SearchObjectsResponse): SearchObjectsResult {
+  return {
+    entries: response.Entries.map(fromObjectEntry),
+    truncated: response.Truncated,
+  };
+}
+
 export async function listBuckets(profileId: number): Promise<Bucket[]> {
   return call(async () => (await ListBuckets(profileId)).map(fromBucket));
 }
@@ -116,6 +125,28 @@ export async function listAllKeysUnderPrefix(profileId: number, bucket: string, 
 
 export async function listObjects(request: ListObjectsRequest): Promise<ListObjectsResponse> {
   return call(async () => fromListObjectsResponse(await ListObjects(toListObjectsRequest(request))));
+}
+
+/**
+ * Recursive whole-bucket search (Block F) — unlike `filterEntriesByQuery`
+ * (which only filters the already-loaded current page), this walks the
+ * backend from `prefix` down, matching `query` against basenames anywhere
+ * underneath. Capped server-side at 500 matches (`truncated: true` past
+ * that) — see `internal/filemanager/search.go`.
+ */
+export async function searchObjects(
+  profileId: number,
+  bucket: string,
+  prefix: string,
+  query: string,
+): Promise<SearchObjectsResult> {
+  return call(async () =>
+    fromSearchObjectsResponse(
+      await SearchObjects(
+        domain.SearchObjectsRequest.createFrom({ ProfileID: profileId, Bucket: bucket, Prefix: prefix, Query: query }),
+      ),
+    ),
+  );
 }
 
 export async function headObject(profileId: number, bucket: string, key: string): Promise<ObjectMeta> {

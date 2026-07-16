@@ -29,6 +29,8 @@ export function MoveObjects(arg1:domain.BulkMoveRequest):Promise<number>;
 
 export function RenameObject(arg1:domain.RenameObjectRequest):Promise<void>;
 
+export function SearchObjects(arg1:domain.SearchObjectsRequest):Promise<domain.SearchObjectsResponse>;
+
 export function SetContext(arg1:context.Context):Promise<void>;
 
 export function UpdateMetadata(arg1:domain.UpdateMetadataRequest):Promise<void>;

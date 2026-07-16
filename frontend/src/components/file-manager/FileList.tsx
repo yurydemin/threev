@@ -32,6 +32,8 @@ export interface FileListProps {
   entries: ObjectEntry[];
   onOpenFile: (entry: ObjectEntry) => void;
   onContextMenu: (entry: ObjectEntry, x: number, y: number) => void;
+  /** "Искать везде" results mode (Block F) — renders each row's full key instead of a bare basename. See `FileRowProps.showFullPath`. */
+  showFullPath?: boolean;
 }
 
 /**
@@ -44,7 +46,7 @@ export interface FileListProps {
  * because it's a derived, search-filtered view; the latter two because
  * Block I owns their real implementation).
  */
-export function FileList({ entries, onOpenFile, onContextMenu }: FileListProps) {
+export function FileList({ entries, onOpenFile, onContextMenu, showFullPath = false }: FileListProps) {
   const { t } = useTranslation();
   const COLUMNS = getColumns(t);
   const rawEntryCount = useFileManagerStore((state) => state.entries.length);
@@ -92,6 +94,11 @@ export function FileList({ entries, onOpenFile, onContextMenu }: FileListProps) 
    * Clicking a *different* column always starts it at `asc`.
    */
   function handleHeaderClick(column: SortColumn) {
+    // Search results aren't paginated/sorted server-side the same way as a
+    // normal listing (see `search.go`) — sorting would silently reload the
+    // *background* browsing entries (invisible while `showFullPath` is
+    // active) without changing what's on screen, so it's a no-op here.
+    if (showFullPath) return;
     if (sortBy !== column) {
       setSort(column, 'asc');
     } else if (sortOrder === 'asc') {
@@ -101,7 +108,12 @@ export function FileList({ entries, onOpenFile, onContextMenu }: FileListProps) 
     }
   }
 
-  const isInitialLoading = isLoadingEntries && rawEntryCount === 0;
+  // Search-results mode is view-only (Block F task notes: bulk selection
+  // isn't wired up for entries spanning arbitrary folders), and its loading/
+  // error state is driven by `FileManagerScreen`'s `isSearchingAllFolders`
+  // overlay, not by `isLoadingEntries`/`entriesError` (those describe the
+  // unrelated, still-backgrounded normal-browsing listing).
+  const isInitialLoading = !showFullPath && isLoadingEntries && rawEntryCount === 0;
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
@@ -110,16 +122,18 @@ export function FileList({ entries, onOpenFile, onContextMenu }: FileListProps) 
         className="flex h-row shrink-0 items-center border-b border-border bg-bg-secondary px-4 text-2xs font-semibold uppercase tracking-wide text-fg-muted"
       >
         <div className="flex w-9 shrink-0 items-center justify-center">
-          <Checkbox
-            checked={allSelected}
-            indeterminate={someSelected && !allSelected}
-            onClick={(event) => {
-              event.stopPropagation();
-              handleHeaderCheckboxClick();
-            }}
-            onChange={() => {}}
-            aria-label={t('fileManager.fileList.selectAll')}
-          />
+          {showFullPath ? null : (
+            <Checkbox
+              checked={allSelected}
+              indeterminate={someSelected && !allSelected}
+              onClick={(event) => {
+                event.stopPropagation();
+                handleHeaderCheckboxClick();
+              }}
+              onChange={() => {}}
+              aria-label={t('fileManager.fileList.selectAll')}
+            />
+          )}
         </div>
         {COLUMNS.map((column) => (
           <button
@@ -157,7 +171,7 @@ export function FileList({ entries, onOpenFile, onContextMenu }: FileListProps) 
               <div className="h-3.5 flex-1 animate-pulse-slow rounded-sm bg-bg-tertiary" />
             </div>
           ))
-        ) : entriesError ? (
+        ) : !showFullPath && entriesError ? (
           <p className="px-4 py-6 text-center text-sm text-danger">{entriesError}</p>
         ) : entries.length === 0 ? (
           <EmptyListState hasSearchQuery={searchQuery.trim().length > 0} />
@@ -173,9 +187,10 @@ export function FileList({ entries, onOpenFile, onContextMenu }: FileListProps) 
                 onContextMenu={onContextMenu}
                 isSelected={selectedKeys.has(entry.key)}
                 onToggleSelect={handleToggleSelect}
+                showFullPath={showFullPath}
               />
             ))}
-            {isTruncated && (
+            {!showFullPath && isTruncated && (
               <div className="flex justify-center py-3">
                 <Button variant="secondary" isLoading={isLoadingEntries} onClick={() => loadMore()}>
                   {t('fileManager.fileList.loadMore')}

@@ -130,6 +130,13 @@ export interface BucketSizeResult {
   truncated: boolean;
 }
 
+/** Mirrors `domain.SearchObjectsResponse` (recursive whole-bucket search, Block F — see `filemanager/search.go`). */
+export interface SearchObjectsResult {
+  entries: ObjectEntry[];
+  /** `true` if the backend walk hit its result cap (500 entries) before exhausting the bucket — the list above is a partial match set. */
+  truncated: boolean;
+}
+
 /** Mirrors `domain.TransferTask`. Status is one of "pending" | "running" | "paused" | "completed" | "failed" | "cancelled" (FR-QUEUE-002). */
 export interface TransferTask {
   id: number;
