@@ -47,7 +47,12 @@
       "deleteConfirmWithTransfers": "Удалить подключение «{{name}}»? {{count}} незавершённых передач будет отменено.",
       "deleteConfirmWithTransfers_one": "Удалить подключение «{{name}}»? {{count}} незавершённая передача будет отменена.",
       "deleteConfirmWithTransfers_few": "Удалить подключение «{{name}}»? {{count}} незавершённые передачи будут отменены.",
-      "switchSessionConfirm": "Текущая сессия просмотра «{{currentName}}» будет закрыта. Перейти к «{{newName}}»?"
+      "switchSessionConfirm": "Текущая сессия просмотра «{{currentName}}» будет закрыта. Перейти к «{{newName}}»?",
+      "exportButton": "Экспорт",
+      "importButton": "Импорт",
+      "importResult": "Импортировано: {{imported}}, пропущено: {{skipped}}",
+      "exportError": "Не удалось выполнить экспорт подключений",
+      "importError": "Не удалось выполнить импорт подключений"
     },
     "card": {
       "connect": "Подключиться",
@@ -55,7 +60,9 @@
       "notChecked": "Не проверялось",
       "edit": "Редактировать",
       "duplicate": "Дублировать",
-      "test": "Тестировать"
+      "test": "Тестировать",
+      "requiresCredentials": "Нет учётных данных",
+      "requiresCredentialsTooltip": "Нет сохранённых учётных данных — нажмите «Редактировать», чтобы ввести"
     },
     "list": {
       "empty": "Нет сохранённых подключений",

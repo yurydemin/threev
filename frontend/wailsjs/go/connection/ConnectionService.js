@@ -6,6 +6,10 @@ export function DeleteProfile(arg1) {
   return window['go']['connection']['ConnectionService']['DeleteProfile'](arg1);
 }
 
+export function ExportProfiles() {
+  return window['go']['connection']['ConnectionService']['ExportProfiles']();
+}
+
 export function GetProfile(arg1) {
   return window['go']['connection']['ConnectionService']['GetProfile'](arg1);
 }
@@ -14,8 +18,16 @@ export function GetProfiles() {
   return window['go']['connection']['ConnectionService']['GetProfiles']();
 }
 
+export function ImportProfiles() {
+  return window['go']['connection']['ConnectionService']['ImportProfiles']();
+}
+
 export function SaveProfile(arg1) {
   return window['go']['connection']['ConnectionService']['SaveProfile'](arg1);
+}
+
+export function SetContext(arg1) {
+  return window['go']['connection']['ConnectionService']['SetContext'](arg1);
 }
 
 export function TestConnection(arg1) {

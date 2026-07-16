@@ -1,13 +1,17 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Download, Upload } from 'lucide-react';
 import { Sidebar } from '../components/layout/Sidebar';
 import { ConnectionForm } from '../components/connection/ConnectionForm';
 import { ConnectionList } from '../components/connection/ConnectionList';
 import { Button } from '../components/ui/Button';
-import { getConnection } from '../lib/wails/connection';
+import { getConnection, exportProfiles, importProfiles } from '../lib/wails/connection';
 import { cancelTasksForProfile } from '../lib/wails/transfer';
 import { confirmDialog } from '../lib/confirm';
+import { toast } from '../lib/toast';
+import { ApiError } from '../lib/wails/errors';
 import { useConnectionStore } from '../stores/useConnectionStore';
+import { useFavoritesStore } from '../stores/useFavoritesStore';
 import { useFileManagerStore } from '../stores/useFileManagerStore';
 import { useTransferStore } from '../stores/useTransferStore';
 import type { Connection, ConnectionSummary, Favorite } from '../types';
@@ -34,8 +38,9 @@ export interface ConnectionsScreenProps {
 /**
  * "Список подключений" per docs/03-ux-ui-spec.md section 5.2.
  *
- * The spec's "Import" button next to "+ Новое" is deferred (Stage 1 plan
- * constraint #12) and intentionally not rendered here.
+ * Export/Import (Block G) live in the header, separate from the centered
+ * "+ Добавить подключение" button below the grid: they're profile-list-wide
+ * actions, not "add one connection" — see `handleExport`/`handleImport`.
  *
  * "Дублировать" is an instant action (no intermediate modal): it re-saves
  * the fetched record with `id: 0` (create-new, per `SaveProfile` semantics)
@@ -66,6 +71,8 @@ export function ConnectionsScreen({
   const deleteConnection = useConnectionStore((state) => state.deleteConnection);
 
   const [formState, setFormState] = useState<FormState>({ open: false });
+  const [isExporting, setIsExporting] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
 
   function openCreate() {
     setFormState({ open: true, initialValues: undefined });
@@ -133,6 +140,47 @@ export function ConnectionsScreen({
     if (useFileManagerStore.getState().activeProfileId === summary.id) {
       useFileManagerStore.getState().reset();
     }
+    // The backend cascade-deletes this profile's favorites at the DB level
+    // (ON DELETE CASCADE, Block C) the instant deleteConnection resolves,
+    // but useFavoritesStore's in-memory list was only ever populated once
+    // at app boot — without an explicit refresh here, the Sidebar's
+    // favorites section keeps showing the now-orphaned-in-the-UI (though
+    // already gone in the DB) entries until the app is restarted.
+    await useFavoritesStore.getState().fetchFavorites();
+  }
+
+  async function handleExport() {
+    setIsExporting(true);
+    try {
+      // No success toast: the native save dialog itself is the user's
+      // confirmation (same reasoning as `PresignedUrlModal`'s clipboard
+      // copy — the action's own UI is feedback enough).
+      await exportProfiles();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : t('connections.screen.exportError'));
+    } finally {
+      setIsExporting(false);
+    }
+  }
+
+  async function handleImport() {
+    setIsImporting(true);
+    try {
+      const result = await importProfiles();
+      if (result.importedCount > 0 || result.skippedNames.length > 0) {
+        toast.success(
+          t('connections.screen.importResult', {
+            imported: result.importedCount,
+            skipped: result.skippedNames.length,
+          }),
+        );
+        await useConnectionStore.getState().fetchConnections();
+      }
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : t('connections.screen.importError'));
+    } finally {
+      setIsImporting(false);
+    }
   }
 
   return (
@@ -150,6 +198,21 @@ export function ConnectionsScreen({
       <div className="flex flex-1 flex-col overflow-hidden">
         <header className="flex h-header shrink-0 items-center justify-between border-b border-border bg-bg-secondary px-4">
           <h1 className="text-[13px] font-semibold text-fg-primary">{t('connections.screen.title')}</h1>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="secondary"
+              disabled={connections.length === 0}
+              isLoading={isExporting}
+              onClick={handleExport}
+            >
+              <Download className="h-3.5 w-3.5" aria-hidden="true" />
+              {t('connections.screen.exportButton')}
+            </Button>
+            <Button variant="secondary" isLoading={isImporting} onClick={handleImport}>
+              <Upload className="h-3.5 w-3.5" aria-hidden="true" />
+              {t('connections.screen.importButton')}
+            </Button>
+          </div>
         </header>
 
         <main className="flex flex-1 flex-col gap-4 overflow-y-auto p-4">

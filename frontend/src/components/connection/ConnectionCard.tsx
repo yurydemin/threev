@@ -1,5 +1,5 @@
 import { Menu, MenuButton, MenuItem, MenuItems } from '@headlessui/react';
-import { Copy, MoreHorizontal, Pencil, Trash2, Zap } from 'lucide-react';
+import { AlertTriangle, Copy, MoreHorizontal, Pencil, Trash2, Zap } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
 import { Button } from '../ui/Button';
@@ -29,6 +29,20 @@ const MENU_ITEM_CLASSES =
  * The status dot is always rendered `--fg-muted` ("не проверялось"): there
  * is still no live/persisted connection-health state, so faking green/red
  * here would be dishonest UI.
+ *
+ * `connection.hasCredentials === false` (Block G — a profile imported via
+ * "Импорт" whose blank credentials haven't been filled in yet) surfaces a
+ * warning badge on its own row below the header (not inline with the name —
+ * a `shrink-0` badge sharing that row with the "Подключиться" button
+ * overflowed past its flex parent's shrunk width at the card's minimum
+ * grid size, visually spilling onto the button) — every menu action still
+ * works normally (they all go through `ConnectionService.GetProfile`, which
+ * now tolerates a blank `SecretAccessKey`, see `resolve.go`'s
+ * `ResolveProfile`), but "Подключиться" itself is disabled with an
+ * explanatory `Tooltip` rather than left clickable: connecting always fails
+ * for a credential-less profile, and offering a doomed-to-fail action isn't
+ * useful even now that it fails with a clean error instead of a confusing
+ * one.
  */
 export function ConnectionCard({
   connection,
@@ -53,13 +67,32 @@ export function ConnectionCard({
             aria-hidden="true"
             title={t('connections.card.notChecked')}
           />
-          <span className="truncate text-sm font-semibold text-fg-primary">{connection.name}</span>
+          <span className="min-w-0 truncate text-sm font-semibold text-fg-primary">{connection.name}</span>
         </div>
 
         <div className="flex shrink-0 items-center gap-1">
-          <Button variant="primary" onClick={() => onConnect(connection)}>
-            {t('connections.card.connect')}
-          </Button>
+          {connection.hasCredentials ? (
+            <Button variant="primary" onClick={() => onConnect(connection)}>
+              {t('connections.card.connect')}
+            </Button>
+          ) : (
+            // Disabled rather than left clickable-but-doomed: connecting
+            // with blank credentials always fails, and previously did so
+            // with a confusing low-level error (see resolve.go's
+            // ResolveProfile fix). A disabled native <button> gets
+            // `pointer-events: none` (Button.tsx), which stops it from ever
+            // receiving the hover Tooltip listens for - wrapping it in a
+            // plain <span> (still `pointer-events: auto`) gives the
+            // tooltip something to attach to that the disabled button's own
+            // pointer-events-none can't swallow.
+            <Tooltip content={t('connections.card.requiresCredentialsTooltip')}>
+              <span className="inline-flex">
+                <Button variant="primary" disabled>
+                  {t('connections.card.connect')}
+                </Button>
+              </span>
+            </Tooltip>
+          )}
 
           <Menu as="div" className="relative shrink-0">
             <Tooltip content={t('connections.card.actionsMenu')}>
@@ -116,6 +149,18 @@ export function ConnectionCard({
           </Menu>
         </div>
       </div>
+
+      {!connection.hasCredentials && (
+        <Tooltip content={t('connections.card.requiresCredentialsTooltip')}>
+          <span
+            tabIndex={0}
+            className="flex w-fit items-center gap-1 rounded-sm border border-warning px-1.5 py-0.5 text-[11px] font-medium text-warning"
+          >
+            <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden="true" />
+            {t('connections.card.requiresCredentials')}
+          </span>
+        </Tooltip>
+      )}
 
       <p className="truncate font-mono text-xs text-fg-secondary">
         {connection.endpointUrl}

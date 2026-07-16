@@ -1,6 +1,7 @@
 package connection
 
 import (
+	"context"
 	"errors"
 	"path/filepath"
 	"testing"
@@ -154,6 +155,46 @@ func TestConnectionServiceGetProfileNoSessionToken(t *testing.T) {
 
 	if got.SessionToken != "" {
 		t.Errorf("SessionToken = %q, want empty", got.SessionToken)
+	}
+}
+
+// TestConnectionServiceGetProfileBlankSecretAccessKey is the regression
+// test for the Block G bug where GetProfile (and therefore the frontend's
+// "Редактировать"/"Дублировать"/"Тестировать" actions, which all call it
+// first) failed for every profile created by ImportProfiles: those
+// profiles have a genuinely blank, never-encrypted SecretAccessKey (see
+// ImportProfileEntry's own doc comment), but ResolveProfile unconditionally
+// called crypto.Decrypt on it regardless, which failed with a confusing
+// "ciphertext too short" error instead of returning the profile with an
+// empty SecretAccessKey. Bypasses SaveProfile (whose ValidateProfile call
+// would reject a blank AccessKeyID/SecretAccessKey) by inserting directly
+// via svc.repo.Create, mirroring exactly what importProfilesFromFile does.
+func TestConnectionServiceGetProfileBlankSecretAccessKey(t *testing.T) {
+	t.Parallel()
+
+	svc := newTestConnectionService(t)
+
+	saved, err := svc.repo.Create(context.Background(), domain.Profile{
+		Name:        "imported",
+		EndpointURL: "https://s3.example.com",
+		Region:      "us-east-1",
+		PathStyle:   true,
+		VerifySSL:   true,
+	})
+	if err != nil {
+		t.Fatalf("repo.Create() returned error: %v", err)
+	}
+
+	got, err := svc.GetProfile(saved.ID)
+	if err != nil {
+		t.Fatalf("GetProfile(%d) returned error: %v, want nil (blank SecretAccessKey must not fail decryption)", saved.ID, err)
+	}
+
+	if got.AccessKeyID != "" {
+		t.Errorf("AccessKeyID = %q, want empty", got.AccessKeyID)
+	}
+	if got.SecretAccessKey != "" {
+		t.Errorf("SecretAccessKey = %q, want empty", got.SecretAccessKey)
 	}
 }
 

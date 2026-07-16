@@ -2,7 +2,9 @@ package connection
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"sync/atomic"
 
 	"threev/internal/crypto"
 	"threev/internal/domain"
@@ -27,6 +29,64 @@ import (
 type ConnectionService struct {
 	repo   *storage.ProfileRepository
 	keyBox *crypto.KeyBox
+
+	// wailsCtx holds ctxHolder (never a bare context.Context - see its own
+	// doc comment for why), set once via SetContext from App.startup once
+	// the real Wails runtime context is available. Until then (including
+	// for every test in this package, which never calls SetContext),
+	// ExportProfiles/ImportProfiles's requireWailsContext call fails with
+	// errWailsContextNotSet - unlike transfer.TransferService.wailsCtx/
+	// filemanager.FileManagerService.wailsCtx (both best-effort, no-op-until-
+	// set progress event plumbing), ExportProfiles/ImportProfiles genuinely
+	// cannot show a system file dialog without a real Wails runtime context,
+	// so an unset wailsCtx is treated as an error here, mirroring
+	// transfer.TransferService's Pick* dialog methods (internal/transfer/
+	// dialogs.go) rather than its emitProgressEvent.
+	wailsCtx atomic.Value
+}
+
+// ctxHolder wraps a context.Context so it can be stored in an atomic.Value:
+// atomic.Value.Store panics if called with values of two different concrete
+// types across calls, which a bare context.Context interface value cannot
+// safely guarantee (different context implementations satisfy it) -
+// wrapping it in a single, fixed struct type sidesteps that entirely, at the
+// cost of one extra field access on load. Identical to (but a distinct type
+// from, deliberately not imported) transfer.ctxHolder/filemanager.ctxHolder -
+// see filemanager.runningBulkOp's doc comment for why each package that
+// needs this small pattern gets its own copy rather than a shared
+// cross-package dependency.
+type ctxHolder struct {
+	ctx context.Context //nolint:containedctx // held only so requireWailsContext can hand the real Wails runtime context to ExportProfiles/ImportProfiles's dialog calls; see ConnectionService.wailsCtx's doc comment.
+}
+
+// SetContext installs the real Wails runtime context (from App.startup),
+// enabling ExportProfiles/ImportProfiles to actually show their file
+// dialogs from this point on. Safe to call at most once in production
+// (App.startup runs once), but idempotent/safe to call repeatedly
+// regardless (e.g. from a test) - identical contract to
+// transfer.TransferService.SetContext/filemanager.FileManagerService.
+// SetContext.
+func (c *ConnectionService) SetContext(ctx context.Context) {
+	c.wailsCtx.Store(ctxHolder{ctx: ctx})
+}
+
+// errWailsContextNotSet is returned by requireWailsContext before
+// SetContext has ever been called - see ConnectionService.wailsCtx's doc
+// comment for why an unset context is a real error here rather than a
+// silent no-op, matching transfer.errWailsContextNotSet's identical
+// rationale for the same class of "must show a real OS dialog" method.
+var errWailsContextNotSet = errors.New("wails runtime context is not set yet")
+
+// requireWailsContext returns the real Wails runtime context installed by
+// SetContext (App.startup), or errWailsContextNotSet if that has not
+// happened yet - mirrors transfer.TransferService.requireWailsContext.
+func (c *ConnectionService) requireWailsContext() (context.Context, error) {
+	holder, ok := c.wailsCtx.Load().(ctxHolder)
+	if !ok || holder.ctx == nil {
+		return nil, errWailsContextNotSet
+	}
+
+	return holder.ctx, nil
 }
 
 // NewConnectionService returns a ConnectionService backed by repo, reading

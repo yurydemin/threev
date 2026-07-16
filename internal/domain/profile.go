@@ -38,19 +38,38 @@ type ProfileDTO struct {
 	VerifySSL   bool
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
+
+	// HasCredentials reports whether this profile currently has both an
+	// AccessKeyID and a SecretAccessKey set. This is a safe, non-secret
+	// derived signal - the mere presence/absence of credentials is not
+	// sensitive, only their values are (which is exactly what the rest of
+	// ProfileDTO already omits) - so the frontend can render a "requires
+	// credentials" badge on a connection card without ever receiving
+	// AccessKeyID itself.
+	//
+	// Under normal use this is always true: every profile that has gone
+	// through the connection.ConnectionService.SaveProfile path had
+	// AccessKeyID/SecretAccessKey validated as non-empty by
+	// connection.ValidateProfile. The one exception is a profile created by
+	// connection.ConnectionService.ImportProfiles (Блок G, profile export/
+	// import), which deliberately creates profiles with blank credential
+	// fields - HasCredentials is false for such a profile until the user
+	// edits it and supplies real credentials.
+	HasCredentials bool
 }
 
 // ToDTO converts a Profile into its secret-free ProfileDTO representation.
 func (p Profile) ToDTO() ProfileDTO {
 	return ProfileDTO{
-		ID:          p.ID,
-		Name:        p.Name,
-		EndpointURL: p.EndpointURL,
-		Region:      p.Region,
-		PathStyle:   p.PathStyle,
-		VerifySSL:   p.VerifySSL,
-		CreatedAt:   p.CreatedAt,
-		UpdatedAt:   p.UpdatedAt,
+		ID:             p.ID,
+		Name:           p.Name,
+		EndpointURL:    p.EndpointURL,
+		Region:         p.Region,
+		PathStyle:      p.PathStyle,
+		VerifySSL:      p.VerifySSL,
+		CreatedAt:      p.CreatedAt,
+		UpdatedAt:      p.UpdatedAt,
+		HasCredentials: p.AccessKeyID != "" && p.SecretAccessKey != "",
 	}
 }
 

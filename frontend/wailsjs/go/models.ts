@@ -1,3 +1,22 @@
+export namespace connection {
+	
+	export class ImportResult {
+	    ImportedCount: number;
+	    SkippedNames: string[];
+	
+	    static createFrom(source: any = {}) {
+	        return new ImportResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.ImportedCount = source["ImportedCount"];
+	        this.SkippedNames = source["SkippedNames"];
+	    }
+	}
+
+}
+
 export namespace domain {
 	
 	export class AppSettings {
@@ -434,6 +453,7 @@ export namespace domain {
 	    CreatedAt: any;
 	    // Go type: time
 	    UpdatedAt: any;
+	    HasCredentials: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new ProfileDTO(source);
@@ -449,6 +469,7 @@ export namespace domain {
 	        this.VerifySSL = source["VerifySSL"];
 	        this.CreatedAt = this.convertValues(source["CreatedAt"], null);
 	        this.UpdatedAt = this.convertValues(source["UpdatedAt"], null);
+	        this.HasCredentials = source["HasCredentials"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

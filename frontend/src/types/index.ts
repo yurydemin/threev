@@ -37,6 +37,8 @@ export interface ConnectionSummary {
   verifySsl: boolean;
   createdAt: string;
   updatedAt: string;
+  /** `false` only for a profile imported via `importProfiles()` that hasn't since been edited with real credentials. */
+  hasCredentials: boolean;
 }
 
 /** Mirrors `domain.ConnectionTestResult`. */
@@ -45,6 +47,13 @@ export interface ConnectionTestResult {
   message: string;
   detail: string;
   category: string;
+}
+
+/** Mirrors `connection.ImportResult` (Block G — `ConnectionService.ImportProfiles`). */
+export interface ImportProfilesResult {
+  importedCount: number;
+  /** Names skipped for either reason — duplicate name or a malformed entry — the backend folds both into one list. */
+  skippedNames: string[];
 }
 
 /**

@@ -337,6 +337,7 @@ func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 	a.transferService.SetContext(ctx)
 	a.fileManagerService.SetContext(ctx)
+	a.connectionService.SetContext(ctx)
 	a.restoreWindowGeometry(ctx)
 
 	if addr := os.Getenv(pprofAddrEnvVar); addr != "" {

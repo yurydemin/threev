@@ -46,7 +46,12 @@
       "deleteConfirm": "Delete connection \"{{name}}\"?",
       "deleteConfirmWithTransfers": "Delete connection \"{{name}}\"? {{count}} pending transfers will be cancelled.",
       "deleteConfirmWithTransfers_one": "Delete connection \"{{name}}\"? {{count}} pending transfer will be cancelled.",
-      "switchSessionConfirm": "The current browsing session for \"{{currentName}}\" will be closed. Switch to \"{{newName}}\"?"
+      "switchSessionConfirm": "The current browsing session for \"{{currentName}}\" will be closed. Switch to \"{{newName}}\"?",
+      "exportButton": "Export",
+      "importButton": "Import",
+      "importResult": "Imported: {{imported}}, skipped: {{skipped}}",
+      "exportError": "Failed to export connections",
+      "importError": "Failed to import connections"
     },
     "card": {
       "connect": "Connect",
@@ -54,7 +59,9 @@
       "notChecked": "Not checked",
       "edit": "Edit",
       "duplicate": "Duplicate",
-      "test": "Test"
+      "test": "Test",
+      "requiresCredentials": "No credentials",
+      "requiresCredentialsTooltip": "No saved credentials — click Edit to enter them"
     },
     "list": {
       "empty": "No saved connections",
