@@ -1,4 +1,5 @@
 import {
+  Archive,
   Copy,
   CopyPlus,
   Download,
@@ -97,6 +98,7 @@ export function ObjectContextMenu({
   if (!entry) return null;
 
   if (entry.isFolder) {
+    const folderName = getEntryDisplayName(entry.key, currentPrefix);
     const items: ContextMenuItem[] = [
       {
         label: t('fileManager.objectContextMenu.download'),
@@ -115,6 +117,28 @@ export function ObjectContextMenu({
               console.error('[ObjectContextMenu] pickDownloadDirectory failed:', err);
               toast.error(
                 err instanceof ApiError ? err.message : t('fileManager.objectContextMenu.pickDownloadDirError'),
+                err instanceof ApiError ? err.raw : undefined,
+              );
+            });
+        },
+      },
+      {
+        label: t('fileManager.objectContextMenu.downloadAsZip'),
+        icon: <Archive className="h-4 w-4" aria-hidden="true" />,
+        disabled: !activeProfileId || !selectedBucket,
+        onClick: () => {
+          if (!activeProfileId || !selectedBucket) return;
+          void pickDownloadDestination(`${folderName}.zip`)
+            .then((zipPath) => {
+              if (!zipPath) return;
+              return useTransferStore
+                .getState()
+                .queueDownloadPrefixZip(activeProfileId, selectedBucket, entry.key, zipPath);
+            })
+            .catch((err) => {
+              console.error('[ObjectContextMenu] pickDownloadDestination (zip) failed:', err);
+              toast.error(
+                err instanceof ApiError ? err.message : t('fileManager.objectContextMenu.pickDownloadZipDestError'),
                 err instanceof ApiError ? err.raw : undefined,
               );
             });

@@ -7,6 +7,7 @@ import {
   pauseTask,
   queueDownload as queueDownloadApi,
   queueDownloadPrefix as queueDownloadPrefixApi,
+  queueDownloadPrefixZip as queueDownloadPrefixZipApi,
   queueUpload as queueUploadApi,
   queueUploadPaths as queueUploadPathsApi,
   reorderTask,
@@ -57,6 +58,12 @@ interface TransferState {
     prefix: string,
     localDestDir: string,
   ) => Promise<number[]>;
+  queueDownloadPrefixZip: (
+    profileId: number,
+    bucket: string,
+    prefix: string,
+    localZipPath: string,
+  ) => Promise<number | null>;
   pauseTask: (id: number) => Promise<void>;
   resumeTask: (id: number) => Promise<void>;
   cancelTask: (id: number) => Promise<void>;
@@ -164,6 +171,17 @@ export const useTransferStore = create<TransferState>()((set, get) => ({
     } catch (err) {
       set({ queueError: errorMessage(err) });
       return [];
+    }
+  },
+
+  queueDownloadPrefixZip: async (profileId, bucket, prefix, localZipPath) => {
+    try {
+      const id = await queueDownloadPrefixZipApi(profileId, bucket, prefix, localZipPath);
+      await get().fetchQueue();
+      return id;
+    } catch (err) {
+      set({ queueError: errorMessage(err) });
+      return null;
     }
   },
 

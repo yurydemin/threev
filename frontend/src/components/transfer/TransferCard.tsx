@@ -38,6 +38,11 @@ export function TransferCard({ task, onPause, onResume, onCancel, onRetry }: Tra
 
   const isFailed = task.status === 'failed';
   const isPaused = task.status === 'paused';
+  // Archive downloads have no safe midpoint to pause at (the backend
+  // rejects PauseTask outright for this type - see zip_download.go's doc
+  // comment) - the button just doesn't exist for this task type, rather
+  // than existing and erroring on click.
+  const isZipDownload = task.type === 'download_zip';
   const percent = getProgressPercent(task);
   const progressVariant = task.type === 'upload' ? 'upload' : 'download';
 
@@ -71,7 +76,7 @@ export function TransferCard({ task, onPause, onResume, onCancel, onRetry }: Tra
                 <Play className="h-4 w-4" aria-hidden="true" />
               </Button>
             </Tooltip>
-          ) : (
+          ) : isZipDownload ? null : (
             <Tooltip content={t('transfers.card.pause')}>
               <Button variant="secondary" iconOnly aria-label={t('transfers.card.pause')} onClick={() => onPause(task.id)}>
                 <Pause className="h-4 w-4" aria-hidden="true" />

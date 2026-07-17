@@ -154,7 +154,9 @@
       "copyPath": "Copy path",
       "pickDownloadDirError": "Failed to choose a folder to download to",
       "pickDownloadDestError": "Failed to choose a download destination",
-      "presignedUrlError": "Failed to get a presigned URL"
+      "presignedUrlError": "Failed to get a presigned URL",
+      "downloadAsZip": "Download as ZIP",
+      "pickDownloadZipDestError": "Failed to choose a destination for the archive"
     },
     "createFolderModal": {
       "title": "Create folder",

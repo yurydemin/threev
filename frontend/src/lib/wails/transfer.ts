@@ -31,6 +31,7 @@ import {
   PickUploadFiles,
   QueueDownload,
   QueueDownloadPrefix,
+  QueueDownloadPrefixZip,
   QueueUpload,
   QueueUploadPaths,
   ReorderTask,
@@ -118,6 +119,15 @@ export async function queueDownloadPrefix(
   localDestDir: string,
 ): Promise<number[]> {
   return call(() => QueueDownloadPrefix(profileId, bucket, prefix, localDestDir));
+}
+
+export async function queueDownloadPrefixZip(
+  profileId: number,
+  bucket: string,
+  prefix: string,
+  localZipPath: string,
+): Promise<number> {
+  return call(() => QueueDownloadPrefixZip(profileId, bucket, prefix, localZipPath));
 }
 
 export async function pauseTask(id: number): Promise<void> {

@@ -158,7 +158,9 @@
       "copyPath": "Скопировать путь",
       "pickDownloadDirError": "Не удалось выбрать папку для скачивания",
       "pickDownloadDestError": "Не удалось выбрать место для скачивания",
-      "presignedUrlError": "Не удалось получить presigned URL"
+      "presignedUrlError": "Не удалось получить presigned URL",
+      "downloadAsZip": "Скачать как ZIP",
+      "pickDownloadZipDestError": "Не удалось выбрать место для сохранения архива"
     },
     "createFolderModal": {
       "title": "Создать папку",
