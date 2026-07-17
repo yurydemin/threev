@@ -7,7 +7,11 @@ export function CancelBulkOperation(arg1:number):Promise<void>;
 
 export function CopyObjects(arg1:domain.BulkCopyRequest):Promise<number>;
 
+export function CreateBucket(arg1:number,arg2:string):Promise<void>;
+
 export function CreateFolder(arg1:domain.CreateFolderRequest):Promise<void>;
+
+export function DeleteBucket(arg1:number,arg2:string):Promise<void>;
 
 export function DeleteObjects(arg1:domain.DeleteObjectsRequest):Promise<number>;
 

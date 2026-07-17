@@ -1,9 +1,22 @@
-import { Database, AlertTriangle } from 'lucide-react';
+import { useState } from 'react';
+import { Database, AlertTriangle, Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
 import { useFileManagerStore } from '../../stores/useFileManagerStore';
+import { ContextMenu } from '../ui/ContextMenu';
+import { Button } from '../ui/Button';
+import { Tooltip } from '../ui/Tooltip';
+import { CreateBucketModal } from './CreateBucketModal';
+import { DeleteBucketConfirmModal } from './DeleteBucketConfirmModal';
 
 const SKELETON_ROWS = 5;
+
+/** Local shape for the currently open ПКМ context menu on a bucket row (`null` = hidden). */
+interface BucketContextMenuState {
+  x: number;
+  y: number;
+  bucketName: string;
+}
 
 /**
  * Second, narrower navigation panel for the File Manager, per Architectural
@@ -29,6 +42,10 @@ export function BucketPanel() {
   const selectBucket = useFileManagerStore((state) => state.selectBucket);
   const enterProfile = useFileManagerStore((state) => state.enterProfile);
 
+  const [contextMenu, setContextMenu] = useState<BucketContextMenuState | null>(null);
+  const [isCreateBucketOpen, setIsCreateBucketOpen] = useState(false);
+  const [deleteBucketTarget, setDeleteBucketTarget] = useState<string | null>(null);
+
   function handleRetry() {
     if (activeProfileId === null || activeProfileName === null) return;
     enterProfile(activeProfileId, activeProfileName);
@@ -36,10 +53,22 @@ export function BucketPanel() {
 
   return (
     <aside className="flex h-full w-[210px] shrink-0 flex-col border-r border-border bg-bg-secondary">
-      <div className="shrink-0 border-b border-border p-4">
+      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border p-4">
         <p className="truncate text-[13px] font-semibold text-fg-primary" title={activeProfileName ?? ''}>
           {activeProfileName}
         </p>
+        <Tooltip content={t('fileManager.bucketPanel.createBucket')}>
+          <Button
+            iconOnly
+            variant="ghost"
+            className="h-6 w-6 shrink-0"
+            aria-label={t('fileManager.bucketPanel.createBucket')}
+            disabled={activeProfileId === null}
+            onClick={() => setIsCreateBucketOpen(true)}
+          >
+            <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+          </Button>
+        </Tooltip>
       </div>
 
       <nav className="flex flex-1 flex-col overflow-y-auto py-2">
@@ -74,6 +103,10 @@ export function BucketPanel() {
                 key={bucket.name}
                 type="button"
                 onClick={() => selectBucket(bucket.name)}
+                onContextMenu={(event) => {
+                  event.preventDefault();
+                  setContextMenu({ x: event.clientX, y: event.clientY, bucketName: bucket.name });
+                }}
                 title={bucket.name}
                 className={cn(
                   'flex h-9 items-center gap-2 border-l-2 px-3 text-left text-[13px] transition-colors duration-fast',
@@ -89,6 +122,38 @@ export function BucketPanel() {
           })
         )}
       </nav>
+
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onClose={() => setContextMenu(null)}
+          items={[
+            {
+              label: t('fileManager.bucketPanel.deleteBucket'),
+              destructive: true,
+              onClick: () => setDeleteBucketTarget(contextMenu.bucketName),
+            },
+          ]}
+        />
+      )}
+
+      {activeProfileId !== null && (
+        <CreateBucketModal
+          isOpen={isCreateBucketOpen}
+          onClose={() => setIsCreateBucketOpen(false)}
+          profileId={activeProfileId}
+        />
+      )}
+
+      {activeProfileId !== null && deleteBucketTarget !== null && (
+        <DeleteBucketConfirmModal
+          isOpen
+          onClose={() => setDeleteBucketTarget(null)}
+          profileId={activeProfileId}
+          bucketName={deleteBucketTarget}
+        />
+      )}
     </aside>
   );
 }

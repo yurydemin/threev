@@ -15,7 +15,9 @@
 import {
   CancelBulkOperation,
   CopyObjects,
+  CreateBucket,
   CreateFolder,
+  DeleteBucket,
   DeleteObjects,
   GetBucketSize,
   GetPresignedURL,
@@ -116,6 +118,16 @@ function fromSearchObjectsResponse(response: domain.SearchObjectsResponse): Sear
 
 export async function listBuckets(profileId: number): Promise<Bucket[]> {
   return call(async () => (await ListBuckets(profileId)).map(fromBucket));
+}
+
+/** Creates a new bucket named `name` under `profileId`'s connection (Block B). */
+export async function createBucket(profileId: number, name: string): Promise<void> {
+  return call(() => CreateBucket(profileId, name));
+}
+
+/** Deletes bucket `name` — the bucket must be empty (S3 constraint), the backend translates `BucketNotEmpty` into a friendly `ApiError` message (Block B). */
+export async function deleteBucket(profileId: number, name: string): Promise<void> {
+  return call(() => DeleteBucket(profileId, name));
 }
 
 /** Recursively lists every real object key under a folder's prefix (S3 has no native delete-by-prefix — this discovers what "delete folder" must actually remove). */

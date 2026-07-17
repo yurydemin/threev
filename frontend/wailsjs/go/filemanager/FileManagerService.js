@@ -10,8 +10,16 @@ export function CopyObjects(arg1) {
   return window['go']['filemanager']['FileManagerService']['CopyObjects'](arg1);
 }
 
+export function CreateBucket(arg1, arg2) {
+  return window['go']['filemanager']['FileManagerService']['CreateBucket'](arg1, arg2);
+}
+
 export function CreateFolder(arg1) {
   return window['go']['filemanager']['FileManagerService']['CreateFolder'](arg1);
+}
+
+export function DeleteBucket(arg1, arg2) {
+  return window['go']['filemanager']['FileManagerService']['DeleteBucket'](arg1, arg2);
 }
 
 export function DeleteObjects(arg1) {

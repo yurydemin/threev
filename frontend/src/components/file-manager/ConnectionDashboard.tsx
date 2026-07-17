@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { AlertTriangle, Database, Loader2, RefreshCw } from 'lucide-react';
+import { AlertTriangle, Database, Loader2, Plus, RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cn, formatBytes } from '../../lib/utils';
 import { getBucketSize } from '../../lib/wails/fileManager';
@@ -8,6 +8,7 @@ import { ApiError } from '../../lib/wails/errors';
 import { useFileManagerStore } from '../../stores/useFileManagerStore';
 import { Button } from '../ui/Button';
 import { Tooltip } from '../ui/Tooltip';
+import { CreateBucketModal } from './CreateBucketModal';
 import type { BucketSizeResult } from '../../types';
 
 /** Caps in-flight `GetBucketSize` calls so a profile with many buckets doesn't hammer S3/the UI thread all at once. */
@@ -75,6 +76,7 @@ export function ConnectionDashboard() {
   const selectBucket = useFileManagerStore((state) => state.selectBucket);
 
   const [sizes, setSizes] = useState<Record<string, BucketSizeState>>({});
+  const [isCreateBucketOpen, setIsCreateBucketOpen] = useState(false);
 
   // `isCancelled` defaults to "never cancelled" for the manual
   // recalculate/retry button handlers below, which fire while the
@@ -127,110 +129,142 @@ export function ConnectionDashboard() {
 
   if (activeProfileId === null) return null;
 
-  if (buckets.length === 0) {
-    return (
-      <div className="flex flex-1 items-center justify-center">
-        <p className="text-sm text-fg-muted">{t('fileManager.dashboard.empty')}</p>
-      </div>
-    );
-  }
-
+  // A single `return`/root element on purpose: a successful create resolves
+  // `refreshBuckets()` (flipping `buckets.length` across the 0 boundary)
+  // BEFORE this component's own `onClose()` callback runs. Two separate
+  // `return` statements here (one per branch) would each be a structurally
+  // different root - React unmounts and remounts the ENTIRE returned tree
+  // (including `CreateBucketModal`, wherever it's placed inside either
+  // branch) whenever the root element type changes between renders, even if
+  // the modal's own JSX looks "hoisted." With one `<>...</>` root whose
+  // second child is always `CreateBucketModal`, that child's position never
+  // changes across the `buckets.length === 0` toggle, so React preserves its
+  // component instance (and thus `isCreateBucketOpen`/its internal state)
+  // instead of briefly flashing a fresh, still-open, empty-input modal right
+  // after the user just successfully created a bucket.
   return (
-    <div className="flex-1 overflow-y-auto p-6">
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-4">
-        {buckets.map((bucket) => {
-          const state = sizes[bucket.name];
-          return (
-            <div
-              key={bucket.name}
-              role="button"
-              tabIndex={0}
-              onClick={() => selectBucket(bucket.name)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter' || event.key === ' ') {
-                  event.preventDefault();
-                  selectBucket(bucket.name);
-                }
-              }}
-              title={bucket.name}
-              className={cn(
-                'flex cursor-pointer flex-col gap-3 rounded border border-border bg-bg-secondary p-4 text-left',
-                'transition-colors duration-fast hover:border-accent',
-                'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
-              )}
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex min-w-0 items-center gap-2">
-                  <Database className="h-4 w-4 shrink-0 text-fg-secondary" aria-hidden="true" />
-                  <span className="truncate text-sm font-semibold text-fg-primary">{bucket.name}</span>
-                </div>
-                <Tooltip content={t('fileManager.dashboard.recalculate')}>
-                  <Button
-                    iconOnly
-                    variant="ghost"
-                    className="h-7 w-7"
-                    aria-label={t('fileManager.dashboard.recalculate')}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      void fetchOne(activeProfileId, bucket.name);
-                    }}
-                  >
-                    <RefreshCw
-                      className={cn('h-3.5 w-3.5', state?.status === 'loading' && 'animate-spin')}
-                      aria-hidden="true"
-                    />
-                  </Button>
-                </Tooltip>
-              </div>
-
-              <p className="text-xs text-fg-muted">{formatCreationDate(bucket.creationDate)}</p>
-
-              <div className="border-t border-border pt-3 text-[13px]">
-                {!state || state.status === 'loading' ? (
-                  <div className="flex items-center gap-2 text-fg-muted">
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
-                    <span>{t('fileManager.dashboard.calculating')}</span>
-                  </div>
-                ) : state.status === 'error' ? (
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="flex items-center gap-1.5 text-xs text-danger">
-                      <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                      {t('fileManager.dashboard.recalculateError')}
-                    </span>
-                    <Tooltip content={t('fileManager.dashboard.retry')}>
+    <>
+      {buckets.length === 0 ? (
+        <div className="flex flex-1 flex-col items-center justify-center gap-3">
+          <p className="text-sm text-fg-muted">{t('fileManager.dashboard.empty')}</p>
+          <Button variant="primary" onClick={() => setIsCreateBucketOpen(true)}>
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            {t('fileManager.dashboard.createBucket')}
+          </Button>
+        </div>
+      ) : (
+        <div className="flex-1 overflow-y-auto p-6">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <p className="text-sm text-fg-secondary">
+              {t('fileManager.dashboard.bucketsCount', { count: buckets.length })}
+            </p>
+            <Button variant="primary" onClick={() => setIsCreateBucketOpen(true)}>
+              <Plus className="h-4 w-4" aria-hidden="true" />
+              {t('fileManager.dashboard.createBucket')}
+            </Button>
+          </div>
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-4">
+            {buckets.map((bucket) => {
+              const state = sizes[bucket.name];
+              return (
+                <div
+                  key={bucket.name}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => selectBucket(bucket.name)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      selectBucket(bucket.name);
+                    }
+                  }}
+                  title={bucket.name}
+                  className={cn(
+                    'flex cursor-pointer flex-col gap-3 rounded border border-border bg-bg-secondary p-4 text-left',
+                    'transition-colors duration-fast hover:border-accent',
+                    'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
+                  )}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <Database className="h-4 w-4 shrink-0 text-fg-secondary" aria-hidden="true" />
+                      <span className="truncate text-sm font-semibold text-fg-primary">{bucket.name}</span>
+                    </div>
+                    <Tooltip content={t('fileManager.dashboard.recalculate')}>
                       <Button
                         iconOnly
                         variant="ghost"
                         className="h-7 w-7"
-                        aria-label={t('fileManager.dashboard.retry')}
+                        aria-label={t('fileManager.dashboard.recalculate')}
                         onClick={(event) => {
                           event.stopPropagation();
                           void fetchOne(activeProfileId, bucket.name);
                         }}
                       >
-                        <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
+                        <RefreshCw
+                          className={cn('h-3.5 w-3.5', state?.status === 'loading' && 'animate-spin')}
+                          aria-hidden="true"
+                        />
                       </Button>
                     </Tooltip>
                   </div>
-                ) : (
-                  <div className="flex flex-col gap-1">
-                    <p className="font-medium text-fg-primary">{formatBytes(state.result.totalBytes)}</p>
-                    <p className="text-fg-secondary">
-                      {t('fileManager.dashboard.objectsCount', { count: state.result.objectCount })}
-                    </p>
-                    {state.result.truncated && (
-                      <div className="flex items-start gap-1.5 text-warning">
-                        <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" aria-hidden="true" />
-                        <p className="text-xs">{t('fileManager.dashboard.truncatedNotice')}</p>
+
+                  <p className="text-xs text-fg-muted">{formatCreationDate(bucket.creationDate)}</p>
+
+                  <div className="border-t border-border pt-3 text-[13px]">
+                    {!state || state.status === 'loading' ? (
+                      <div className="flex items-center gap-2 text-fg-muted">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                        <span>{t('fileManager.dashboard.calculating')}</span>
+                      </div>
+                    ) : state.status === 'error' ? (
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="flex items-center gap-1.5 text-xs text-danger">
+                          <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                          {t('fileManager.dashboard.recalculateError')}
+                        </span>
+                        <Tooltip content={t('fileManager.dashboard.retry')}>
+                          <Button
+                            iconOnly
+                            variant="ghost"
+                            className="h-7 w-7"
+                            aria-label={t('fileManager.dashboard.retry')}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              void fetchOne(activeProfileId, bucket.name);
+                            }}
+                          >
+                            <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
+                          </Button>
+                        </Tooltip>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col gap-1">
+                        <p className="font-medium text-fg-primary">{formatBytes(state.result.totalBytes)}</p>
+                        <p className="text-fg-secondary">
+                          {t('fileManager.dashboard.objectsCount', { count: state.result.objectCount })}
+                        </p>
+                        {state.result.truncated && (
+                          <div className="flex items-start gap-1.5 text-warning">
+                            <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" aria-hidden="true" />
+                            <p className="text-xs">{t('fileManager.dashboard.truncatedNotice')}</p>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      <CreateBucketModal
+        isOpen={isCreateBucketOpen}
+        onClose={() => setIsCreateBucketOpen(false)}
+        profileId={activeProfileId}
+      />
+    </>
   );
 }

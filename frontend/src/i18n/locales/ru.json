@@ -124,7 +124,9 @@
       "removeFavorite": "Убрать из избранного"
     },
     "bucketPanel": {
-      "empty": "Нет доступных бакетов"
+      "empty": "Нет доступных бакетов",
+      "createBucket": "Создать бакет",
+      "deleteBucket": "Удалить бакет"
     },
     "search": {
       "searchEverywhere": "Искать везде",
@@ -165,6 +167,20 @@
       "nameEmptyError": "Введите имя папки",
       "nameSlashError": "Имя не может содержать «/»",
       "genericError": "Не удалось создать папку"
+    },
+    "createBucketModal": {
+      "title": "Создать бакет",
+      "create": "Создать",
+      "nameLabel": "Имя бакета",
+      "nameEmptyError": "Введите имя бакета",
+      "nameLengthError": "Имя должно содержать от 3 до 63 символов",
+      "nameFormatError": "Имя может содержать только строчные латинские буквы, цифры, дефисы и точки, начинаться и заканчиваться буквой или цифрой",
+      "genericError": "Не удалось создать бакет"
+    },
+    "deleteBucketConfirmModal": {
+      "title": "Удалить бакет",
+      "confirm": "Вы уверены, что хотите удалить бакет «{{name}}»?",
+      "genericError": "Не удалось удалить бакет"
     },
     "deleteConfirmModal": {
       "title": "Удалить объекты",
@@ -236,7 +252,11 @@
       "truncatedNotice": "Неполный подсчёт — превышен лимит времени",
       "recalculate": "Посчитать заново",
       "recalculateError": "Не удалось посчитать размер бакета",
-      "retry": "Повторить"
+      "retry": "Повторить",
+      "createBucket": "Создать бакет",
+      "bucketsCount": "{{count}} бакетов",
+      "bucketsCount_one": "{{count}} бакет",
+      "bucketsCount_few": "{{count}} бакета"
     },
     "renameModal": {
       "title": "Переименовать",

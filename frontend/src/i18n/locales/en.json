@@ -122,7 +122,9 @@
       "removeFavorite": "Remove from favorites"
     },
     "bucketPanel": {
-      "empty": "No buckets available"
+      "empty": "No buckets available",
+      "createBucket": "Create bucket",
+      "deleteBucket": "Delete bucket"
     },
     "search": {
       "searchEverywhere": "Search everywhere",
@@ -161,6 +163,20 @@
       "nameEmptyError": "Enter a folder name",
       "nameSlashError": "Name cannot contain \"/\"",
       "genericError": "Failed to create folder"
+    },
+    "createBucketModal": {
+      "title": "Create bucket",
+      "create": "Create",
+      "nameLabel": "Bucket name",
+      "nameEmptyError": "Enter a bucket name",
+      "nameLengthError": "Name must be between 3 and 63 characters",
+      "nameFormatError": "Name may only contain lowercase letters, digits, hyphens and dots, and must start and end with a letter or digit",
+      "genericError": "Failed to create bucket"
+    },
+    "deleteBucketConfirmModal": {
+      "title": "Delete bucket",
+      "confirm": "Are you sure you want to delete the bucket \"{{name}}\"?",
+      "genericError": "Failed to delete bucket"
     },
     "deleteConfirmModal": {
       "title": "Delete objects",
@@ -228,7 +244,10 @@
       "truncatedNotice": "Incomplete count — time limit exceeded",
       "recalculate": "Recalculate",
       "recalculateError": "Failed to calculate bucket size",
-      "retry": "Retry"
+      "retry": "Retry",
+      "createBucket": "Create bucket",
+      "bucketsCount": "{{count}} buckets",
+      "bucketsCount_one": "{{count}} bucket"
     },
     "renameModal": {
       "title": "Rename",

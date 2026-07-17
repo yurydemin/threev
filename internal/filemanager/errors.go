@@ -25,6 +25,13 @@ var noSuchKeyErrorCodes = map[string]bool{
 	"NotFound":  true,
 }
 
+// bucketNotEmptyErrorCode is the AWS/S3 API error code returned when
+// DeleteBucket targets a bucket that still contains objects. S3 already
+// refuses the delete cleanly on its own; this code is only translated into a
+// friendlier message here (Блок B decision 2) rather than this package
+// implementing any "empty the bucket first" convenience of its own.
+const bucketNotEmptyErrorCode = "BucketNotEmpty"
+
 // classifyOperationError turns a raw S3/network error from operation (e.g.
 // "list buckets", "list objects") into a single wrapped error carrying a
 // human-readable message and category, reusing s3client.ClassifyError for
@@ -43,6 +50,8 @@ func classifyOperationError(operation string, err error) error {
 			return fmt.Errorf("%s: %s (%s): %w", operation, "Бакет не найден", "not-found", err)
 		case noSuchKeyErrorCodes[apiErr.ErrorCode()]:
 			return fmt.Errorf("%s: %s (%s): %w", operation, "Объект не найден", "not-found", err)
+		case apiErr.ErrorCode() == bucketNotEmptyErrorCode:
+			return fmt.Errorf("%s: %s (%s): %w", operation, "Бакет не пуст — сначала удалите всё его содержимое", "not-empty", err)
 		}
 	}
 

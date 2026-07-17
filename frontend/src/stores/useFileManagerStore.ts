@@ -61,6 +61,8 @@ interface FileManagerState {
 
   /** Loads the bucket list for a profile and resets all bucket/entry state. */
   enterProfile: (profileId: number, profileName: string) => Promise<void>;
+  /** Re-fetches only the bucket list for the active profile, leaving selectedBucket/entries/navigation history untouched — unlike enterProfile's full reset, safe to call while the user is actively browsing a different bucket (Block B: after create/delete bucket). */
+  refreshBuckets: () => Promise<void>;
   /** Navigates to the root of `bucket`, pushing a new history entry. */
   selectBucket: (bucket: string) => Promise<void>;
   /** Navigates to `prefix` within the currently selected bucket, pushing a new history entry. */
@@ -219,6 +221,18 @@ export const useFileManagerStore = create<FileManagerState>()((set, get) => {
       });
       try {
         const buckets = await listBuckets(profileId);
+        set({ buckets, isLoadingBuckets: false });
+      } catch (err) {
+        set({ bucketsError: errorMessage(err), isLoadingBuckets: false });
+      }
+    },
+
+    refreshBuckets: async () => {
+      const { activeProfileId } = get();
+      if (activeProfileId === null) return;
+      set({ isLoadingBuckets: true, bucketsError: null });
+      try {
+        const buckets = await listBuckets(activeProfileId);
         set({ buckets, isLoadingBuckets: false });
       } catch (err) {
         set({ bucketsError: errorMessage(err), isLoadingBuckets: false });
