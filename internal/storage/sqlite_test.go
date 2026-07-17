@@ -97,9 +97,9 @@ func TestOpenDB_IdempotentReopen(t *testing.T) {
 
 	// Reopening must not re-run (or double-record) any migration: exactly
 	// one schema_migrations row per embedded "migrations/*.sql" file
-	// (currently 0001_init.sql and 0002_favorites.sql), not one per
-	// OpenDB call.
-	const wantMigrationCount = 2
+	// (currently 0001_init.sql, 0002_favorites.sql, and
+	// 0003_transfer_queue_zip_type.sql), not one per OpenDB call.
+	const wantMigrationCount = 3
 
 	var count int
 	if err := db2.QueryRow(`SELECT COUNT(*) FROM schema_migrations`).Scan(&count); err != nil {

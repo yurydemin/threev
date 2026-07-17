@@ -29,6 +29,8 @@ export function QueueDownload(arg1:domain.DownloadRequest):Promise<number>;
 
 export function QueueDownloadPrefix(arg1:number,arg2:string,arg3:string,arg4:string):Promise<Array<number>>;
 
+export function QueueDownloadPrefixZip(arg1:number,arg2:string,arg3:string,arg4:string):Promise<number>;
+
 export function QueueUpload(arg1:domain.UploadRequest):Promise<number>;
 
 export function QueueUploadPaths(arg1:number,arg2:string,arg3:string,arg4:Array<string>):Promise<Array<number>>;

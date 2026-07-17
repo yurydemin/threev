@@ -54,6 +54,10 @@ export function QueueDownloadPrefix(arg1, arg2, arg3, arg4) {
   return window['go']['transfer']['TransferService']['QueueDownloadPrefix'](arg1, arg2, arg3, arg4);
 }
 
+export function QueueDownloadPrefixZip(arg1, arg2, arg3, arg4) {
+  return window['go']['transfer']['TransferService']['QueueDownloadPrefixZip'](arg1, arg2, arg3, arg4);
+}
+
 export function QueueUpload(arg1) {
   return window['go']['transfer']['TransferService']['QueueUpload'](arg1);
 }

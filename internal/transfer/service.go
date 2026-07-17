@@ -604,51 +604,38 @@ func (s *TransferService) QueueDownloadPrefix(profileID int64, bucket, prefix, l
 
 	host := extractHostname(profile.EndpointURL)
 
+	// listDownloadableKeysUnderPrefix (zip_download.go) is the shared
+	// pagination/skip-placeholder-keys helper also used by
+	// QueueDownloadPrefixZip/runZipDownloadTask - see its own doc comment
+	// for why a page-fetch error is handled differently here (logged,
+	// proceeding with whatever partial list was already collected,
+	// preserving this method's own long-standing best-effort semantics)
+	// than at those other call sites (fatal to the whole archive).
+	keys, listErr := s.listDownloadableKeysUnderPrefix(pooled, fresh, host, bucket, prefix)
+	if listErr != nil {
+		log.Printf("transfer: QueueDownloadPrefix: %v", listErr)
+	}
+
 	var ids []int64
 
-	continuationToken := ""
-
-	for {
-		page, listErr := s.listObjectsPageForDownloadPrefix(pooled, fresh, host, bucket, prefix, continuationToken)
-		if listErr != nil {
-			log.Printf("transfer: QueueDownloadPrefix: list %s/%s: %v", bucket, prefix, listErr)
-			break
+	for _, dk := range keys {
+		localPath, ok := resolveDownloadPrefixLocalPath(localDestDir, prefix, dk.Key)
+		if !ok {
+			continue
 		}
 
-		for _, obj := range page.Contents {
-			key := aws.ToString(obj.Key)
-
-			if strings.HasSuffix(key, "/") && aws.ToInt64(obj.Size) == 0 {
-				continue
-			}
-
-			localPath, ok := resolveDownloadPrefixLocalPath(localDestDir, prefix, key)
-			if !ok {
-				continue
-			}
-
-			id, err := s.QueueDownload(domain.DownloadRequest{
-				ProfileID: profileID,
-				Bucket:    bucket,
-				Key:       key,
-				LocalPath: localPath,
-			})
-			if err != nil {
-				log.Printf("transfer: QueueDownloadPrefix: queue download %s/%s -> %s: %v", bucket, key, localPath, err)
-				continue
-			}
-
-			ids = append(ids, id)
+		id, err := s.QueueDownload(domain.DownloadRequest{
+			ProfileID: profileID,
+			Bucket:    bucket,
+			Key:       dk.Key,
+			LocalPath: localPath,
+		})
+		if err != nil {
+			log.Printf("transfer: QueueDownloadPrefix: queue download %s/%s -> %s: %v", bucket, dk.Key, localPath, err)
+			continue
 		}
 
-		if !aws.ToBool(page.IsTruncated) {
-			break
-		}
-
-		continuationToken = aws.ToString(page.NextContinuationToken)
-		if continuationToken == "" {
-			break
-		}
+		ids = append(ids, id)
 	}
 
 	if len(ids) == 0 {
@@ -706,16 +693,32 @@ func (s *TransferService) listObjectsPageForDownloadPrefix(pooled, fresh *s3.Cli
 // comment for why this check exists.
 func resolveDownloadPrefixLocalPath(localDestDir, prefix, key string) (string, bool) {
 	relPath := strings.TrimPrefix(key, prefix)
-
-	cleaned := filepath.ToSlash(filepath.Clean(relPath))
-	for _, segment := range strings.Split(cleaned, "/") {
-		if segment == ".." {
-			log.Printf("transfer: QueueDownloadPrefix: rejecting key %q: relative path %q escapes the destination directory", key, relPath)
-			return "", false
-		}
+	if !relativeKeyPathIsSafe(key, relPath) {
+		return "", false
 	}
 
 	return filepath.Join(localDestDir, filepath.FromSlash(relPath)), true
+}
+
+// relativeKeyPathIsSafe reports whether relPath (an S3 key with some prefix
+// already trimmed off) is safe to use as a destination path segment -
+// shared by resolveDownloadPrefixLocalPath (a local disk path, above) and
+// zip_download.go's archiveEntryName (a ZIP archive entry name), both of
+// which mirror an otherwise-untrusted S3 key onto a destination that a
+// crafted ".."-containing key could otherwise escape. relPath is rejected
+// if, once filepath.Clean'd and split into "/"-separated segments, any
+// segment is exactly "..". key is used only to identify the offending key
+// in the log message when rejecting.
+func relativeKeyPathIsSafe(key, relPath string) bool {
+	cleaned := filepath.ToSlash(filepath.Clean(relPath))
+	for _, segment := range strings.Split(cleaned, "/") {
+		if segment == ".." {
+			log.Printf("transfer: rejecting key %q: relative path %q escapes the destination", key, relPath)
+			return false
+		}
+	}
+
+	return true
 }
 
 // PauseTask pauses task id, working uniformly whether or not it is
@@ -729,7 +732,26 @@ func resolveDownloadPrefixLocalPath(localDestDir, prefix, key string) (string, b
 //     merely queued, never started); its status is updated to "paused"
 //     directly, with no goroutine involved. Any other status (already
 //     paused, or a terminal one) is rejected with an error.
+//
+// "download_zip" tasks are rejected outright, before any of the above -
+// this Block's own deliberately narrower lifecycle decision (see
+// runZipDownloadTask's doc comment): a ZIP archive being streamed
+// entry-by-entry has no well-defined pause/resume point once a later entry
+// has already started, so only Cancel (and, after a failure, Retry - always
+// restarting from scratch) is supported. This means PauseTask now does one
+// extra GetByID call up front for every pause request, regardless of task
+// type - acceptable, since pausing is a low-frequency user action, not a
+// hot path.
 func (s *TransferService) PauseTask(id int64) error {
+	preCheckTask, err := s.queueRepo.GetByID(context.Background(), id)
+	if err != nil {
+		return err
+	}
+
+	if preCheckTask.Type == "download_zip" {
+		return fmt.Errorf("pause is not supported for archive downloads; cancel it instead")
+	}
+
 	s.mu.Lock()
 	rt, running := s.running[id]
 	s.mu.Unlock()

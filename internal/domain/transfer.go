@@ -8,7 +8,12 @@ import "time"
 type TransferTask struct {
 	ID        int64
 	ProfileID int64
-	// Type is "upload" or "download".
+	// Type is "upload", "download", or "download_zip" (a whole folder/
+	// prefix downloaded as a single ZIP archive - see
+	// transfer.TransferService.QueueDownloadPrefixZip). A "download_zip"
+	// task's SourcePath/DestinationPath follow the same ORIGIN/TARGET
+	// convention as a plain "download": SourcePath is bucket/prefix
+	// (encodeBucketKey), DestinationPath is the local .zip file path.
 	Type string
 	// SourcePath is the transfer's origin: a local filesystem path for
 	// uploads, or an S3 key (bucket is carried separately in

@@ -200,6 +200,12 @@ func (s *TransferService) runTask(ctx context.Context, task domain.TransferTask,
 		s.runUploadTask(ctx, task, rt, pooled, fresh, host, bucket, key)
 	case "download":
 		s.runDownloadTask(ctx, task, rt, pooled, fresh, host, bucket, key)
+	case "download_zip":
+		// key is actually the folder prefix here, not a single object key -
+		// same variable, just semantically a folder path for this task type
+		// (splitBucketKey's decode above does not care whether the string
+		// after the bucket looks like a "file key" or a "folder prefix").
+		s.runZipDownloadTask(ctx, task, rt, pooled, fresh, host, bucket, key)
 	default:
 		s.handleTaskResult(task, rt, fmt.Errorf("unknown transfer task type %q", task.Type), pooled, bucket, key, task.MultipartUploadID)
 	}
@@ -418,13 +424,21 @@ func (s *TransferService) handleTaskResult(task domain.TransferTask, rt *running
 // taskBucketKey decodes task's Bucket/Key from whichever of
 // SourcePath/DestinationPath carries the S3 side of the transfer, per
 // encodeBucketKey/splitBucketKey's documented ORIGIN/TARGET convention: an
-// upload's target (DestinationPath) is bucket/key, a download's origin
-// (SourcePath) is bucket/key.
+// upload's target (DestinationPath) is bucket/key, a download's (and a
+// "download_zip"'s - its SourcePath carries bucket/prefix, encoded exactly
+// the same way by QueueDownloadPrefixZip) origin (SourcePath) is
+// bucket/key.
+//
+// runTask calls this unconditionally, before its own switch on task.Type
+// dispatches to runUploadTask/runDownloadTask/runZipDownloadTask - so every
+// task.Type runTask's own switch can reach must also have a case here, or
+// it fails immediately with "unknown transfer task type" before ever
+// reaching its real execution branch.
 func taskBucketKey(task domain.TransferTask) (bucket, key string, err error) {
 	switch task.Type {
 	case "upload":
 		return splitBucketKey(task.DestinationPath)
-	case "download":
+	case "download", "download_zip":
 		return splitBucketKey(task.SourcePath)
 	default:
 		return "", "", fmt.Errorf("unknown transfer task type %q", task.Type)
