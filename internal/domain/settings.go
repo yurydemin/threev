@@ -40,4 +40,15 @@ type AppSettings struct {
 	// calling SaveSettings, so backend code never has to guess units).
 	BandwidthLimitUploadBytesPerSec   int64
 	BandwidthLimitDownloadBytesPerSec int64
+	// RetryMaxAttempts is the number of attempts (including the first)
+	// WithRetry makes before giving up, applied uniformly to both S3
+	// client's PartRetryPolicy and MetadataRetryPolicy (a single user-facing
+	// slider, not two independent ones - see appsettings.defaultRetryMaxAttempts'
+	// own doc comment for why their historically-different defaults get
+	// flattened to one value here). Clamped [1,10].
+	RetryMaxAttempts int
+	// ConnectionTimeoutSeconds is the floor s3client.AdaptiveTimeout never
+	// returns below for a single part/segment transfer attempt (default
+	// matches s3client's own minAdaptiveTimeout). Clamped [10,120].
+	ConnectionTimeoutSeconds int
 }

@@ -257,7 +257,7 @@ func (f *FileManagerService) deleteObjectBatch(ctx context.Context, pooled, fres
 		objects[i] = types.ObjectIdentifier{Key: aws.String(k)}
 	}
 
-	err := s3client.WithRetry(ctx, f.breaker, s3client.MetadataRetryPolicy, host, func(attemptCtx context.Context, isRetry bool) error {
+	err := s3client.WithRetry(ctx, f.breaker, f.retryPolicies.Metadata(), host, func(attemptCtx context.Context, isRetry bool) error {
 		client := pooled
 		if isRetry {
 			client = fresh

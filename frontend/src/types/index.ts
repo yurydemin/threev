@@ -251,4 +251,6 @@ export interface AppSettings {
   partSizeOverrideMB: number; // 0 = adaptive, otherwise 5-128
   bandwidthLimitUploadBytesPerSec: number;
   bandwidthLimitDownloadBytesPerSec: number;
+  retryMaxAttempts: number; // 1-10
+  connectionTimeoutSeconds: number; // 10-120
 }

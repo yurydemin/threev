@@ -56,6 +56,16 @@ type TransferService struct {
 
 	connMgr *s3client.ConnectionManager
 	breaker *s3client.CircuitBreaker
+	// retryPolicies is the shared, per-process source of retry/timeout
+	// configuration every s3client.WithRetry/s3client.AdaptiveTimeout call
+	// site in this package (and free functions it hands UploadParams/
+	// DownloadParams to, in upload.go/download.go/multipart_upload.go/
+	// range_download.go) reads from, instead of the s3client.PartRetryPolicy/
+	// MetadataRetryPolicy package vars directly - see
+	// s3client.RetryPolicyStore's own doc comment. Exactly the same shared
+	// instance app.go's newApp() passes to filemanager.NewFileManagerService
+	// (not a new one), mirroring breaker above.
+	retryPolicies *s3client.RetryPolicyStore
 	// limiter is nil (the atomic.Pointer[BandwidthLimiter] zero value) by
 	// default (docs/02-tech-spec.md section 10.6: "По умолчанию лимит
 	// выключен") - NewTransferService never sets it. SetBandwidthLimits
@@ -117,14 +127,16 @@ type ctxHolder struct {
 // see crypto.KeyBox's own doc comment and NewConnectionService's identical
 // rationale, Этап 4 суб-этап 4.4), queueRepo/historyRepo (for
 // transfer_queue/transfer_history persistence), connMgr (for pooled/fresh
-// S3 clients per profile), and breaker (the shared, per-process circuit
-// breaker every task's retries coordinate through). maxConcurrentTasks
-// starts at DefaultMaxConcurrentTasks (FR-QUEUE-004), the bandwidth limiter
-// starts out nil/unlimited, and partSizeOverride starts out 0/adaptive (see
-// the limiter/partSizeOverride fields' own doc comments) - none of the
-// three has a constructor parameter; each has its own setter
-// (SetMaxConcurrentTasks/SetBandwidthLimits/SetPartSizeOverrideMB) instead,
-// called by internal/appsettings.SettingsService.ApplySettings.
+// S3 clients per profile), breaker (the shared, per-process circuit
+// breaker every task's retries coordinate through), and retryPolicies (the
+// shared, per-process retry/timeout configuration store - see its own doc
+// comment). maxConcurrentTasks starts at DefaultMaxConcurrentTasks
+// (FR-QUEUE-004), the bandwidth limiter starts out nil/unlimited, and
+// partSizeOverride starts out 0/adaptive (see the limiter/partSizeOverride
+// fields' own doc comments) - none of the three has a constructor
+// parameter; each has its own setter (SetMaxConcurrentTasks/
+// SetBandwidthLimits/SetPartSizeOverrideMB) instead, called by
+// internal/appsettings.SettingsService.ApplySettings.
 func NewTransferService(
 	profileRepo *storage.ProfileRepository,
 	keyBox *crypto.KeyBox,
@@ -132,6 +144,7 @@ func NewTransferService(
 	historyRepo *storage.TransferHistoryRepository,
 	connMgr *s3client.ConnectionManager,
 	breaker *s3client.CircuitBreaker,
+	retryPolicies *s3client.RetryPolicyStore,
 ) *TransferService {
 	return &TransferService{
 		profileRepo:        profileRepo,
@@ -140,6 +153,7 @@ func NewTransferService(
 		historyRepo:        historyRepo,
 		connMgr:            connMgr,
 		breaker:            breaker,
+		retryPolicies:      retryPolicies,
 		maxConcurrentTasks: DefaultMaxConcurrentTasks,
 		running:            make(map[int64]*runningTask),
 	}
@@ -654,7 +668,7 @@ func (s *TransferService) QueueDownloadPrefix(profileID int64, bucket, prefix, l
 func (s *TransferService) listObjectsPageForDownloadPrefix(pooled, fresh *s3.Client, host, bucket, prefix, continuationToken string) (*s3.ListObjectsV2Output, error) {
 	var page *s3.ListObjectsV2Output
 
-	err := s3client.WithRetry(context.Background(), s.breaker, s3client.MetadataRetryPolicy, host, func(attemptCtx context.Context, isRetry bool) error {
+	err := s3client.WithRetry(context.Background(), s.breaker, s.retryPolicies.Metadata(), host, func(attemptCtx context.Context, isRetry bool) error {
 		client := pooled
 		if isRetry {
 			client = fresh

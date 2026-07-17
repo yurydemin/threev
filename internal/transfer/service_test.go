@@ -69,8 +69,9 @@ func newTestTransferService(t *testing.T) testTransferDeps {
 
 	connMgr := s3client.NewConnectionManager(profileRepo, keyBox)
 	breaker := s3client.NewCircuitBreaker()
+	retryPolicies := s3client.NewRetryPolicyStore()
 
-	svc := NewTransferService(profileRepo, keyBox, queueRepo, historyRepo, connMgr, breaker)
+	svc := NewTransferService(profileRepo, keyBox, queueRepo, historyRepo, connMgr, breaker, retryPolicies)
 
 	return testTransferDeps{svc: svc, profileRepo: profileRepo, key: key, keyBox: keyBox}
 }

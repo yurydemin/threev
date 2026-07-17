@@ -6,6 +6,7 @@ import (
 	"fmt"
 	mrand "math/rand/v2"
 	"net/http"
+	"sync/atomic"
 	"time"
 
 	"github.com/aws/smithy-go"
@@ -42,6 +43,78 @@ var PartRetryPolicy = RetryPolicy{MaxAttempts: 5, BaseDelay: 2 * time.Second, Ma
 // get fewer attempts than a part transfer (docs/02-tech-spec.md section
 // 10.4: "3 для metadata-операций").
 var MetadataRetryPolicy = RetryPolicy{MaxAttempts: 3, BaseDelay: 2 * time.Second, MaxDelay: 32 * time.Second}
+
+// RetryPolicyStore is one live-updatable, shared source of retry/timeout
+// configuration for both transfer.TransferService and
+// filemanager.FileManagerService: the same instance is constructed once in
+// app.go (mirroring how *CircuitBreaker is already shared between the two
+// packages today) and passed into both constructors, so neither package
+// needs to depend on the other, and every WithRetry/AdaptiveTimeout call
+// site in either package reads its policy/floor from here instead of a
+// package-level var. NewRetryPolicyStore seeds it with PartRetryPolicy/
+// MetadataRetryPolicy/minAdaptiveTimeout - today's fixed defaults, unchanged
+// by this type's introduction. A later Block (SettingsService.ApplySettings)
+// calls Set on it whenever the user saves new retry/timeout Settings, live,
+// with no restart required.
+type RetryPolicyStore struct {
+	part     atomic.Pointer[RetryPolicy]
+	metadata atomic.Pointer[RetryPolicy]
+	// timeoutFloor holds a time.Duration (nanoseconds) as an atomic.Int64,
+	// rather than a plain time.Duration field, for the same reason
+	// TransferService.limiter is an atomic.Pointer rather than a plain
+	// pointer/mutex: it is read concurrently, on every AdaptiveTimeout call,
+	// by in-flight retry loops running in worker goroutines
+	// (multipart_upload.go/range_download.go/copylarge.go, ...), while Set
+	// may replace it at any time from a future Settings save - a plain
+	// read/write pair across goroutines here would be a data race under
+	// -race.
+	timeoutFloor atomic.Int64
+}
+
+// NewRetryPolicyStore returns a RetryPolicyStore seeded with copies of
+// PartRetryPolicy/MetadataRetryPolicy (never the package vars' own
+// addresses, so a later, however unlikely, mutation of those package vars
+// can never retroactively affect an already-constructed store) and
+// minAdaptiveTimeout - exactly today's fixed defaults.
+func NewRetryPolicyStore() *RetryPolicyStore {
+	s := &RetryPolicyStore{}
+
+	part := PartRetryPolicy
+	metadata := MetadataRetryPolicy
+
+	s.part.Store(&part)
+	s.metadata.Store(&metadata)
+	s.timeoutFloor.Store(int64(minAdaptiveTimeout))
+
+	return s
+}
+
+// Part returns the current part/segment-transfer RetryPolicy (see
+// PartRetryPolicy's doc comment for what this governs).
+func (s *RetryPolicyStore) Part() RetryPolicy {
+	return *s.part.Load()
+}
+
+// Metadata returns the current metadata-call RetryPolicy (see
+// MetadataRetryPolicy's doc comment for what this governs).
+func (s *RetryPolicyStore) Metadata() RetryPolicy {
+	return *s.metadata.Load()
+}
+
+// TimeoutFloor returns the current floor AdaptiveTimeout never returns
+// below (see minAdaptiveTimeout's doc comment for what this governs).
+func (s *RetryPolicyStore) TimeoutFloor() time.Duration {
+	return time.Duration(s.timeoutFloor.Load())
+}
+
+// Set atomically installs part/metadata/floor as the new current values,
+// visible to any WithRetry/AdaptiveTimeout call (in any goroutine) made
+// after this call returns.
+func (s *RetryPolicyStore) Set(part, metadata RetryPolicy, floor time.Duration) {
+	s.part.Store(&part)
+	s.metadata.Store(&metadata)
+	s.timeoutFloor.Store(int64(floor))
+}
 
 // errCircuitOpen is wrapped into the error WithRetry returns when the
 // circuit breaker refuses a host outright, so callers can recognize this
@@ -276,17 +349,20 @@ const minAdaptiveTimeout = 30 * time.Second
 // AdaptiveTimeout returns a per-attempt timeout for transferring partSize
 // bytes, given assumedSpeedBytesPerSec as the current estimate of channel
 // throughput (docs/02-tech-spec.md section 10.4: "max(30s, partSize /
-// currentSpeed * 2)"). If assumedSpeedBytesPerSec is zero or negative (no
-// usable estimate yet, or a caller passing a not-yet-measured zero value),
-// defaultAssumedSpeedBytesPerSec is used instead, so this function never
-// divides by zero or returns a nonsensical (negative/huge) duration.
+// currentSpeed * 2)") and floor as the minimum timeout ever returned
+// (RetryPolicyStore.TimeoutFloor() in production - minAdaptiveTimeout by
+// default, see NewRetryPolicyStore). If assumedSpeedBytesPerSec is zero or
+// negative (no usable estimate yet, or a caller passing a not-yet-measured
+// zero value), defaultAssumedSpeedBytesPerSec is used instead, so this
+// function never divides by zero or returns a nonsensical (negative/huge)
+// duration.
 //
 // AdaptiveTimeout is a pure function: it knows nothing about the circuit
 // breaker or retry loop above. The caller (multipart_upload.go/
 // range_download.go, later Stage 3 steps) is expected to wrap the single
 // HTTP call inside its WithRetry attempt closure with
 // context.WithTimeout(ctx, AdaptiveTimeout(...)).
-func AdaptiveTimeout(partSize int64, assumedSpeedBytesPerSec float64) time.Duration {
+func AdaptiveTimeout(partSize int64, assumedSpeedBytesPerSec float64, floor time.Duration) time.Duration {
 	if assumedSpeedBytesPerSec <= 0 {
 		assumedSpeedBytesPerSec = defaultAssumedSpeedBytesPerSec
 	}
@@ -294,8 +370,8 @@ func AdaptiveTimeout(partSize int64, assumedSpeedBytesPerSec float64) time.Durat
 	seconds := 2 * float64(partSize) / assumedSpeedBytesPerSec
 	computed := time.Duration(seconds * float64(time.Second))
 
-	if computed < minAdaptiveTimeout {
-		return minAdaptiveTimeout
+	if computed < floor {
+		return floor
 	}
 
 	return computed

@@ -28,6 +28,8 @@ export namespace domain {
 	    PartSizeOverrideMB: number;
 	    BandwidthLimitUploadBytesPerSec: number;
 	    BandwidthLimitDownloadBytesPerSec: number;
+	    RetryMaxAttempts: number;
+	    ConnectionTimeoutSeconds: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new AppSettings(source);
@@ -43,6 +45,8 @@ export namespace domain {
 	        this.PartSizeOverrideMB = source["PartSizeOverrideMB"];
 	        this.BandwidthLimitUploadBytesPerSec = source["BandwidthLimitUploadBytesPerSec"];
 	        this.BandwidthLimitDownloadBytesPerSec = source["BandwidthLimitDownloadBytesPerSec"];
+	        this.RetryMaxAttempts = source["RetryMaxAttempts"];
+	        this.ConnectionTimeoutSeconds = source["ConnectionTimeoutSeconds"];
 	    }
 	}
 	export class Bucket {

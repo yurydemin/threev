@@ -78,7 +78,7 @@ func copyLargeObjectConcurrency(partCount int64) int {
 // best-effort rather than left behind for a resume attempt that could
 // never happen.
 func (f *FileManagerService) copyLargeObject(ctx context.Context, pooled, fresh *s3.Client, host, sourceBucket, sourceKey, destBucket, destKey string, size int64) error {
-	uploadID, err := createLargeObjectCopyUpload(ctx, f.breaker, host, pooled, fresh, destBucket, destKey)
+	uploadID, err := createLargeObjectCopyUpload(ctx, f.breaker, f.retryPolicies, host, pooled, fresh, destBucket, destKey)
 	if err != nil {
 		return fmt.Errorf("create multipart upload for %s/%s: %w", destBucket, destKey, err)
 	}
@@ -121,13 +121,13 @@ func (f *FileManagerService) copyLargeObject(ctx context.Context, pooled, fresh 
 
 // createLargeObjectCopyUpload issues CreateMultipartUpload for
 // destBucket/destKey and returns the assigned UploadId, under
-// s3client.MetadataRetryPolicy - the same policy/pooled-fresh pattern
+// retryPolicies.Metadata() - the same policy/pooled-fresh pattern
 // transfer.ensureMultipartUploadID uses for an ordinary upload's own
 // CreateMultipartUpload call.
-func createLargeObjectCopyUpload(ctx context.Context, breaker *s3client.CircuitBreaker, host string, pooled, fresh *s3.Client, destBucket, destKey string) (string, error) {
+func createLargeObjectCopyUpload(ctx context.Context, breaker *s3client.CircuitBreaker, retryPolicies *s3client.RetryPolicyStore, host string, pooled, fresh *s3.Client, destBucket, destKey string) (string, error) {
 	var uploadID string
 
-	err := s3client.WithRetry(ctx, breaker, s3client.MetadataRetryPolicy, host, func(attemptCtx context.Context, isRetry bool) error {
+	err := s3client.WithRetry(ctx, breaker, retryPolicies.Metadata(), host, func(attemptCtx context.Context, isRetry bool) error {
 		client := pooled
 		if isRetry {
 			client = fresh
@@ -222,7 +222,7 @@ func (f *FileManagerService) uploadPartCopy(ctx context.Context, pooled, fresh *
 
 	var partETag string
 
-	err := s3client.WithRetry(ctx, f.breaker, s3client.PartRetryPolicy, host, func(attemptCtx context.Context, isRetry bool) error {
+	err := s3client.WithRetry(ctx, f.breaker, f.retryPolicies.Part(), host, func(attemptCtx context.Context, isRetry bool) error {
 		client := pooled
 		if isRetry {
 			client = fresh
@@ -274,7 +274,7 @@ func (f *FileManagerService) completeLargeObjectCopy(ctx context.Context, pooled
 		})
 	}
 
-	err := s3client.WithRetry(ctx, f.breaker, s3client.MetadataRetryPolicy, host, func(attemptCtx context.Context, isRetry bool) error {
+	err := s3client.WithRetry(ctx, f.breaker, f.retryPolicies.Metadata(), host, func(attemptCtx context.Context, isRetry bool) error {
 		client := pooled
 		if isRetry {
 			client = fresh

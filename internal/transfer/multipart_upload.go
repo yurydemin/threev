@@ -182,7 +182,7 @@ func ensureMultipartUploadID(ctx context.Context, p UploadParams) (string, error
 
 	var uploadID string
 
-	err := s3client.WithRetry(ctx, p.Breaker, s3client.MetadataRetryPolicy, p.Host, func(attemptCtx context.Context, isRetry bool) error {
+	err := s3client.WithRetry(ctx, p.Breaker, p.RetryPolicies.Metadata(), p.Host, func(attemptCtx context.Context, isRetry bool) error {
 		client := p.Pooled
 		if isRetry {
 			client = p.Fresh
@@ -236,7 +236,7 @@ func listCompletedParts(ctx context.Context, p UploadParams, uploadID string) (m
 	for {
 		var page *s3.ListPartsOutput
 
-		err := s3client.WithRetry(ctx, p.Breaker, s3client.MetadataRetryPolicy, p.Host, func(attemptCtx context.Context, isRetry bool) error {
+		err := s3client.WithRetry(ctx, p.Breaker, p.RetryPolicies.Metadata(), p.Host, func(attemptCtx context.Context, isRetry bool) error {
 			client := p.Pooled
 			if isRetry {
 				client = p.Fresh
@@ -295,13 +295,13 @@ func listCompletedParts(ctx context.Context, p UploadParams, uploadID string) (m
 func uploadPart(ctx context.Context, p UploadParams, uploadID string, partNumber int32, offset, size int64, file *os.File) (string, error) {
 	var partETag string
 
-	err := s3client.WithRetry(ctx, p.Breaker, s3client.PartRetryPolicy, p.Host, func(attemptCtx context.Context, isRetry bool) error {
+	err := s3client.WithRetry(ctx, p.Breaker, p.RetryPolicies.Part(), p.Host, func(attemptCtx context.Context, isRetry bool) error {
 		client := p.Pooled
 		if isRetry {
 			client = p.Fresh
 		}
 
-		timeoutCtx, cancel := context.WithTimeout(attemptCtx, s3client.AdaptiveTimeout(size, 0))
+		timeoutCtx, cancel := context.WithTimeout(attemptCtx, s3client.AdaptiveTimeout(size, 0, p.RetryPolicies.TimeoutFloor()))
 		defer cancel()
 
 		var body io.Reader = io.NewSectionReader(file, offset, size)
@@ -360,7 +360,7 @@ func completeMultipartUpload(ctx context.Context, p UploadParams, uploadID strin
 
 	var finalETag string
 
-	err := s3client.WithRetry(ctx, p.Breaker, s3client.MetadataRetryPolicy, p.Host, func(attemptCtx context.Context, isRetry bool) error {
+	err := s3client.WithRetry(ctx, p.Breaker, p.RetryPolicies.Metadata(), p.Host, func(attemptCtx context.Context, isRetry bool) error {
 		client := p.Pooled
 		if isRetry {
 			client = p.Fresh

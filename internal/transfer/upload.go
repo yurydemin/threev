@@ -82,6 +82,13 @@ type UploadParams struct {
 	// Breaker is the shared, per-process circuit breaker checked/updated
 	// by every s3client.WithRetry call this upload makes.
 	Breaker *s3client.CircuitBreaker
+	// RetryPolicies is the shared, per-process retry/timeout configuration
+	// store every s3client.WithRetry/s3client.AdaptiveTimeout call this
+	// upload makes reads from (uploadSingle/uploadMultipart's own
+	// CreateMultipartUpload/ListParts/UploadPart/CompleteMultipartUpload
+	// calls), resolved by the caller - see s3client.RetryPolicyStore's own
+	// doc comment.
+	RetryPolicies *s3client.RetryPolicyStore
 	// Host is the bare hostname (e.g. url.Parse(profile.EndpointURL).
 	// Hostname()) Breaker tracks state for, resolved by the caller.
 	Host string
@@ -156,7 +163,7 @@ func Upload(ctx context.Context, p UploadParams) (etag string, err error) {
 func uploadSingle(ctx context.Context, p UploadParams) (string, error) {
 	var finalETag string
 
-	err := s3client.WithRetry(ctx, p.Breaker, s3client.PartRetryPolicy, p.Host, func(attemptCtx context.Context, isRetry bool) error {
+	err := s3client.WithRetry(ctx, p.Breaker, p.RetryPolicies.Part(), p.Host, func(attemptCtx context.Context, isRetry bool) error {
 		client := p.Pooled
 		if isRetry {
 			client = p.Fresh
@@ -176,7 +183,7 @@ func uploadSingle(ctx context.Context, p UploadParams) (string, error) {
 
 		hasher := md5.New() //nolint:gosec // see package-level rationale above
 
-		timeoutCtx, cancel := context.WithTimeout(attemptCtx, s3client.AdaptiveTimeout(p.TotalBytes, 0))
+		timeoutCtx, cancel := context.WithTimeout(attemptCtx, s3client.AdaptiveTimeout(p.TotalBytes, 0, p.RetryPolicies.TimeoutFloor()))
 		defer cancel()
 
 		var body io.Reader = &countingReader{r: io.TeeReader(file, hasher), onRead: p.Hooks.OnBytesTransferred}

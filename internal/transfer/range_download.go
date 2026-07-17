@@ -394,13 +394,13 @@ func planDownloadSegments(totalBytes, partSizeOverride int64, completed map[int6
 // wrongly resume mid-segment on retry instead of re-fetching the whole
 // range from offset 0.
 func downloadSegment(ctx context.Context, p DownloadParams, offset, size int64, file *os.File) error {
-	return s3client.WithRetry(ctx, p.Breaker, s3client.PartRetryPolicy, p.Host, func(attemptCtx context.Context, isRetry bool) error {
+	return s3client.WithRetry(ctx, p.Breaker, p.RetryPolicies.Part(), p.Host, func(attemptCtx context.Context, isRetry bool) error {
 		client := p.Pooled
 		if isRetry {
 			client = p.Fresh
 		}
 
-		timeoutCtx, cancel := context.WithTimeout(attemptCtx, s3client.AdaptiveTimeout(size, 0))
+		timeoutCtx, cancel := context.WithTimeout(attemptCtx, s3client.AdaptiveTimeout(size, 0, p.RetryPolicies.TimeoutFloor()))
 		defer cancel()
 
 		resp, err := client.GetObject(timeoutCtx, &s3.GetObjectInput{

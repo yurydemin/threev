@@ -36,6 +36,8 @@ function fromAppSettings(s: domain.AppSettings): AppSettings {
     partSizeOverrideMB: s.PartSizeOverrideMB,
     bandwidthLimitUploadBytesPerSec: s.BandwidthLimitUploadBytesPerSec,
     bandwidthLimitDownloadBytesPerSec: s.BandwidthLimitDownloadBytesPerSec,
+    retryMaxAttempts: s.RetryMaxAttempts,
+    connectionTimeoutSeconds: s.ConnectionTimeoutSeconds,
   };
 }
 
@@ -49,6 +51,8 @@ function toAppSettings(s: AppSettings): domain.AppSettings {
     PartSizeOverrideMB: s.partSizeOverrideMB,
     BandwidthLimitUploadBytesPerSec: s.bandwidthLimitUploadBytesPerSec,
     BandwidthLimitDownloadBytesPerSec: s.bandwidthLimitDownloadBytesPerSec,
+    RetryMaxAttempts: s.retryMaxAttempts,
+    ConnectionTimeoutSeconds: s.connectionTimeoutSeconds,
   });
 }
 

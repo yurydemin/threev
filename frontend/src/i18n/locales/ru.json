@@ -402,7 +402,11 @@
       "bandwidthDescription": "Пусто или 0 — без ограничения.",
       "uploadLabel": "Отдача (upload)",
       "downloadLabel": "Приём (download)",
-      "unlimitedPlaceholder": "Без ограничения"
+      "unlimitedPlaceholder": "Без ограничения",
+      "retryAttemptsLabel": "Попыток при ошибке",
+      "retryAttemptsDescription": "Текущее значение: {{count}}.",
+      "connectionTimeoutLabel": "Таймаут соединения, сек",
+      "connectionTimeoutDescription": "Минимальное время ожидания первого байта данных для части передачи, прежде чем она будет считаться неудачной и повторена."
     },
     "security": {
       "masterPasswordLabel": "Мастер-пароль",

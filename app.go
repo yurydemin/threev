@@ -218,8 +218,9 @@ func newApp() (*App, error) {
 	historyRepo := storage.NewTransferHistoryRepository(db)
 	connMgr := s3client.NewConnectionManager(repo, keyBox)
 	breaker := s3client.NewCircuitBreaker()
+	retryPolicies := s3client.NewRetryPolicyStore()
 
-	transferService := transfer.NewTransferService(repo, keyBox, queueRepo, historyRepo, connMgr, breaker)
+	transferService := transfer.NewTransferService(repo, keyBox, queueRepo, historyRepo, connMgr, breaker, retryPolicies)
 
 	// Read and apply persisted Settings (FR-SET-001, Этап 4 суб-этап 4.3)
 	// before RecoverOrphanedTasks below, since AutoResumeIfEnabled needs
@@ -245,7 +246,7 @@ func newApp() (*App, error) {
 	// domain.ErrLocked via runTask's own guard (see task.go), logged and
 	// left "failed" for the user to RetryTask once they unlock - never a
 	// crash or a skipped step here.
-	settingsService := appsettings.NewSettingsService(db, transferService, repo, keyBox, salt)
+	settingsService := appsettings.NewSettingsService(db, transferService, retryPolicies, repo, keyBox, salt)
 
 	settings, err := settingsService.GetSettings()
 	if err != nil {
@@ -272,7 +273,7 @@ func newApp() (*App, error) {
 	return &App{
 		db:                 db,
 		connectionService:  connection.NewConnectionService(repo, keyBox),
-		fileManagerService: filemanager.NewFileManagerService(repo, keyBox, connMgr, breaker),
+		fileManagerService: filemanager.NewFileManagerService(repo, keyBox, connMgr, breaker, retryPolicies),
 		transferService:    transferService,
 		settingsService:    settingsService,
 		favoritesService:   favorites.NewFavoritesService(favoriteRepo),

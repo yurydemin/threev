@@ -223,11 +223,12 @@ func (s *TransferService) runUploadTask(ctx context.Context, task domain.Transfe
 	assignedUploadID := task.MultipartUploadID
 
 	params := UploadParams{
-		Pooled:  pooled,
-		Fresh:   fresh,
-		Breaker: s.breaker,
-		Host:    host,
-		Limiter: s.limiter.Load(),
+		Pooled:        pooled,
+		Fresh:         fresh,
+		Breaker:       s.breaker,
+		RetryPolicies: s.retryPolicies,
+		Host:          host,
+		Limiter:       s.limiter.Load(),
 
 		Bucket:      bucket,
 		Key:         key,
@@ -280,12 +281,13 @@ func (s *TransferService) runUploadTask(ctx context.Context, task domain.Transfe
 // leaving download.go's own public contract untouched.
 func (s *TransferService) runDownloadTask(ctx context.Context, task domain.TransferTask, rt *runningTask, pooled, fresh *s3.Client, host, bucket, key string) {
 	headParams := DownloadParams{
-		Pooled:  pooled,
-		Fresh:   fresh,
-		Breaker: s.breaker,
-		Host:    host,
-		Bucket:  bucket,
-		Key:     key,
+		Pooled:        pooled,
+		Fresh:         fresh,
+		Breaker:       s.breaker,
+		RetryPolicies: s.retryPolicies,
+		Host:          host,
+		Bucket:        bucket,
+		Key:           key,
 	}
 
 	totalBytes, _, headErr := headObject(ctx, headParams)
@@ -306,11 +308,12 @@ func (s *TransferService) runDownloadTask(ctx context.Context, task domain.Trans
 	stopTracker := s.startTracker(ctx, tracker, task.ID)
 
 	params := DownloadParams{
-		Pooled:  pooled,
-		Fresh:   fresh,
-		Breaker: s.breaker,
-		Host:    host,
-		Limiter: s.limiter.Load(),
+		Pooled:        pooled,
+		Fresh:         fresh,
+		Breaker:       s.breaker,
+		RetryPolicies: s.retryPolicies,
+		Host:          host,
+		Limiter:       s.limiter.Load(),
 
 		Bucket:    bucket,
 		Key:       key,

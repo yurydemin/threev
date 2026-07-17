@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net"
+	"sync"
 	"testing"
 	"time"
 
@@ -328,10 +329,112 @@ func TestAdaptiveTimeout(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := AdaptiveTimeout(tt.partSize, tt.speed)
+			got := AdaptiveTimeout(tt.partSize, tt.speed, minAdaptiveTimeout)
 			if got != tt.want {
-				t.Fatalf("AdaptiveTimeout(%d, %v) = %v, want %v", tt.partSize, tt.speed, got, tt.want)
+				t.Fatalf("AdaptiveTimeout(%d, %v, %v) = %v, want %v", tt.partSize, tt.speed, minAdaptiveTimeout, got, tt.want)
 			}
 		})
 	}
+}
+
+func TestAdaptiveTimeout_CustomFloor(t *testing.T) {
+	// A floor other than minAdaptiveTimeout is honored verbatim, both when
+	// it exceeds the computed value (the floor wins) and when it doesn't
+	// (the computed value wins) - exercising the floor parameter itself,
+	// independent of RetryPolicyStore.
+	const customFloor = 5 * time.Second
+
+	if got := AdaptiveTimeout(1024, 10*1024*1024, customFloor); got != customFloor {
+		t.Fatalf("AdaptiveTimeout() = %v, want the custom floor %v", got, customFloor)
+	}
+
+	// 2 * 128MiB / 1MiB/s = 256s, comfortably above a 10s floor - the
+	// computed value must win here, not the floor.
+	const smallFloor = 10 * time.Second
+	const wantComputed = 256 * time.Second
+	if got := AdaptiveTimeout(128*1024*1024, 1024*1024, smallFloor); got != wantComputed {
+		t.Fatalf("AdaptiveTimeout() = %v, want the computed value %v (above the floor %v)", got, wantComputed, smallFloor)
+	}
+}
+
+func TestNewRetryPolicyStore_Defaults(t *testing.T) {
+	s := NewRetryPolicyStore()
+
+	if got := s.Part(); got != PartRetryPolicy {
+		t.Fatalf("Part() = %+v, want PartRetryPolicy %+v", got, PartRetryPolicy)
+	}
+
+	if got := s.Metadata(); got != MetadataRetryPolicy {
+		t.Fatalf("Metadata() = %+v, want MetadataRetryPolicy %+v", got, MetadataRetryPolicy)
+	}
+
+	if got := s.TimeoutFloor(); got != minAdaptiveTimeout {
+		t.Fatalf("TimeoutFloor() = %v, want minAdaptiveTimeout %v", got, minAdaptiveTimeout)
+	}
+}
+
+func TestRetryPolicyStore_SetThenRead(t *testing.T) {
+	s := NewRetryPolicyStore()
+
+	newPart := RetryPolicy{MaxAttempts: 7, BaseDelay: time.Second, MaxDelay: 10 * time.Second}
+	newMetadata := RetryPolicy{MaxAttempts: 2, BaseDelay: time.Second, MaxDelay: 5 * time.Second}
+	newFloor := 45 * time.Second
+
+	s.Set(newPart, newMetadata, newFloor)
+
+	if got := s.Part(); got != newPart {
+		t.Fatalf("Part() after Set() = %+v, want %+v", got, newPart)
+	}
+
+	if got := s.Metadata(); got != newMetadata {
+		t.Fatalf("Metadata() after Set() = %+v, want %+v", got, newMetadata)
+	}
+
+	if got := s.TimeoutFloor(); got != newFloor {
+		t.Fatalf("TimeoutFloor() after Set() = %v, want %v", got, newFloor)
+	}
+}
+
+// TestRetryPolicyStore_ConcurrentAccess mirrors
+// crypto.TestKeyBoxConcurrentAccess/CircuitBreaker_TestConcurrentAccess: one
+// goroutine calls Set in a loop while others call Part/Metadata/TimeoutFloor
+// in a loop, asserting only that concurrent access is race-free (run under
+// `go test -race`) and never panics - not any particular observed value,
+// since Set/the readers race by design.
+func TestRetryPolicyStore_ConcurrentAccess(t *testing.T) {
+	t.Parallel()
+
+	s := NewRetryPolicyStore()
+
+	const goroutines = 50
+	const iterations = 200
+
+	var wg sync.WaitGroup
+
+	for g := 0; g < goroutines; g++ {
+		wg.Add(1)
+
+		go func(seed int) {
+			defer wg.Done()
+
+			for i := 0; i < iterations; i++ {
+				switch (seed + i) % 4 {
+				case 0:
+					s.Set(
+						RetryPolicy{MaxAttempts: seed%5 + 1, BaseDelay: time.Duration(seed) * time.Millisecond, MaxDelay: time.Second},
+						RetryPolicy{MaxAttempts: seed%3 + 1, BaseDelay: time.Duration(seed) * time.Millisecond, MaxDelay: time.Second},
+						time.Duration(seed)*time.Second,
+					)
+				case 1:
+					_ = s.Part()
+				case 2:
+					_ = s.Metadata()
+				case 3:
+					_ = s.TimeoutFloor()
+				}
+			}
+		}(g)
+	}
+
+	wg.Wait()
 }

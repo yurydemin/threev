@@ -291,7 +291,7 @@ func (f *FileManagerService) copyOneObject(ctx context.Context, pooled, fresh *s
 
 	var sourceSize int64
 
-	headErr := s3client.WithRetry(ctx, f.breaker, s3client.MetadataRetryPolicy, host, func(attemptCtx context.Context, isRetry bool) error {
+	headErr := s3client.WithRetry(ctx, f.breaker, f.retryPolicies.Metadata(), host, func(attemptCtx context.Context, isRetry bool) error {
 		client := pooled
 		if isRetry {
 			client = fresh
@@ -324,7 +324,7 @@ func (f *FileManagerService) copyOneObject(ctx context.Context, pooled, fresh *s
 			return fmt.Errorf("copy %s/%s -> %s/%s: %w", params.SourceBucket, sourceKey, params.DestBucket, destKey, err)
 		}
 	} else {
-		err := s3client.WithRetry(ctx, f.breaker, s3client.MetadataRetryPolicy, host, func(attemptCtx context.Context, isRetry bool) error {
+		err := s3client.WithRetry(ctx, f.breaker, f.retryPolicies.Metadata(), host, func(attemptCtx context.Context, isRetry bool) error {
 			client := pooled
 			if isRetry {
 				client = fresh
@@ -352,7 +352,7 @@ func (f *FileManagerService) copyOneObject(ctx context.Context, pooled, fresh *s
 		return nil
 	}
 
-	delErr := s3client.WithRetry(ctx, f.breaker, s3client.MetadataRetryPolicy, host, func(attemptCtx context.Context, isRetry bool) error {
+	delErr := s3client.WithRetry(ctx, f.breaker, f.retryPolicies.Metadata(), host, func(attemptCtx context.Context, isRetry bool) error {
 		client := pooled
 		if isRetry {
 			client = fresh

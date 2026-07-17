@@ -8,6 +8,9 @@ import type { AppSettings } from '../../types';
 const MIN_CONCURRENCY = 1;
 const MAX_CONCURRENCY = 10;
 
+const MIN_RETRY_ATTEMPTS = 1;
+const MAX_RETRY_ATTEMPTS = 10;
+
 const BYTES_PER_MB = 1024 * 1024;
 
 /** `0`/empty means "unlimited" — mirrors `transfer.NewBandwidthLimiter`'s own convention. */
@@ -96,6 +99,39 @@ export function TransfersSection({ value, onChange }: TransfersSectionProps) {
               onChange={(e) => onChange({ bandwidthLimitDownloadBytesPerSec: mbpsToBytesPerSec(e.target.value) })}
             />
           </div>
+        </SettingField>
+      </SettingGroup>
+
+      <SettingGroup>
+        <SettingField
+          label={t('settings.transfers.retryAttemptsLabel')}
+          description={t('settings.transfers.retryAttemptsDescription', { count: value.retryMaxAttempts })}
+        >
+          <input
+            type="range"
+            min={MIN_RETRY_ATTEMPTS}
+            max={MAX_RETRY_ATTEMPTS}
+            step={1}
+            value={value.retryMaxAttempts}
+            onChange={(e) => onChange({ retryMaxAttempts: Number(e.target.value) })}
+            className="h-1 w-full max-w-xs cursor-pointer appearance-none rounded-full bg-bg-tertiary accent-accent"
+          />
+        </SettingField>
+      </SettingGroup>
+
+      <SettingGroup>
+        <SettingField
+          label={t('settings.transfers.connectionTimeoutLabel')}
+          description={t('settings.transfers.connectionTimeoutDescription')}
+        >
+          <Input
+            type="number"
+            min={10}
+            max={120}
+            step={1}
+            value={value.connectionTimeoutSeconds}
+            onChange={(e) => onChange({ connectionTimeoutSeconds: Number(e.target.value) })}
+          />
         </SettingField>
       </SettingGroup>
     </div>

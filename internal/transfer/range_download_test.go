@@ -51,12 +51,13 @@ func newTestDownloadParams(t *testing.T, serverURL string) DownloadParams {
 	}
 
 	return DownloadParams{
-		Pooled:  client,
-		Fresh:   client,
-		Breaker: s3client.NewCircuitBreaker(),
-		Host:    parsed.Hostname(),
-		Bucket:  "bucket1",
-		Key:     "key1",
+		Pooled:        client,
+		Fresh:         client,
+		Breaker:       s3client.NewCircuitBreaker(),
+		RetryPolicies: s3client.NewRetryPolicyStore(),
+		Host:          parsed.Hostname(),
+		Bucket:        "bucket1",
+		Key:           "key1",
 	}
 }
 

@@ -45,6 +45,15 @@ type FileManagerService struct {
 	connMgr *s3client.ConnectionManager
 	breaker *s3client.CircuitBreaker
 
+	// retryPolicies is the shared, per-process source of retry/timeout
+	// configuration every s3client.WithRetry/s3client.AdaptiveTimeout call
+	// site in this package (delete.go, copymove.go, copylarge.go) reads
+	// from, instead of the s3client.PartRetryPolicy/MetadataRetryPolicy
+	// package vars directly - see s3client.RetryPolicyStore's own doc
+	// comment. Exactly the same shared instance app.go's newApp() passes to
+	// transfer.NewTransferService (not a new one), mirroring breaker above.
+	retryPolicies *s3client.RetryPolicyStore
+
 	// wailsCtx holds ctxHolder (see its own doc comment in bulkops.go),
 	// installed once via SetContext from App.startup, enabling
 	// emitBulkProgressEvent/emitObjectChangeEvent to actually publish Wails
@@ -71,18 +80,19 @@ type FileManagerService struct {
 // at construction time - see crypto.KeyBox's own doc comment and
 // NewConnectionService's identical rationale (Этап 4 суб-этап 4.4, KeyBox).
 // keyBox is expected to be the same instance shared with every other
-// service app.go's newApp constructs. connMgr/breaker back the bulk
-// operations added in Этап 4 (see the connMgr/breaker fields' doc comment) -
-// breaker is expected to be the same instance passed to
-// transfer.NewTransferService.
-func NewFileManagerService(repo *storage.ProfileRepository, keyBox *crypto.KeyBox, connMgr *s3client.ConnectionManager, breaker *s3client.CircuitBreaker) *FileManagerService {
+// service app.go's newApp constructs. connMgr/breaker/retryPolicies back
+// the bulk operations added in Этап 4 (see the connMgr/breaker/
+// retryPolicies fields' doc comments) - breaker/retryPolicies are expected
+// to be the same instances passed to transfer.NewTransferService.
+func NewFileManagerService(repo *storage.ProfileRepository, keyBox *crypto.KeyBox, connMgr *s3client.ConnectionManager, breaker *s3client.CircuitBreaker, retryPolicies *s3client.RetryPolicyStore) *FileManagerService {
 	return &FileManagerService{
-		repo:    repo,
-		keyBox:  keyBox,
-		cache:   newListCache(),
-		connMgr: connMgr,
-		breaker: breaker,
-		running: make(map[int64]*runningBulkOp),
+		repo:          repo,
+		keyBox:        keyBox,
+		cache:         newListCache(),
+		connMgr:       connMgr,
+		breaker:       breaker,
+		retryPolicies: retryPolicies,
+		running:       make(map[int64]*runningBulkOp),
 	}
 }
 

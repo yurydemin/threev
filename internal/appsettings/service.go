@@ -2,7 +2,9 @@
 // screen (FR-SET-001, Этап 4 суб-этап 4.3): reading/writing a
 // domain.AppSettings, persisted one "settings" table row per field via
 // internal/storage's generic GetSetting/SetSetting helpers, and pushing the
-// Transfers-section fields live into a *transfer.TransferService.
+// Transfers-section fields live into a *transfer.TransferService, and the
+// retry-attempts/connection-timeout fields (Блок C) live into a shared
+// *s3client.RetryPolicyStore.
 //
 // It also implements the master-password backend (SEC-001, Этап 4
 // суб-этап 4.4, security.go): IsLocked/Unlock/SetMasterPassword/
@@ -19,9 +21,11 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"time"
 
 	"threev/internal/crypto"
 	"threev/internal/domain"
+	"threev/internal/s3client"
 	"threev/internal/storage"
 	"threev/internal/transfer"
 )
@@ -37,6 +41,8 @@ const (
 	keyPartSizeOverrideMB        = "part_size_override_mb"
 	keyBandwidthLimitUploadBPS   = "bandwidth_limit_upload_bps"
 	keyBandwidthLimitDownloadBPS = "bandwidth_limit_download_bps"
+	keyRetryMaxAttempts          = "retry_max_attempts"
+	keyConnectionTimeoutSeconds  = "connection_timeout_seconds"
 )
 
 // Per-field defaults, applied by GetSettings whenever a given key's row does
@@ -57,6 +63,29 @@ const (
 	// (see domain.AppSettings.BandwidthLimitUploadBytesPerSec's doc
 	// comment).
 	defaultBandwidthLimitBPS int64 = 0
+
+	// defaultRetryMaxAttempts is DIFFERENT from every other default constant
+	// in this block: it is NOT behavior-neutral for a user who has never
+	// opened the Settings screen. domain.AppSettings.RetryMaxAttempts is a
+	// single, flattened value applied to BOTH s3client.PartRetryPolicy
+	// (MaxAttempts: 5) and s3client.MetadataRetryPolicy (MaxAttempts: 3) -
+	// two previously-independent knobs merged into one user-facing slider,
+	// per the plan's own decision (see domain.AppSettings.RetryMaxAttempts'
+	// doc comment). Picking 5 here (matching PartRetryPolicy, the more
+	// heavily-documented/tested of the two per docs/02-tech-spec.md's "5 для
+	// частей" line) means ApplySettings' reapply-at-boot (see its own doc
+	// comment on the dual-call-site design) raises MetadataRetryPolicy's
+	// effective MaxAttempts from 3 to 5 for EVERY user immediately upon this
+	// shipping, even one who never opens Settings. This is an intentional,
+	// accepted side effect of the merge - not a bug - and it is strictly
+	// more resilient (more retries), never less.
+	defaultRetryMaxAttempts = 5
+	// defaultConnectionTimeoutSeconds matches s3client's own (unexported)
+	// minAdaptiveTimeout constant (30 * time.Second) exactly, so - unlike
+	// defaultRetryMaxAttempts above - this one genuinely IS a true no-op at
+	// boot for a user who has never opened the Settings screen, same as
+	// every other default in this block.
+	defaultConnectionTimeoutSeconds = 30
 )
 
 // Validation/clamp bounds SaveSettings enforces (UX-спека 5.7) before ever
@@ -72,6 +101,12 @@ const (
 
 	minPartSizeOverrideMB = 5
 	maxPartSizeOverrideMB = 128
+
+	minRetryMaxAttempts = 1
+	maxRetryMaxAttempts = 10
+
+	minConnectionTimeoutSeconds = 10
+	maxConnectionTimeoutSeconds = 120
 )
 
 // validThemes/validCloseBehaviors are the only values SaveSettings ever
@@ -130,6 +165,16 @@ type SettingsService struct {
 	db              *sql.DB
 	transferService *transfer.TransferService
 
+	// retryPolicies is the exact same shared *s3client.RetryPolicyStore
+	// instance app.go's newApp constructs once (via
+	// s3client.NewRetryPolicyStore) and passes into both
+	// transfer.NewTransferService and filemanager.NewFileManagerService -
+	// mirroring how FileManagerService.breaker's own doc comment explains
+	// this identical shared-instance pattern for *s3client.CircuitBreaker.
+	// ApplySettings.Set on it is this codebase's only call site that ever
+	// mutates it after construction.
+	retryPolicies *s3client.RetryPolicyStore
+
 	// profileRepo/keyBox/salt back the master-password backend
 	// (security.go) - see this struct's own doc comment above for why they
 	// live here rather than on a separate type.
@@ -139,20 +184,23 @@ type SettingsService struct {
 }
 
 // NewSettingsService returns a SettingsService backed by db (settings-row
-// persistence), transferService (ApplySettings' target), profileRepo
-// (SetMasterPassword/RemoveMasterPassword's re-encryption transaction,
-// security.go), keyBox (the shared *crypto.KeyBox every service reads its
-// encryption key from - Unlock/SetMasterPassword/RemoveMasterPassword are
-// this codebase's only KeyBox.Set call sites), and salt (the same
-// crypto_salt app.go's newApp already resolves once at startup via
-// resolveCryptoSalt, passed in already decoded - see crypto.DeriveKey's own
-// doc comment for why the SAME salt is reused for both the machine-only and
-// password-derived key, rather than a second, dedicated "master password
-// salt").
-func NewSettingsService(db *sql.DB, transferService *transfer.TransferService, profileRepo *storage.ProfileRepository, keyBox *crypto.KeyBox, salt []byte) *SettingsService {
+// persistence), transferService (ApplySettings' target), retryPolicies (the
+// shared *s3client.RetryPolicyStore instance also passed to
+// TransferService/FileManagerService - see the SettingsService.retryPolicies
+// field's own doc comment), profileRepo (SetMasterPassword/
+// RemoveMasterPassword's re-encryption transaction, security.go), keyBox
+// (the shared *crypto.KeyBox every service reads its encryption key from -
+// Unlock/SetMasterPassword/RemoveMasterPassword are this codebase's only
+// KeyBox.Set call sites), and salt (the same crypto_salt app.go's newApp
+// already resolves once at startup via resolveCryptoSalt, passed in already
+// decoded - see crypto.DeriveKey's own doc comment for why the SAME salt is
+// reused for both the machine-only and password-derived key, rather than a
+// second, dedicated "master password salt").
+func NewSettingsService(db *sql.DB, transferService *transfer.TransferService, retryPolicies *s3client.RetryPolicyStore, profileRepo *storage.ProfileRepository, keyBox *crypto.KeyBox, salt []byte) *SettingsService {
 	return &SettingsService{
 		db:              db,
 		transferService: transferService,
+		retryPolicies:   retryPolicies,
 		profileRepo:     profileRepo,
 		keyBox:          keyBox,
 		salt:            salt,
@@ -210,6 +258,16 @@ func (s *SettingsService) GetSettings() (domain.AppSettings, error) {
 		return domain.AppSettings{}, err
 	}
 
+	retryMaxAttempts, err := getIntSetting(ctx, s.db, keyRetryMaxAttempts, defaultRetryMaxAttempts)
+	if err != nil {
+		return domain.AppSettings{}, err
+	}
+
+	connectionTimeoutSeconds, err := getIntSetting(ctx, s.db, keyConnectionTimeoutSeconds, defaultConnectionTimeoutSeconds)
+	if err != nil {
+		return domain.AppSettings{}, err
+	}
+
 	return domain.AppSettings{
 		Theme:                             theme,
 		UIScalePercent:                    uiScalePercent,
@@ -219,6 +277,8 @@ func (s *SettingsService) GetSettings() (domain.AppSettings, error) {
 		PartSizeOverrideMB:                partSizeOverrideMB,
 		BandwidthLimitUploadBytesPerSec:   bandwidthLimitUploadBPS,
 		BandwidthLimitDownloadBytesPerSec: bandwidthLimitDownloadBPS,
+		RetryMaxAttempts:                  retryMaxAttempts,
+		ConnectionTimeoutSeconds:          connectionTimeoutSeconds,
 	}, nil
 }
 
@@ -266,6 +326,12 @@ func (s *SettingsService) SaveSettings(settings domain.AppSettings) error {
 	if err := storage.SetSetting(ctx, s.db, keyBandwidthLimitDownloadBPS, strconv.FormatInt(clamped.BandwidthLimitDownloadBytesPerSec, 10)); err != nil {
 		return err
 	}
+	if err := storage.SetSetting(ctx, s.db, keyRetryMaxAttempts, strconv.Itoa(clamped.RetryMaxAttempts)); err != nil {
+		return err
+	}
+	if err := storage.SetSetting(ctx, s.db, keyConnectionTimeoutSeconds, strconv.Itoa(clamped.ConnectionTimeoutSeconds)); err != nil {
+		return err
+	}
 
 	s.ApplySettings(clamped)
 
@@ -281,17 +347,33 @@ func (s *SettingsService) SaveSettings(settings domain.AppSettings) error {
 // deliberately avoids writing anything for a field that was never actually
 // configured).
 //
-// Only three of domain.AppSettings' fields have a live, in-memory
-// TransferService counterpart to push; Theme/UIScalePercent/CloseBehavior/
-// AutoResumeQueue have no backend runtime state of their own to configure
+// Five of domain.AppSettings' fields have a live, in-memory counterpart to
+// push - three into s.transferService (MaxConcurrentTransfers/bandwidth/
+// PartSizeOverrideMB) and two, RetryMaxAttempts/ConnectionTimeoutSeconds,
+// into s.retryPolicies; Theme/UIScalePercent/CloseBehavior/AutoResumeQueue
+// have no backend runtime state of their own to configure
 // (Theme/UIScalePercent/CloseBehavior are pure frontend presentation state;
 // AutoResumeQueue is only ever consulted once, at startup, by app.go's own
 // call to TransferService.AutoResumeIfEnabled - not something ApplySettings
 // itself pushes anywhere).
+//
+// The retryPolicies.Set call below deliberately reads BaseDelay/MaxDelay
+// from the ORIGINAL s3client.PartRetryPolicy/MetadataRetryPolicy package
+// vars every time, preserving their distinct backoff timing untouched -
+// only MaxAttempts (both, flattened to the single RetryMaxAttempts value -
+// see defaultRetryMaxAttempts' own doc comment for the accepted 3->5
+// side effect this produces for MetadataRetryPolicy) and the timeout floor
+// are ever overridden.
 func (s *SettingsService) ApplySettings(settings domain.AppSettings) {
 	s.transferService.SetMaxConcurrentTasks(settings.MaxConcurrentTransfers)
 	s.transferService.SetBandwidthLimits(settings.BandwidthLimitUploadBytesPerSec, settings.BandwidthLimitDownloadBytesPerSec)
 	s.transferService.SetPartSizeOverrideMB(settings.PartSizeOverrideMB)
+
+	s.retryPolicies.Set(
+		s3client.RetryPolicy{MaxAttempts: settings.RetryMaxAttempts, BaseDelay: s3client.PartRetryPolicy.BaseDelay, MaxDelay: s3client.PartRetryPolicy.MaxDelay},
+		s3client.RetryPolicy{MaxAttempts: settings.RetryMaxAttempts, BaseDelay: s3client.MetadataRetryPolicy.BaseDelay, MaxDelay: s3client.MetadataRetryPolicy.MaxDelay},
+		time.Duration(settings.ConnectionTimeoutSeconds)*time.Second,
+	)
 }
 
 // clampSettings returns settings with every field validated/clamped per
@@ -321,6 +403,9 @@ func clampSettings(settings domain.AppSettings) domain.AppSettings {
 	if settings.BandwidthLimitDownloadBytesPerSec < 0 {
 		settings.BandwidthLimitDownloadBytesPerSec = 0
 	}
+
+	settings.RetryMaxAttempts = clampInt(settings.RetryMaxAttempts, minRetryMaxAttempts, maxRetryMaxAttempts)
+	settings.ConnectionTimeoutSeconds = clampInt(settings.ConnectionTimeoutSeconds, minConnectionTimeoutSeconds, maxConnectionTimeoutSeconds)
 
 	return settings
 }

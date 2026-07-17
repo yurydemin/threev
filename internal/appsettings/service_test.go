@@ -25,12 +25,13 @@ import (
 // testTransferDeps) with the pieces needed to create test profiles and
 // exercise its underlying *transfer.TransferService directly.
 type testSettingsDeps struct {
-	settingsSvc *SettingsService
-	transferSvc *transfer.TransferService
-	profileRepo *storage.ProfileRepository
-	key         [32]byte
-	keyBox      *crypto.KeyBox
-	salt        []byte
+	settingsSvc   *SettingsService
+	transferSvc   *transfer.TransferService
+	retryPolicies *s3client.RetryPolicyStore
+	profileRepo   *storage.ProfileRepository
+	key           [32]byte
+	keyBox        *crypto.KeyBox
+	salt          []byte
 }
 
 // testSettingsSalt is a fixed (test-only) Argon2id salt, used by every
@@ -69,17 +70,19 @@ func newTestSettingsService(t *testing.T) testSettingsDeps {
 
 	connMgr := s3client.NewConnectionManager(profileRepo, keyBox)
 	breaker := s3client.NewCircuitBreaker()
+	retryPolicies := s3client.NewRetryPolicyStore()
 
-	transferSvc := transfer.NewTransferService(profileRepo, keyBox, queueRepo, historyRepo, connMgr, breaker)
-	settingsSvc := NewSettingsService(db, transferSvc, profileRepo, keyBox, testSettingsSalt)
+	transferSvc := transfer.NewTransferService(profileRepo, keyBox, queueRepo, historyRepo, connMgr, breaker, retryPolicies)
+	settingsSvc := NewSettingsService(db, transferSvc, retryPolicies, profileRepo, keyBox, testSettingsSalt)
 
 	return testSettingsDeps{
-		settingsSvc: settingsSvc,
-		transferSvc: transferSvc,
-		profileRepo: profileRepo,
-		key:         key,
-		keyBox:      keyBox,
-		salt:        testSettingsSalt,
+		settingsSvc:   settingsSvc,
+		transferSvc:   transferSvc,
+		retryPolicies: retryPolicies,
+		profileRepo:   profileRepo,
+		key:           key,
+		keyBox:        keyBox,
+		salt:          testSettingsSalt,
 	}
 }
 
@@ -135,6 +138,8 @@ func TestGetSettingsOnEmptyDatabaseReturnsDefaults(t *testing.T) {
 		PartSizeOverrideMB:                0,
 		BandwidthLimitUploadBytesPerSec:   0,
 		BandwidthLimitDownloadBytesPerSec: 0,
+		RetryMaxAttempts:                  defaultRetryMaxAttempts,
+		ConnectionTimeoutSeconds:          defaultConnectionTimeoutSeconds,
 	}
 
 	if got != want {
@@ -160,6 +165,7 @@ func TestGetSettingsOnEmptyDatabaseDoesNotPersistDefaults(t *testing.T) {
 		keyTheme, keyUIScalePercent, keyCloseBehavior, keyAutoResumeQueue,
 		keyMaxConcurrentTransfers, keyPartSizeOverrideMB,
 		keyBandwidthLimitUploadBPS, keyBandwidthLimitDownloadBPS,
+		keyRetryMaxAttempts, keyConnectionTimeoutSeconds,
 	} {
 		if _, err := storage.GetSetting(context.Background(), deps.settingsSvc.db, key); !isErrNoRows(err) {
 			t.Errorf("storage.GetSetting(%q) after a GetSettings() call = (_, %v), want sql.ErrNoRows (GetSettings must never eagerly persist a default)", key, err)
@@ -193,6 +199,8 @@ func TestSaveSettingsThenGetSettingsRoundTrips(t *testing.T) {
 		PartSizeOverrideMB:                32,
 		BandwidthLimitUploadBytesPerSec:   1_000_000,
 		BandwidthLimitDownloadBytesPerSec: 2_000_000,
+		RetryMaxAttempts:                  8,
+		ConnectionTimeoutSeconds:          60,
 	}
 
 	if err := deps.settingsSvc.SaveSettings(want); err != nil {
@@ -228,6 +236,8 @@ func TestSaveSettingsClampsOutOfRangeValues(t *testing.T) {
 		PartSizeOverrideMB:                1,   // above 0, below minPartSizeOverrideMB (5)
 		BandwidthLimitUploadBytesPerSec:   -5,  // negative
 		BandwidthLimitDownloadBytesPerSec: -1,  // negative
+		RetryMaxAttempts:                  999, // above maxRetryMaxAttempts (10)
+		ConnectionTimeoutSeconds:          1,   // below minConnectionTimeoutSeconds (10)
 	}
 
 	if err := deps.settingsSvc.SaveSettings(input); err != nil {
@@ -248,6 +258,8 @@ func TestSaveSettingsClampsOutOfRangeValues(t *testing.T) {
 		PartSizeOverrideMB:                5,  // clamped up to the floor
 		BandwidthLimitUploadBytesPerSec:   0,
 		BandwidthLimitDownloadBytesPerSec: 0,
+		RetryMaxAttempts:                  maxRetryMaxAttempts,         // clamped down to the ceiling
+		ConnectionTimeoutSeconds:          minConnectionTimeoutSeconds, // clamped up to the floor
 	}
 
 	if got != want {
@@ -466,9 +478,98 @@ func TestApplySettingsAtStartupDoesNotPersist(t *testing.T) {
 		keyTheme, keyUIScalePercent, keyCloseBehavior, keyAutoResumeQueue,
 		keyMaxConcurrentTransfers, keyPartSizeOverrideMB,
 		keyBandwidthLimitUploadBPS, keyBandwidthLimitDownloadBPS,
+		keyRetryMaxAttempts, keyConnectionTimeoutSeconds,
 	} {
 		if _, err := storage.GetSetting(context.Background(), deps.settingsSvc.db, key); !isErrNoRows(err) {
 			t.Errorf("storage.GetSetting(%q) after ApplySettings() (no prior SaveSettings) = (_, %v), want sql.ErrNoRows", key, err)
 		}
+	}
+}
+
+// TestApplySettingsUpdatesLiveRetryPolicies verifies ApplySettings' direct
+// effect on the shared *s3client.RetryPolicyStore (see its own doc comment):
+// RetryMaxAttempts is applied uniformly to both Part() and Metadata(),
+// leaving each policy's BaseDelay/MaxDelay exactly as
+// s3client.PartRetryPolicy/s3client.MetadataRetryPolicy themselves define
+// them, and ConnectionTimeoutSeconds becomes TimeoutFloor() (converted to a
+// time.Duration).
+func TestApplySettingsUpdatesLiveRetryPolicies(t *testing.T) {
+	t.Parallel()
+
+	deps := newTestSettingsService(t)
+
+	settings := domain.AppSettings{
+		Theme:                  "system",
+		UIScalePercent:         100,
+		CloseBehavior:          "exit",
+		MaxConcurrentTransfers: transfer.DefaultMaxConcurrentTasks,
+
+		RetryMaxAttempts:         7,
+		ConnectionTimeoutSeconds: 45,
+	}
+
+	deps.settingsSvc.ApplySettings(settings)
+
+	gotPart := deps.retryPolicies.Part()
+	if gotPart.MaxAttempts != 7 {
+		t.Errorf("Part().MaxAttempts = %d, want 7", gotPart.MaxAttempts)
+	}
+	if gotPart.BaseDelay != s3client.PartRetryPolicy.BaseDelay {
+		t.Errorf("Part().BaseDelay = %v, want %v (untouched)", gotPart.BaseDelay, s3client.PartRetryPolicy.BaseDelay)
+	}
+	if gotPart.MaxDelay != s3client.PartRetryPolicy.MaxDelay {
+		t.Errorf("Part().MaxDelay = %v, want %v (untouched)", gotPart.MaxDelay, s3client.PartRetryPolicy.MaxDelay)
+	}
+
+	gotMetadata := deps.retryPolicies.Metadata()
+	if gotMetadata.MaxAttempts != 7 {
+		t.Errorf("Metadata().MaxAttempts = %d, want 7", gotMetadata.MaxAttempts)
+	}
+	if gotMetadata.BaseDelay != s3client.MetadataRetryPolicy.BaseDelay {
+		t.Errorf("Metadata().BaseDelay = %v, want %v (untouched)", gotMetadata.BaseDelay, s3client.MetadataRetryPolicy.BaseDelay)
+	}
+	if gotMetadata.MaxDelay != s3client.MetadataRetryPolicy.MaxDelay {
+		t.Errorf("Metadata().MaxDelay = %v, want %v (untouched)", gotMetadata.MaxDelay, s3client.MetadataRetryPolicy.MaxDelay)
+	}
+
+	if got, want := deps.retryPolicies.TimeoutFloor(), 45*time.Second; got != want {
+		t.Errorf("TimeoutFloor() = %v, want %v", got, want)
+	}
+}
+
+// TestSaveSettingsClampsRetryFields verifies SaveSettings clamps
+// RetryMaxAttempts/ConnectionTimeoutSeconds the same "silent clamp, never
+// reject" way as every other numeric field (see
+// TestSaveSettingsClampsOutOfRangeValues), and that the CLAMPED value - not
+// the raw input - is what a subsequent GetSettings() observes.
+func TestSaveSettingsClampsRetryFields(t *testing.T) {
+	t.Parallel()
+
+	deps := newTestSettingsService(t)
+
+	input := domain.AppSettings{
+		Theme:                  "system",
+		UIScalePercent:         100,
+		CloseBehavior:          "exit",
+		MaxConcurrentTransfers: transfer.DefaultMaxConcurrentTasks,
+
+		RetryMaxAttempts:         999, // above maxRetryMaxAttempts (10)
+		ConnectionTimeoutSeconds: 1,   // below minConnectionTimeoutSeconds (10)
+	}
+
+	if err := deps.settingsSvc.SaveSettings(input); err != nil {
+		t.Fatalf("SaveSettings() returned error: %v", err)
+	}
+
+	got, err := deps.settingsSvc.GetSettings()
+	if err != nil {
+		t.Fatalf("GetSettings() returned error: %v", err)
+	}
+
+	if got.RetryMaxAttempts != maxRetryMaxAttempts {
+		t.Errorf("GetSettings().RetryMaxAttempts = %d, want %d (clamped down to the ceiling)", got.RetryMaxAttempts, maxRetryMaxAttempts)
+	}
+	if got.ConnectionTimeoutSeconds != minConnectionTimeoutSeconds {
+		t.Errorf("GetSettings().ConnectionTimeoutSeconds = %d, want %d (clamped up to the floor)", got.ConnectionTimeoutSeconds, minConnectionTimeoutSeconds)
 	}
 }

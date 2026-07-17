@@ -391,7 +391,11 @@
       "bandwidthDescription": "Empty or 0 — no limit.",
       "uploadLabel": "Upload",
       "downloadLabel": "Download",
-      "unlimitedPlaceholder": "No limit"
+      "unlimitedPlaceholder": "No limit",
+      "retryAttemptsLabel": "Retry attempts on error",
+      "retryAttemptsDescription": "Current value: {{count}}.",
+      "connectionTimeoutLabel": "Connection timeout, sec",
+      "connectionTimeoutDescription": "Minimum time to wait for the first byte of a transfer part before it's considered failed and retried."
     },
     "security": {
       "masterPasswordLabel": "Master password",

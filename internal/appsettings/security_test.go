@@ -158,7 +158,7 @@ func TestUnlockWithCorrectPasswordInstallsSameKeySetMasterPasswordDid(t *testing
 	// Simulate a fresh process launch: a brand new, empty KeyBox, but the
 	// same underlying database/salt.
 	freshKeyBox := tcrypto.NewKeyBox()
-	freshSvc := NewSettingsService(deps.settingsSvc.db, deps.transferSvc, deps.profileRepo, freshKeyBox, deps.salt)
+	freshSvc := NewSettingsService(deps.settingsSvc.db, deps.transferSvc, deps.retryPolicies, deps.profileRepo, freshKeyBox, deps.salt)
 
 	ok, err := freshSvc.Unlock("correct horse battery staple")
 	if err != nil {
@@ -190,7 +190,7 @@ func TestUnlockWithIncorrectPasswordLeavesKeyBoxUntouched(t *testing.T) {
 	}
 
 	freshKeyBox := tcrypto.NewKeyBox()
-	freshSvc := NewSettingsService(deps.settingsSvc.db, deps.transferSvc, deps.profileRepo, freshKeyBox, deps.salt)
+	freshSvc := NewSettingsService(deps.settingsSvc.db, deps.transferSvc, deps.retryPolicies, deps.profileRepo, freshKeyBox, deps.salt)
 
 	ok, err := freshSvc.Unlock("wrong password")
 	if err != nil {

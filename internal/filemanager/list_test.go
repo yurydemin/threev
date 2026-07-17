@@ -52,8 +52,9 @@ func newTestFileManagerService(t *testing.T) (*FileManagerService, *storage.Prof
 
 	connMgr := s3client.NewConnectionManager(repo, keyBox)
 	breaker := s3client.NewCircuitBreaker()
+	retryPolicies := s3client.NewRetryPolicyStore()
 
-	return NewFileManagerService(repo, keyBox, connMgr, breaker), repo, key
+	return NewFileManagerService(repo, keyBox, connMgr, breaker, retryPolicies), repo, key
 }
 
 // saveTestProfile persists (via ConnectionService, so credentials are

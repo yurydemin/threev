@@ -53,6 +53,12 @@ type DownloadParams struct {
 	// Breaker is the shared, per-process circuit breaker checked/updated
 	// by every s3client.WithRetry call this download makes.
 	Breaker *s3client.CircuitBreaker
+	// RetryPolicies is the shared, per-process retry/timeout configuration
+	// store every s3client.WithRetry/s3client.AdaptiveTimeout call this
+	// download makes reads from (headObject's HeadObject call,
+	// downloadSegment's Range GetObject calls), resolved by the caller -
+	// see s3client.RetryPolicyStore's own doc comment.
+	RetryPolicies *s3client.RetryPolicyStore
 	// Host is the bare hostname (e.g. url.Parse(profile.EndpointURL).
 	// Hostname()) Breaker tracks state for, resolved by the caller.
 	Host string
@@ -147,7 +153,7 @@ func Download(ctx context.Context, p DownloadParams) (etag string, err error) {
 // headObject runs HeadObject under s3client.MetadataRetryPolicy and returns
 // the object's Content-Length and ETag (quotes stripped).
 func headObject(ctx context.Context, p DownloadParams) (totalBytes int64, etag string, err error) {
-	err = s3client.WithRetry(ctx, p.Breaker, s3client.MetadataRetryPolicy, p.Host, func(attemptCtx context.Context, isRetry bool) error {
+	err = s3client.WithRetry(ctx, p.Breaker, p.RetryPolicies.Metadata(), p.Host, func(attemptCtx context.Context, isRetry bool) error {
 		client := p.Pooled
 		if isRetry {
 			client = p.Fresh
