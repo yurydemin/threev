@@ -5,6 +5,7 @@ import { Button } from '../ui/Button';
 import { Select } from '../ui/Select';
 import { Input } from '../ui/Input';
 import { useFileManagerStore } from '../../stores/useFileManagerStore';
+import { FolderTree } from './FolderTree';
 
 export interface DestinationPickerModalProps {
   isOpen: boolean;
@@ -79,6 +80,7 @@ export function DestinationPickerModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
+      size="large"
       title={mode === 'copy' ? t('fileManager.destinationPickerModal.titleCopy') : t('fileManager.destinationPickerModal.titleMove')}
       footer={
         <>
@@ -104,6 +106,12 @@ export function DestinationPickerModal({
           onChange={setDestBucket}
           options={buckets.map((bucket) => ({ value: bucket.name, label: bucket.name }))}
         />
+        {destBucket && (
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-medium text-fg-secondary">{t('fileManager.destinationPickerModal.treeLabel')}</span>
+            <FolderTree profileId={profileId} bucket={destBucket} selectedPrefix={destPrefix} onSelect={setDestPrefix} />
+          </div>
+        )}
         <Input
           label={t('fileManager.destinationPickerModal.prefixLabel')}
           value={destPrefix}
