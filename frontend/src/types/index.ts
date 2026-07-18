@@ -23,6 +23,8 @@ export interface Connection {
   pathStyle: boolean;
   verifySsl: boolean;
   customHeaders: Record<string, string>;
+  /** HTTP/SOCKS5 proxy URL (`scheme://[user:pass@]host:port`), empty string = no proxy. */
+  proxyUrl: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -39,6 +41,8 @@ export interface ConnectionSummary {
   updatedAt: string;
   /** `false` only for a profile imported via `importProfiles()` that hasn't since been edited with real credentials. */
   hasCredentials: boolean;
+  /** Whether this profile currently has a proxy configured — the raw URL itself is never exposed here (may embed a password). */
+  hasProxy: boolean;
 }
 
 /** Mirrors `domain.ConnectionTestResult`. */

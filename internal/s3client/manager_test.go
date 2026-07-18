@@ -90,6 +90,38 @@ func createTestProfile(t *testing.T, repo *storage.ProfileRepository, name strin
 	return saved
 }
 
+// TestProfileHashDiffersOnProxyURLChange is the regression test for
+// cache-invalidation-on-proxy-edit: profileHash must produce a different
+// fingerprint when only ProxyURL differs between two otherwise-identical
+// profiles, so ConnectionManager.Get correctly rebuilds a profile's cached
+// clients after its proxy is added, changed, or removed.
+func TestProfileHashDiffersOnProxyURLChange(t *testing.T) {
+	t.Parallel()
+
+	base := domain.Profile{
+		EndpointURL:     "https://s3.example.com",
+		Region:          "us-east-1",
+		AccessKeyID:     "AKIAEXAMPLE",
+		SecretAccessKey: "secret",
+		SessionToken:    "token",
+		PathStyle:       true,
+		VerifySSL:       true,
+	}
+
+	withoutProxy := base
+	withoutProxy.ProxyURL = ""
+
+	withProxy := base
+	withProxy.ProxyURL = "socks5://user:pass@proxy.example.com:1080"
+
+	hashWithoutProxy := profileHash(withoutProxy)
+	hashWithProxy := profileHash(withProxy)
+
+	if hashWithoutProxy == hashWithProxy {
+		t.Error("profileHash() unchanged when only ProxyURL differs, want distinct hashes")
+	}
+}
+
 func TestConnectionManagerGetReturnsClients(t *testing.T) {
 	t.Parallel()
 

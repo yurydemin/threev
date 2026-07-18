@@ -1,6 +1,7 @@
 package s3client
 
 import (
+	"fmt"
 	"net/http"
 	"time"
 
@@ -37,7 +38,12 @@ const defaultRegion = "us-east-1"
 // (connection testing, file manager listing) rather than the long-lived,
 // pooled/fresh pair managed by ConnectionManager (Stage 3, manager.go).
 func NewS3Client(p domain.Profile) (*s3.Client, error) {
-	return buildClient(p, newHTTPClient(p))
+	httpClient, err := newHTTPClient(p)
+	if err != nil {
+		return nil, fmt.Errorf("build http client: %w", err)
+	}
+
+	return buildClient(p, httpClient)
 }
 
 // NewS3ClientWithHTTPClient builds an *s3.Client identically to NewS3Client,
@@ -92,24 +98,30 @@ func buildClient(p domain.Profile, httpClient *http.Client) (*s3.Client, error) 
 // newHTTPClient builds the plain *http.Client used by NewS3Client: a
 // timeout-bounded client with no connection pooling tuning of its own
 // (relying on Go's http.DefaultTransport-like defaults), optionally with
-// TLS verification disabled. This is deliberately simple - see
-// transport.go's newPooledTransport/newFreshTransport for the tuned
-// transports used by ConnectionManager.
+// TLS verification disabled and/or routed through a per-profile proxy. This
+// is deliberately simple - see transport.go's newPooledTransport/
+// newFreshTransport for the tuned transports used by ConnectionManager.
 //
 // When p.VerifySSL is false, TLS certificate verification is disabled on
 // this client only, and only because the user explicitly requested it for
 // this specific profile - never globally - per SEC-004
 // (docs/02-tech-spec.md section 11).
-func newHTTPClient(p domain.Profile) *http.Client {
-	client := &http.Client{
-		Timeout: defaultHTTPTimeout,
+//
+// A *http.Transport is now always built (previously only when
+// !p.VerifySSL), because applying p.ProxyURL (via applyProxy) requires a
+// concrete *http.Transport to configure regardless of the TLS verification
+// setting.
+func newHTTPClient(p domain.Profile) (*http.Client, error) {
+	t := &http.Transport{
+		TLSClientConfig: tlsConfigFor(p),
 	}
 
-	if tlsConfig := tlsConfigFor(p); tlsConfig != nil {
-		client.Transport = &http.Transport{
-			TLSClientConfig: tlsConfig,
-		}
+	if err := applyProxy(t, p); err != nil {
+		return nil, err
 	}
 
-	return client
+	return &http.Client{
+		Timeout:   defaultHTTPTimeout,
+		Transport: t,
+	}, nil
 }

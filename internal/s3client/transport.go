@@ -2,9 +2,13 @@ package s3client
 
 import (
 	"crypto/tls"
+	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"time"
+
+	"golang.org/x/net/proxy"
 
 	"threev/internal/domain"
 )
@@ -55,14 +59,58 @@ func tlsConfigFor(p domain.Profile) *tls.Config {
 	return &tls.Config{InsecureSkipVerify: true} //nolint:gosec // explicit, per-profile opt-out required by SEC-004; never a global default
 }
 
+// applyProxy configures t.Proxy (HTTP/HTTPS CONNECT) or t.DialContext
+// (SOCKS5, via golang.org/x/net/proxy - net/http's Transport.Proxy field
+// only understands HTTP(S) CONNECT proxies, not SOCKS5) from p.ProxyURL.
+// An empty ProxyURL is a no-op. Returns a descriptive error for an
+// unparsable URL or unsupported scheme, rather than letting a malformed
+// value surface later as an opaque dial failure.
+func applyProxy(t *http.Transport, p domain.Profile) error {
+	if p.ProxyURL == "" {
+		return nil
+	}
+
+	u, err := url.Parse(p.ProxyURL)
+	if err != nil {
+		return fmt.Errorf("parse proxy URL: %w", err)
+	}
+
+	switch u.Scheme {
+	case "http", "https":
+		t.Proxy = http.ProxyURL(u)
+		return nil
+	case "socks5", "socks5h":
+		var auth *proxy.Auth
+		if u.User != nil {
+			password, _ := u.User.Password()
+			auth = &proxy.Auth{User: u.User.Username(), Password: password}
+		}
+
+		dialer, err := proxy.SOCKS5("tcp", u.Host, auth, newDialer())
+		if err != nil {
+			return fmt.Errorf("build SOCKS5 dialer: %w", err)
+		}
+
+		ctxDialer, ok := dialer.(proxy.ContextDialer)
+		if !ok {
+			return fmt.Errorf("SOCKS5 dialer does not support context (unexpected)")
+		}
+
+		t.DialContext = ctxDialer.DialContext
+		return nil
+	default:
+		return fmt.Errorf("unsupported proxy scheme %q (expected http, https, or socks5)", u.Scheme)
+	}
+}
+
 // newPooledTransport returns the long-lived, connection-reusing
 // *http.Transport used for the first attempt of every request against
 // profile p (docs/02-tech-spec.md section 10.1): idle connections are kept
 // around (MaxIdleConns/MaxIdleConnsPerHost/IdleConnTimeout) so repeated
 // calls against the same profile reuse existing TCP+TLS connections instead
 // of paying handshake cost every time.
-func newPooledTransport(p domain.Profile) *http.Transport {
-	return &http.Transport{
+func newPooledTransport(p domain.Profile) (*http.Transport, error) {
+	t := &http.Transport{
 		DialContext:           newDialer().DialContext,
 		TLSClientConfig:       tlsConfigFor(p),
 		MaxIdleConns:          maxIdleConns,
@@ -72,6 +120,12 @@ func newPooledTransport(p domain.Profile) *http.Transport {
 		ExpectContinueTimeout: expectContinueTimeout,
 		ResponseHeaderTimeout: responseHeaderTimeout,
 	}
+
+	if err := applyProxy(t, p); err != nil {
+		return nil, err
+	}
+
+	return t, nil
 }
 
 // newFreshTransport returns an *http.Transport configured identically to
@@ -83,8 +137,12 @@ func newPooledTransport(p domain.Profile) *http.Transport {
 // retry attempts - never the first attempt - which is why the retry layer
 // (retry.go, a later step) holds one dedicated *s3.Client built on top of
 // this transport per profile, separate from the pooled one.
-func newFreshTransport(p domain.Profile) *http.Transport {
-	t := newPooledTransport(p)
+func newFreshTransport(p domain.Profile) (*http.Transport, error) {
+	t, err := newPooledTransport(p)
+	if err != nil {
+		return nil, err
+	}
+
 	t.DisableKeepAlives = true
 
 	// MaxIdleConns/MaxIdleConnsPerHost/IdleConnTimeout, inherited from
@@ -99,5 +157,5 @@ func newFreshTransport(p domain.Profile) *http.Transport {
 	// through this transport is forced onto HTTP/1.1 with exactly one
 	// request per connection - reinforcing, not weakening, the "new TCP
 	// connection per attempt" guarantee this transport exists for.
-	return t
+	return t, nil
 }

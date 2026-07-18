@@ -403,6 +403,7 @@ export namespace domain {
 	    PathStyle: boolean;
 	    VerifySSL: boolean;
 	    CustomHeaders: Record<string, string>;
+	    ProxyURL: string;
 	    // Go type: time
 	    CreatedAt: any;
 	    // Go type: time
@@ -424,6 +425,7 @@ export namespace domain {
 	        this.PathStyle = source["PathStyle"];
 	        this.VerifySSL = source["VerifySSL"];
 	        this.CustomHeaders = source["CustomHeaders"];
+	        this.ProxyURL = source["ProxyURL"];
 	        this.CreatedAt = this.convertValues(source["CreatedAt"], null);
 	        this.UpdatedAt = this.convertValues(source["UpdatedAt"], null);
 	    }
@@ -458,6 +460,7 @@ export namespace domain {
 	    // Go type: time
 	    UpdatedAt: any;
 	    HasCredentials: boolean;
+	    HasProxy: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new ProfileDTO(source);
@@ -474,6 +477,7 @@ export namespace domain {
 	        this.CreatedAt = this.convertValues(source["CreatedAt"], null);
 	        this.UpdatedAt = this.convertValues(source["UpdatedAt"], null);
 	        this.HasCredentials = source["HasCredentials"];
+	        this.HasProxy = source["HasProxy"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

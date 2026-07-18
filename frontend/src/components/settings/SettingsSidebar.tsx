@@ -1,10 +1,10 @@
-import { Info, Lock, Palette, SlidersHorizontal, Wifi, Wrench } from 'lucide-react';
+import { Info, Lock, Palette, SlidersHorizontal, Wrench } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import { cn } from '../../lib/utils';
 
-export type SettingsSection = 'general' | 'appearance' | 'transfers' | 'security' | 'network' | 'about';
+export type SettingsSection = 'general' | 'appearance' | 'transfers' | 'security' | 'about';
 
 interface SectionItem {
   id: SettingsSection;
@@ -18,7 +18,6 @@ function getSections(t: TFunction): SectionItem[] {
     { id: 'appearance', label: t('settings.sidebar.appearance'), icon: Palette },
     { id: 'transfers', label: t('settings.sidebar.transfers'), icon: SlidersHorizontal },
     { id: 'security', label: t('settings.sidebar.security'), icon: Lock },
-    { id: 'network', label: t('settings.sidebar.network'), icon: Wifi },
     { id: 'about', label: t('settings.sidebar.about'), icon: Info },
   ];
 }

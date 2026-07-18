@@ -91,7 +91,9 @@
       "sessionTokenPlaceholder": "optional",
       "advanced": "Advanced",
       "pathStyleLabel": "Path-style URL",
-      "verifySslLabel": "Verify SSL certificate"
+      "verifySslLabel": "Verify SSL certificate",
+      "proxyUrlLabel": "Proxy server",
+      "proxyUrlPlaceholder": "http://user:pass@host:8080 or socks5://host:1080"
     }
   },
   "fileManager": {
@@ -350,19 +352,15 @@
         "appearance": "Appearance",
         "transfers": "Transfers",
         "security": "Security",
-        "network": "Network",
         "about": "About"
       },
-      "saveButton": "Save changes",
-      "networkPlaceholderTitle": "Coming soon",
-      "networkPlaceholderDescription": "HTTP/SOCKS proxy settings will be available in a future update."
+      "saveButton": "Save changes"
     },
     "sidebar": {
       "general": "General",
       "appearance": "Appearance",
       "transfers": "Transfers",
       "security": "Security",
-      "network": "Network",
       "about": "About"
     },
     "general": {

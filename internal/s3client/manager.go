@@ -185,8 +185,15 @@ func (m *ConnectionManager) resolveProfile(id int64, key [32]byte) (domain.Profi
 // newManagerEntry builds the pooled and fresh transports/clients for
 // profile p, tagging the resulting entry with hash.
 func newManagerEntry(p domain.Profile, hash string) (*managerEntry, error) {
-	pooledTransport := newPooledTransport(p)
-	freshTransport := newFreshTransport(p)
+	pooledTransport, err := newPooledTransport(p)
+	if err != nil {
+		return nil, fmt.Errorf("build pooled transport: %w", err)
+	}
+
+	freshTransport, err := newFreshTransport(p)
+	if err != nil {
+		return nil, fmt.Errorf("build fresh transport: %w", err)
+	}
 
 	pooledClient, err := NewS3ClientWithHTTPClient(p, &http.Client{
 		Transport: pooledTransport,
@@ -224,13 +231,14 @@ func closeEntry(entry *managerEntry) {
 
 // profileHash returns a stable fingerprint of the profile fields that
 // affect how its S3 clients/transports are built: endpoint, region,
-// credentials, path style, TLS verification, and custom headers. It is not
-// meant to be a secret-safe or cryptographically strong digest - it exists
-// purely as a cheap, deterministic way for Get to detect "has this profile
-// changed since clients were last cached for it" without keeping a full
-// copy of the previous domain.Profile around to compare field by field.
-// crypto/sha256 is used only for its convenient fixed-size, collision-
-// resistant-enough-for-this-purpose output, not for any security property.
+// credentials, path style, TLS verification, custom headers, and proxy URL.
+// It is not meant to be a secret-safe or cryptographically strong digest -
+// it exists purely as a cheap, deterministic way for Get to detect "has this
+// profile changed since clients were last cached for it" without keeping a
+// full copy of the previous domain.Profile around to compare field by
+// field. crypto/sha256 is used only for its convenient fixed-size,
+// collision-resistant-enough-for-this-purpose output, not for any security
+// property.
 func profileHash(p domain.Profile) string {
 	h := sha256.New()
 
@@ -240,6 +248,8 @@ func profileHash(p domain.Profile) string {
 	)
 
 	writeSortedHeaders(h, p.CustomHeaders)
+
+	fmt.Fprintf(h, "%s\x00", p.ProxyURL)
 
 	return hex.EncodeToString(h.Sum(nil))
 }

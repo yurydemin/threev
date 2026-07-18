@@ -29,6 +29,7 @@ const EMPTY_VALUES: ConnectionFormValues = {
   pathStyle: false,
   verifySsl: true,
   customHeaders: {},
+  proxyUrl: '',
 };
 
 // S3-compatible providers accept arbitrary region strings (Yandex, MinIO,
@@ -56,6 +57,7 @@ function valuesFromConnection(connection: Connection | undefined): ConnectionFor
     pathStyle: connection.pathStyle,
     verifySsl: connection.verifySsl,
     customHeaders: connection.customHeaders,
+    proxyUrl: connection.proxyUrl,
   };
 }
 
@@ -322,6 +324,12 @@ export function ConnectionForm({ isOpen, onClose, initialValues, onSaved }: Conn
                 label={t('connections.form.verifySslLabel')}
                 checked={values.verifySsl}
                 onChange={(e) => update('verifySsl', e.target.checked)}
+              />
+              <Input
+                label={t('connections.form.proxyUrlLabel')}
+                value={values.proxyUrl}
+                onChange={(e) => update('proxyUrl', e.target.value)}
+                placeholder={t('connections.form.proxyUrlPlaceholder')}
               />
             </div>
           </div>

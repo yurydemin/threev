@@ -8,7 +8,6 @@ import { GeneralSection } from '../components/settings/GeneralSection';
 import { AppearanceSection } from '../components/settings/AppearanceSection';
 import { TransfersSection } from '../components/settings/TransfersSection';
 import { SecuritySection } from '../components/settings/SecuritySection';
-import { PlaceholderSection } from '../components/settings/PlaceholderSection';
 import { AboutSection } from '../components/settings/AboutSection';
 import { Button } from '../components/ui/Button';
 import { useSettingsStore } from '../stores/useSettingsStore';
@@ -20,7 +19,6 @@ function getSectionTitles(t: TFunction): Record<SettingsSection, string> {
     appearance: t('settings.screen.sections.appearance'),
     transfers: t('settings.screen.sections.transfers'),
     security: t('settings.screen.sections.security'),
-    network: t('settings.screen.sections.network'),
     about: t('settings.screen.sections.about'),
   };
 }
@@ -125,11 +123,6 @@ export function SettingsScreen({
             <TransfersSection value={draft} onChange={updateDraft} />
           ) : section === 'security' ? (
             <SecuritySection />
-          ) : section === 'network' ? (
-            <PlaceholderSection
-              title={t('settings.screen.networkPlaceholderTitle')}
-              description={t('settings.screen.networkPlaceholderDescription')}
-            />
           ) : (
             <AboutSection />
           )}

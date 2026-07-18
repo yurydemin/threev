@@ -39,12 +39,12 @@ func (r *ProfileRepository) Create(ctx context.Context, p domain.Profile) (domai
 	const query = `
 INSERT INTO profiles (
     name, endpoint_url, region, access_key_id, secret_access_key,
-    session_token, path_style, verify_ssl, custom_headers
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    session_token, path_style, verify_ssl, custom_headers, proxy_url
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
 	result, err := r.db.ExecContext(ctx, query,
 		p.Name, p.EndpointURL, p.Region, p.AccessKeyID, p.SecretAccessKey,
-		nullableString(p.SessionToken), p.PathStyle, p.VerifySSL, headers,
+		nullableString(p.SessionToken), p.PathStyle, p.VerifySSL, headers, p.ProxyURL,
 	)
 	if err != nil {
 		return domain.Profile{}, fmt.Errorf("create profile: %w", mapProfileWriteError(err))
@@ -63,7 +63,7 @@ INSERT INTO profiles (
 func (r *ProfileRepository) GetByID(ctx context.Context, id int64) (domain.Profile, error) {
 	const query = `
 SELECT id, name, endpoint_url, region, access_key_id, secret_access_key,
-       session_token, path_style, verify_ssl, custom_headers, created_at, updated_at
+       session_token, path_style, verify_ssl, custom_headers, proxy_url, created_at, updated_at
 FROM profiles
 WHERE id = ?`
 
@@ -85,7 +85,7 @@ WHERE id = ?`
 func (r *ProfileRepository) GetAll(ctx context.Context) ([]domain.Profile, error) {
 	const query = `
 SELECT id, name, endpoint_url, region, access_key_id, secret_access_key,
-       session_token, path_style, verify_ssl, custom_headers, created_at, updated_at
+       session_token, path_style, verify_ssl, custom_headers, proxy_url, created_at, updated_at
 FROM profiles
 ORDER BY name COLLATE NOCASE`
 
@@ -125,13 +125,13 @@ func (r *ProfileRepository) Update(ctx context.Context, p domain.Profile) (domai
 	const query = `
 UPDATE profiles
 SET name = ?, endpoint_url = ?, region = ?, access_key_id = ?, secret_access_key = ?,
-    session_token = ?, path_style = ?, verify_ssl = ?, custom_headers = ?,
+    session_token = ?, path_style = ?, verify_ssl = ?, custom_headers = ?, proxy_url = ?,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ?`
 
 	result, err := r.db.ExecContext(ctx, query,
 		p.Name, p.EndpointURL, p.Region, p.AccessKeyID, p.SecretAccessKey,
-		nullableString(p.SessionToken), p.PathStyle, p.VerifySSL, headers, p.ID,
+		nullableString(p.SessionToken), p.PathStyle, p.VerifySSL, headers, p.ProxyURL, p.ID,
 	)
 	if err != nil {
 		return domain.Profile{}, fmt.Errorf("update profile %d: %w", p.ID, mapProfileWriteError(err))
@@ -201,7 +201,7 @@ func scanProfile(s rowScanner) (domain.Profile, error) {
 
 	if err := s.Scan(
 		&p.ID, &p.Name, &p.EndpointURL, &p.Region, &p.AccessKeyID, &p.SecretAccessKey,
-		&sessionToken, &p.PathStyle, &p.VerifySSL, &customHeaders, &p.CreatedAt, &p.UpdatedAt,
+		&sessionToken, &p.PathStyle, &p.VerifySSL, &customHeaders, &p.ProxyURL, &p.CreatedAt, &p.UpdatedAt,
 	); err != nil {
 		return domain.Profile{}, err
 	}

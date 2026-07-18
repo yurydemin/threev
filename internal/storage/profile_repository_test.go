@@ -367,6 +367,67 @@ func TestProfileRepositoryCreateAndGetByID(t *testing.T) {
 	}
 }
 
+// TestProfileRepositoryProxyURLRoundTrips verifies that a profile's
+// ProxyURL persists and reads back correctly through Create/GetByID/Update -
+// both a non-empty value and, separately, the realistic default of "" for a
+// freshly-created profile (mirroring proxy_url's NOT NULL DEFAULT ”
+// column, 0004_profiles_proxy_url.sql).
+func TestProfileRepositoryProxyURLRoundTrips(t *testing.T) {
+	t.Parallel()
+
+	repo := newTestProfileRepository(t)
+	ctx := context.Background()
+
+	// Default case: a profile created without ever setting ProxyURL.
+	defaultProfile := sampleProfile("no-proxy")
+
+	created, err := repo.Create(ctx, defaultProfile)
+	if err != nil {
+		t.Fatalf("Create() returned error: %v", err)
+	}
+	if created.ProxyURL != "" {
+		t.Errorf("Create() ProxyURL = %q, want empty default", created.ProxyURL)
+	}
+
+	got, err := repo.GetByID(ctx, created.ID)
+	if err != nil {
+		t.Fatalf("GetByID(%d) returned error: %v", created.ID, err)
+	}
+	if got.ProxyURL != "" {
+		t.Errorf("GetByID() ProxyURL = %q, want empty default", got.ProxyURL)
+	}
+
+	// Non-empty case: set via Create, then changed via Update.
+	proxyProfile := sampleProfile("with-proxy")
+	proxyProfile.ProxyURL = "socks5://user:pass@proxy.example.com:1080"
+
+	createdWithProxy, err := repo.Create(ctx, proxyProfile)
+	if err != nil {
+		t.Fatalf("Create() returned error: %v", err)
+	}
+	if createdWithProxy.ProxyURL != proxyProfile.ProxyURL {
+		t.Errorf("Create() ProxyURL = %q, want %q", createdWithProxy.ProxyURL, proxyProfile.ProxyURL)
+	}
+
+	createdWithProxy.ProxyURL = "http://proxy2.example.com:8080"
+
+	updated, err := repo.Update(ctx, createdWithProxy)
+	if err != nil {
+		t.Fatalf("Update() returned error: %v", err)
+	}
+	if updated.ProxyURL != "http://proxy2.example.com:8080" {
+		t.Errorf("Update() ProxyURL = %q, want %q", updated.ProxyURL, "http://proxy2.example.com:8080")
+	}
+
+	gotAfterUpdate, err := repo.GetByID(ctx, createdWithProxy.ID)
+	if err != nil {
+		t.Fatalf("GetByID(%d) returned error: %v", createdWithProxy.ID, err)
+	}
+	if gotAfterUpdate.ProxyURL != "http://proxy2.example.com:8080" {
+		t.Errorf("persisted ProxyURL = %q, want %q", gotAfterUpdate.ProxyURL, "http://proxy2.example.com:8080")
+	}
+}
+
 func TestProfileRepositoryCreateWithoutOptionalFields(t *testing.T) {
 	t.Parallel()
 

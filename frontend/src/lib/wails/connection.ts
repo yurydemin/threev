@@ -42,6 +42,7 @@ function fromProfileDTO(dto: domain.ProfileDTO): ConnectionSummary {
     createdAt: toIsoString(dto.CreatedAt),
     updatedAt: toIsoString(dto.UpdatedAt),
     hasCredentials: dto.HasCredentials,
+    hasProxy: dto.HasProxy,
   };
 }
 
@@ -64,6 +65,7 @@ function fromProfile(profile: domain.Profile): Connection {
     pathStyle: profile.PathStyle,
     verifySsl: profile.VerifySSL,
     customHeaders: profile.CustomHeaders ?? {},
+    proxyUrl: profile.ProxyURL,
     createdAt: toIsoString(profile.CreatedAt),
     updatedAt: toIsoString(profile.UpdatedAt),
   };
@@ -81,6 +83,7 @@ function toProfile(connection: Partial<Connection> & ConnectionFormValues): doma
     PathStyle: connection.pathStyle,
     VerifySSL: connection.verifySsl,
     CustomHeaders: connection.customHeaders ?? {},
+    ProxyURL: connection.proxyUrl,
   });
 }
 

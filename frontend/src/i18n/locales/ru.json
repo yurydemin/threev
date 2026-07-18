@@ -92,7 +92,9 @@
       "sessionTokenPlaceholder": "опционально",
       "advanced": "Advanced",
       "pathStyleLabel": "Path-style URL",
-      "verifySslLabel": "Проверять SSL-сертификат"
+      "verifySslLabel": "Проверять SSL-сертификат",
+      "proxyUrlLabel": "Прокси-сервер",
+      "proxyUrlPlaceholder": "http://user:pass@host:8080 или socks5://host:1080"
     }
   },
   "fileManager": {
@@ -361,19 +363,15 @@
         "appearance": "Внешний вид",
         "transfers": "Передачи",
         "security": "Безопасность",
-        "network": "Сетевые",
         "about": "О приложении"
       },
-      "saveButton": "Сохранить изменения",
-      "networkPlaceholderTitle": "Скоро",
-      "networkPlaceholderDescription": "Настройка HTTP/SOCKS-прокси появится в одном из следующих обновлений."
+      "saveButton": "Сохранить изменения"
     },
     "sidebar": {
       "general": "Общие",
       "appearance": "Внешний вид",
       "transfers": "Передачи",
       "security": "Безопасность",
-      "network": "Сетевые",
       "about": "О приложении"
     },
     "general": {

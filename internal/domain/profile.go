@@ -21,6 +21,7 @@ type Profile struct {
 	PathStyle       bool
 	VerifySSL       bool
 	CustomHeaders   map[string]string
+	ProxyURL        string
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
 }
@@ -56,6 +57,14 @@ type ProfileDTO struct {
 	// fields - HasCredentials is false for such a profile until the user
 	// edits it and supplies real credentials.
 	HasCredentials bool
+
+	// HasProxy reports whether this profile currently has a ProxyURL
+	// configured. Like HasCredentials, this is a safe, non-secret derived
+	// signal: ProxyURL itself is deliberately omitted from ProfileDTO
+	// because it may embed a password (the "user:pass@host:port" form), so
+	// it deserves the same care as AccessKeyID/SecretAccessKey/
+	// SessionToken - only its presence/absence is safe to expose here.
+	HasProxy bool
 }
 
 // ToDTO converts a Profile into its secret-free ProfileDTO representation.
@@ -70,6 +79,7 @@ func (p Profile) ToDTO() ProfileDTO {
 		CreatedAt:      p.CreatedAt,
 		UpdatedAt:      p.UpdatedAt,
 		HasCredentials: p.AccessKeyID != "" && p.SecretAccessKey != "",
+		HasProxy:       p.ProxyURL != "",
 	}
 }
 
