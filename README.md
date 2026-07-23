@@ -21,10 +21,12 @@
 
 | | |
 |---|---|
-| ![Подключения](docs/images/connections.png) Подключения | ![Файловый менеджер](docs/images/file-manager-list.png) Файловый менеджер |
-| ![Сетка](docs/images/file-manager-grid.png) Вид сеткой | ![Контекстное меню](docs/images/context-menu.png) Контекстное меню объекта |
-| ![Предпросмотр](docs/images/preview-image.png) Предпросмотр изображения | ![Передачи](docs/images/transfers-active.png) Активные передачи |
-| ![История передач](docs/images/transfers-history.png) История передач | ![Настройки](docs/images/settings.png) Настройки |
+| ![Подключения](docs/images/connections.png) Подключения и избранное | ![Дашборд бакетов](docs/images/connection-dashboard.png) Дашборд бакетов с размером |
+| ![Файловый менеджер](docs/images/file-manager-list.png) Файловый менеджер | ![Сетка](docs/images/file-manager-grid.png) Вид сеткой |
+| ![Контекстное меню](docs/images/context-menu.png) Контекстное меню объекта | ![Массовые операции](docs/images/bulk-actions.png) Массовый выбор и действия |
+| ![Выбор папки назначения](docs/images/destination-picker.png) Копирование — дерево папок назначения | ![Предпросмотр](docs/images/preview-image.png) Предпросмотр изображения |
+| ![Передачи](docs/images/transfers-active.png) Активная передача с прогрессом | ![История](docs/images/history.png) История передач |
+| ![Настройки передач](docs/images/settings.png) Настройки: retry/timeout/скорость | ![Прокси в подключении](docs/images/connection-form.png) HTTP/SOCKS5-прокси в форме подключения |
 
 ## Стек
 
