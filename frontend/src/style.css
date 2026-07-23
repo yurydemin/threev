@@ -3,44 +3,60 @@
 @tailwind utilities;
 
 @layer base {
+  /*
+   * "Петроль" palette (chosen 2026-07-23 over the Tailwind slate/blue
+   * default): true-neutral zinc backgrounds (no blue undertone, unlike
+   * slate) with a deep teal/petrol accent. --accent doubles as both the
+   * primary button fill (bg-accent + white label text) and the active
+   * nav-item text color (text-accent on a bg-accent-subtle wash) - dark
+   * mode uses teal-500/600 (bright enough to read as active text on a
+   * near-black background, still dark enough for white button labels at
+   * roughly the same contrast the previous blue-500 accent had); light
+   * mode uses a deeper teal-700/800 petrol, since light mode's job is to
+   * read as grounded/serious rather than "glowing active" - see the
+   * palette comparison this was chosen from for the full rationale.
+   * success/danger are deliberately pulled away from --accent's hue (true
+   * green ~145°, coral ~15°, vs petrol's ~175-180°) so a status pill never
+   * blends with the accent at a glance.
+   */
   :root {
-    --bg-primary: #0f172a;
-    --bg-secondary: #1e293b;
-    --bg-tertiary: #334155;
-    --bg-elevated: #1e293b;
-    --fg-primary: #f8fafc;
-    --fg-secondary: #94a3b8;
-    --fg-muted: #64748b;
-    --accent: #3b82f6;
-    --accent-hover: #2563eb;
-    --accent-subtle: rgba(59, 130, 246, 0.15);
-    --success: #22c55e;
+    --bg-primary: #09090b;
+    --bg-secondary: #18181b;
+    --bg-tertiary: #27272a;
+    --bg-elevated: #18181b;
+    --fg-primary: #fafafa;
+    --fg-secondary: #a1a1aa;
+    --fg-muted: #71717a;
+    --accent: #14b8a6;
+    --accent-hover: #0d9488;
+    --accent-subtle: rgba(20, 184, 166, 0.15);
+    --success: #43c17a;
     --warning: #f59e0b;
-    --danger: #ef4444;
-    --danger-hover: #dc2626;
-    --danger-subtle: rgba(239, 68, 68, 0.15);
-    --border: #334155;
-    --border-subtle: #1e293b;
+    --danger: #e2694f;
+    --danger-hover: #c94f37;
+    --danger-subtle: rgba(226, 105, 79, 0.15);
+    --border: #27272a;
+    --border-subtle: #18181b;
   }
 
   .light {
-    --bg-primary: #f8fafc;
+    --bg-primary: #fafafa;
     --bg-secondary: #ffffff;
-    --bg-tertiary: #f1f5f9;
+    --bg-tertiary: #f4f4f5;
     --bg-elevated: #ffffff;
-    --fg-primary: #0f172a;
-    --fg-secondary: #475569;
-    --fg-muted: #94a3b8;
-    --accent: #2563eb;
-    --accent-hover: #1d4ed8;
-    --accent-subtle: rgba(37, 99, 235, 0.1);
-    --success: #16a34a;
+    --fg-primary: #09090b;
+    --fg-secondary: #52525b;
+    --fg-muted: #a1a1aa;
+    --accent: #0f766e;
+    --accent-hover: #115e59;
+    --accent-subtle: rgba(15, 118, 110, 0.1);
+    --success: #1f8a4c;
     --warning: #d97706;
-    --danger: #dc2626;
-    --danger-hover: #b91c1c;
-    --danger-subtle: rgba(220, 38, 38, 0.15);
-    --border: #e2e8f0;
-    --border-subtle: #f1f5f9;
+    --danger: #b8462f;
+    --danger-hover: #97371f;
+    --danger-subtle: rgba(184, 70, 47, 0.15);
+    --border: #e4e4e7;
+    --border-subtle: #f4f4f5;
   }
 
   html,
