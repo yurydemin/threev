@@ -241,7 +241,18 @@ export function ConnectionsScreen({
         isOpen={formState.open}
         onClose={() => setFormState({ open: false })}
         initialValues={formState.open ? formState.initialValues : undefined}
-        onSaved={() => {}}
+        onSaved={() => {
+          // Same staleness issue as handleDelete's fetchFavorites call
+          // above, triggered by a rename instead of a delete: a favorite's
+          // ProfileName is joined server-side from the current profiles.name
+          // on every fetch, but useFavoritesStore's in-memory list is only
+          // ever populated once at app boot (or on add/remove) - without
+          // this, a favorite still shows the connection's old name (in the
+          // Sidebar list, and in App.tsx's handleSelectFavorite, which reads
+          // favorite.profileName for its switch-session confirm dialog and
+          // the File Manager screen title) until the app is restarted.
+          void useFavoritesStore.getState().fetchFavorites();
+        }}
       />
     </div>
   );
