@@ -109,15 +109,16 @@ func newIntegrationServices(t *testing.T) integrationServices {
 	keyBox := crypto.NewKeyBox()
 	keyBox.Set(testEncryptionKey())
 
-	// Same *s3client.ConnectionManager/*s3client.CircuitBreaker instance
-	// shared between fileManagerService and transferService - see app.go's
-	// newApp, which this mirrors exactly.
+	// Same *s3client.ConnectionManager/*s3client.CircuitBreaker/
+	// *s3client.RetryPolicyStore instance shared between fileManagerService
+	// and transferService - see app.go's newApp, which this mirrors exactly.
 	connMgr := s3client.NewConnectionManager(repo, keyBox)
 	breaker := s3client.NewCircuitBreaker()
+	retryPolicies := s3client.NewRetryPolicyStore()
 
 	connSvc := connection.NewConnectionService(repo, keyBox)
-	fmSvc := filemanager.NewFileManagerService(repo, keyBox, connMgr, breaker)
-	trSvc := transfer.NewTransferService(repo, keyBox, queueRepo, historyRepo, connMgr, breaker)
+	fmSvc := filemanager.NewFileManagerService(repo, keyBox, connMgr, breaker, retryPolicies)
+	trSvc := transfer.NewTransferService(repo, keyBox, queueRepo, historyRepo, connMgr, breaker, retryPolicies)
 
 	saved, err := connSvc.SaveProfile(domain.Profile{
 		Name:            fmt.Sprintf("integration-test-%d", profileNameCounter.Add(1)),
