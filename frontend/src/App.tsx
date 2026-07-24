@@ -5,6 +5,7 @@ import { useUIScale } from './hooks/useUIScale';
 import { useLanguageSync } from './hooks/useLanguageSync';
 import { useTransferEvents } from './hooks/useTransferEvents';
 import { useSettingsSync } from './hooks/useSettingsSync';
+import { useAppCloseConfirm } from './hooks/useAppCloseConfirm';
 import { useConnectionStore } from './stores/useConnectionStore';
 import { useFileManagerStore } from './stores/useFileManagerStore';
 import { useFavoritesStore } from './stores/useFavoritesStore';
@@ -66,6 +67,12 @@ function App() {
     // theme/UI-scale reconciliation with the backend is relevant from
     // startup, on every screen, not just the Settings screen itself.
     useSettingsSync();
+
+    // Same "mount once at the root" rationale as `useTransferEvents` — the
+    // window can be closed from any screen, and the decision needs
+    // up-to-date transfer/connection state regardless of which one is
+    // active.
+    useAppCloseConfirm();
 
     const [boot, setBoot] = useState<BootState>({ status: 'checking' });
 

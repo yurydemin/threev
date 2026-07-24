@@ -127,6 +127,14 @@ type App struct {
 	// is simply never called by shutdown - unless THREEV_PPROF_ADDR was
 	// set to a non-empty value at startup.
 	pprofStop func()
+
+	// closeConfirmed is set by ConfirmClose, called by the frontend right
+	// before its own runtime.Quit() (see App.tsx's "app:close-requested"
+	// handler) once it has decided the window should actually close.
+	// beforeClose checks this to tell that second, frontend-initiated
+	// close attempt apart from the first one it always vetoes - see
+	// beforeClose's own doc comment. In-memory only, reset every launch.
+	closeConfirmed bool
 }
 
 // NewApp creates a new App application struct, eagerly opening the SQLite
@@ -403,11 +411,35 @@ func (a *App) saveWindowGeometry(ctx context.Context) {
 	a.setSettingInt(ctx, windowYSettingKey, y)
 }
 
-// beforeClose saves window geometry (see saveWindowGeometry) before the
-// window is destroyed. It never prevents the app from closing.
+// beforeClose saves window geometry (see saveWindowGeometry), then hands
+// the actual close/confirm decision to the frontend: only it knows both the
+// CloseBehavior setting (`"exit"` asks only when there's active work worth
+// losing - a transfer in flight, an open connection session; `"confirm"`
+// always asks, unconditionally) and the live transfer/connection state
+// needed to evaluate the former - see App.tsx's "app:close-requested"
+// handler for that logic. beforeClose itself never reads CloseBehavior and
+// always vetoes the first close attempt (`return true`); ConfirmClose flips
+// closeConfirmed once the frontend has decided to actually exit, so the
+// SECOND beforeClose call - triggered by the frontend's own
+// runtime.Quit() - lets the window close for real (`return false`).
 func (a *App) beforeClose(ctx context.Context) bool {
 	a.saveWindowGeometry(ctx)
-	return false
+
+	if a.closeConfirmed {
+		return false
+	}
+
+	runtime.EventsEmit(ctx, "app:close-requested")
+
+	return true
+}
+
+// ConfirmClose is called by the frontend immediately before its own
+// runtime.Quit(), once App.tsx's "app:close-requested" handler has decided
+// the window should actually close - see beforeClose's doc comment for how
+// the two calls work together.
+func (a *App) ConfirmClose() {
+	a.closeConfirmed = true
 }
 
 // getSettingInt reads and parses an integer setting, returning ok=false if

@@ -17,9 +17,14 @@ type AppSettings struct {
 	// 100 is the unscaled default.
 	UIScalePercent int
 	// CloseBehavior is "exit" | "confirm" - a systemwide tray-minimize is
-	// NOT implemented (see Этап 4 plan's "Согласованные решения" - никакого
-	// притворства нерабочей фичи), so this only ever toggles whether
-	// closing the window asks for confirmation first.
+	// NOT implemented (see Этап 4/8 plans' "Согласованные решения" -
+	// никакого притворства нерабочей фичи). The actual close/confirm
+	// decision is made frontend-side (app.go's beforeClose always vetoes
+	// and defers to it - see useAppCloseConfirm.ts): "confirm" always asks
+	// before closing, unconditionally; "exit" only asks when there's
+	// active work worth losing (a running/paused/pending transfer, or an
+	// open connection session) - otherwise it closes immediately, same as
+	// today.
 	CloseBehavior string
 	// AutoResumeQueue, when true, makes RecoverOrphanedTasks' recovered
 	// (crash-orphaned) tasks resume automatically at the next startup

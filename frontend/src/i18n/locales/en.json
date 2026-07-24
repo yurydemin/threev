@@ -1,4 +1,7 @@
 {
+  "app": {
+    "closeConfirmActive": "Are you sure you want to close the application?"
+  },
   "common": {
     "cancel": "Cancel",
     "save": "Save",
