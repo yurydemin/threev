@@ -63,7 +63,7 @@ export function BucketPanel() {
             variant="ghost"
             className="h-6 w-6 shrink-0"
             aria-label={t('fileManager.bucketPanel.createBucket')}
-            disabled={activeProfileId === null}
+            disabled={activeProfileId === null || isLoadingBuckets || bucketsError !== null}
             onClick={() => setIsCreateBucketOpen(true)}
           >
             <Plus className="h-3.5 w-3.5" aria-hidden="true" />

@@ -73,6 +73,8 @@ export function ConnectionDashboard() {
   const { t } = useTranslation();
   const activeProfileId = useFileManagerStore((state) => state.activeProfileId);
   const buckets = useFileManagerStore((state) => state.buckets);
+  const isLoadingBuckets = useFileManagerStore((state) => state.isLoadingBuckets);
+  const bucketsError = useFileManagerStore((state) => state.bucketsError);
   const selectBucket = useFileManagerStore((state) => state.selectBucket);
 
   const [sizes, setSizes] = useState<Record<string, BucketSizeState>>({});
@@ -127,7 +129,14 @@ export function ConnectionDashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeProfileId, buckets]);
 
-  if (activeProfileId === null) return null;
+  // While the bucket list is still loading, or failed to load (server
+  // unreachable/credentials rejected/etc.), there is nothing this dashboard
+  // can meaningfully show — rendering the "no buckets yet, create one"
+  // empty state here would be actively misleading (the profile isn't
+  // actually connected) and would leave "Создать бакет" clickable despite
+  // the connection being broken. `BucketPanel`'s sidebar already surfaces
+  // the loading skeleton / error message + retry action for this case.
+  if (activeProfileId === null || isLoadingBuckets || bucketsError !== null) return null;
 
   // A single `return`/root element on purpose: a successful create resolves
   // `refreshBuckets()` (flipping `buckets.length` across the 0 boundary)

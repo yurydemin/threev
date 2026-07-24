@@ -97,6 +97,7 @@ export function Sidebar({
   const appVersion = useAppStore((state) => state.appVersion);
   const activeProfileId = useFileManagerStore((state) => state.activeProfileId);
   const activeProfileName = useFileManagerStore((state) => state.activeProfileName);
+  const hasConnectedOnce = useFileManagerStore((state) => state.hasConnectedOnce);
   const favorites = useFavoritesStore((state) => state.favorites);
   const [isFavoritesExpanded, setIsFavoritesExpanded] = useState(true);
   const resolvedActiveItem = activeItem ?? 'connections';
@@ -235,7 +236,7 @@ export function Sidebar({
         a one-click way back into it — rather than as incidental metadata
         tucked away at the bottom of the panel.
       */}
-      {activeProfileId !== null && activeProfileName !== null && (
+      {activeProfileId !== null && activeProfileName !== null && hasConnectedOnce && (
         <>
           <div className="border-t border-border" />
           <ActiveConnectionIndicator

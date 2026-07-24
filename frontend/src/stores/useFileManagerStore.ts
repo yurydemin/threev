@@ -17,6 +17,19 @@ interface FileManagerState {
   buckets: Bucket[];
   isLoadingBuckets: boolean;
   bucketsError: string | null;
+  /**
+   * Whether `enterProfile` has successfully loaded the bucket list for the
+   * CURRENT `activeProfileId` at least once. `activeProfileId` itself is
+   * set optimistically, before the connection is actually verified (so
+   * `BucketPanel` has a profile to show a loading/error+retry UI for) — so
+   * it alone can't answer "is there really an open session?". `Sidebar`'s
+   * `ActiveConnectionIndicator` ("Подключено: ...") gates on this instead,
+   * so a failed initial connection doesn't read as an open session. Once
+   * true, a later transient `refreshBuckets` failure deliberately does NOT
+   * flip it back to `false` — the session stayed open, only its bucket list
+   * needs a retry (shown via `BucketPanel`'s own `bucketsError` UI).
+   */
+  hasConnectedOnce: boolean;
 
   selectedBucket: string | null;
   currentPrefix: string;
@@ -207,6 +220,7 @@ export const useFileManagerStore = create<FileManagerState>()((set, get) => {
     buckets: [],
     isLoadingBuckets: false,
     bucketsError: null,
+    hasConnectedOnce: false,
 
     ...initialBrowsingState,
 
@@ -217,11 +231,12 @@ export const useFileManagerStore = create<FileManagerState>()((set, get) => {
         buckets: [],
         isLoadingBuckets: true,
         bucketsError: null,
+        hasConnectedOnce: false,
         ...initialBrowsingState,
       });
       try {
         const buckets = await listBuckets(profileId);
-        set({ buckets, isLoadingBuckets: false });
+        set({ buckets, isLoadingBuckets: false, hasConnectedOnce: true });
       } catch (err) {
         set({ bucketsError: errorMessage(err), isLoadingBuckets: false });
       }
@@ -350,6 +365,7 @@ export const useFileManagerStore = create<FileManagerState>()((set, get) => {
         buckets: [],
         isLoadingBuckets: false,
         bucketsError: null,
+        hasConnectedOnce: false,
         ...initialBrowsingState,
       }),
 

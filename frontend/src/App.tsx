@@ -127,8 +127,8 @@ function App() {
         // re-clicking "Подключиться" on the already-open profile's own card
         // (or navigating back into it) must not blow away where the user
         // currently is, per the Block L2 fix.
-        const { activeProfileId, activeProfileName } = useFileManagerStore.getState();
-        const isSwitchingToAnotherProfile = activeProfileId !== null && activeProfileId !== connection.id;
+        const { activeProfileId, activeProfileName, hasConnectedOnce } = useFileManagerStore.getState();
+        const isSwitchingToAnotherProfile = activeProfileId !== null && hasConnectedOnce && activeProfileId !== connection.id;
 
         // Switching AWAY from a still-open session (as opposed to entering
         // one for the first time, or just returning to the same one) loses
@@ -162,8 +162,8 @@ function App() {
     // same `confirmDialog` copy — before entering the favorite's profile and
     // then navigating to its bucket/prefix.
     async function handleSelectFavorite(favorite: Favorite) {
-        const { activeProfileId, activeProfileName } = useFileManagerStore.getState();
-        const isSwitchingToAnotherProfile = activeProfileId !== null && activeProfileId !== favorite.profileId;
+        const { activeProfileId, activeProfileName, hasConnectedOnce } = useFileManagerStore.getState();
+        const isSwitchingToAnotherProfile = activeProfileId !== null && hasConnectedOnce && activeProfileId !== favorite.profileId;
 
         if (isSwitchingToAnotherProfile) {
             const confirmed = await confirmDialog(

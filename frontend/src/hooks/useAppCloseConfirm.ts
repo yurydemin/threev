@@ -34,9 +34,10 @@ export function useAppCloseConfirm(): void {
     const off = EventsOn(CLOSE_REQUESTED_EVENT, () => {
       void (async () => {
         const behavior = useSettingsStore.getState().settings?.closeBehavior;
+        const fileManagerState = useFileManagerStore.getState();
         const hasActiveWork =
           useTransferStore.getState().queue.some((task) => ACTIVE_QUEUE_STATUSES.has(task.status)) ||
-          useFileManagerStore.getState().activeProfileId !== null;
+          (fileManagerState.activeProfileId !== null && fileManagerState.hasConnectedOnce);
         const shouldAsk = behavior === 'confirm' || (behavior === 'exit' && hasActiveWork);
 
         if (shouldAsk) {
