@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"log"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -641,6 +642,119 @@ func (s *TransferService) QueueDownloadPrefix(profileID int64, bucket, prefix, l
 	if len(ids) == 0 {
 		return nil, fmt.Errorf("no objects were queued for download under %s/%s", bucket, prefix)
 	}
+
+	return ids, nil
+}
+
+// QueueCopyBetweenProfiles queues a "copy_cross" task (task.go's
+// runCrossConnectionCopyTask) for every key in keys, copying (or, if move is
+// true, moving) sourceBucket/key from sourceProfileID to
+// destBucket/(destPrefix+path.Base(key)) under destProfileID - the entry
+// point for copying/moving S3 objects between two DIFFERENT saved
+// connection profiles, which a single, server-side CopyObject cannot do
+// (see runCrossConnectionCopyTask's own doc comment). Same-profile
+// copy/move keeps using filemanager's existing, purely server-side
+// BulkCopyRequest/BulkMoveRequest fast path unchanged - this method is only
+// ever the right choice when sourceProfileID != destProfileID (a check this
+// package itself does not enforce; the frontend is expected to route a
+// same-profile copy/move to filemanager instead, never to here).
+//
+// TotalBytes for each resulting task is learned upfront via a HeadObject
+// against the SOURCE profile - the same "know the size before creating the
+// task, so its Tracker can be constructed immediately once it starts
+// running" rationale QueueUpload's os.Stat call already documents, just
+// sourced from a HeadObject (an S3 object) instead of a local file stat.
+//
+// Best-effort semantics, identical in spirit to QueueUploadPaths/
+// QueueDownloadPrefix: a single key whose HeadObject fails, or whose
+// resulting task fails to persist, is logged and skipped - never aborting
+// the rest of keys. The returned []int64 holds the id of every task that
+// was actually queued; a non-nil error is returned only when that slice
+// would otherwise be empty.
+//
+// dispatch() is called exactly ONCE, after every key in keys has been
+// considered - never once per key - mirroring QueueUploadPaths/
+// QueueDownloadPrefix's identical choice: dispatch() re-lists the ENTIRE
+// pending queue from SQLite on every call (scheduler.go), so calling it
+// len(keys) times here would be pure, repeated, wasted work for exactly the
+// same eventual scheduling outcome as calling it once at the end.
+//
+// Guarded (Этап 4 суб-этап 4.4): like QueueDownloadPrefix/
+// QueueDownloadPrefixZip, this resolves the SOURCE profile synchronously to
+// get a live S3 client for the HeadObject calls below, so it needs its own
+// guard rather than relying on runTask's (which only ever guards once a
+// task actually starts running, asynchronously, long after this method has
+// already returned).
+//
+// Deliberately NOT this method's concern (left entirely to a later,
+// frontend-side pass): estimating/confirming available destination disk
+// space for the local staging file runCrossConnectionCopyTask writes to.
+// This method - and the whole backend - has no disk-space-checking code at
+// all; that is a simple, informed-consent UI decision, not a backend
+// invariant to enforce.
+func (s *TransferService) QueueCopyBetweenProfiles(sourceProfileID, destProfileID int64, sourceBucket string, keys []string, destBucket, destPrefix string, move bool) ([]int64, error) {
+	encKey, ok := s.keyBox.Get()
+	if !ok {
+		return nil, domain.ErrLocked
+	}
+
+	profile, err := connection.ResolveProfile(context.Background(), s.profileRepo, encKey, sourceProfileID)
+	if err != nil {
+		return nil, fmt.Errorf("resolve source profile %d: %w", sourceProfileID, err)
+	}
+
+	pooled, fresh, err := s.connMgr.Get(sourceProfileID)
+	if err != nil {
+		return nil, fmt.Errorf("get source S3 clients for profile %d: %w", sourceProfileID, err)
+	}
+
+	host := extractHostname(profile.EndpointURL)
+
+	headParams := DownloadParams{
+		Pooled:        pooled,
+		Fresh:         fresh,
+		Breaker:       s.breaker,
+		RetryPolicies: s.retryPolicies,
+		Host:          host,
+		Bucket:        sourceBucket,
+	}
+
+	var ids []int64
+
+	for _, k := range keys {
+		headParams.Key = k
+
+		totalBytes, _, headErr := headObject(context.Background(), headParams)
+		if headErr != nil {
+			log.Printf("transfer: QueueCopyBetweenProfiles: head object %s/%s: %v", sourceBucket, k, headErr)
+			continue
+		}
+
+		task := domain.TransferTask{
+			ProfileID:       sourceProfileID,
+			DestProfileID:   destProfileID,
+			Type:            "copy_cross",
+			SourcePath:      encodeBucketKey(sourceBucket, k),
+			DestinationPath: encodeBucketKey(destBucket, destPrefix+path.Base(k)),
+			Status:          "pending",
+			TotalBytes:      totalBytes,
+			IsMove:          move,
+		}
+
+		created, createErr := s.queueRepo.Create(context.Background(), task)
+		if createErr != nil {
+			log.Printf("transfer: QueueCopyBetweenProfiles: queue copy %s/%s -> %s: %v", sourceBucket, k, task.DestinationPath, createErr)
+			continue
+		}
+
+		ids = append(ids, created.ID)
+	}
+
+	if len(ids) == 0 {
+		return nil, fmt.Errorf("no objects were queued for cross-connection copy out of %d given key(s)", len(keys))
+	}
+
+	s.dispatch()
 
 	return ids, nil
 }

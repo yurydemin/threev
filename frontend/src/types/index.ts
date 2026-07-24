@@ -154,7 +154,9 @@ export interface SearchObjectsResult {
 export interface TransferTask {
   id: number;
   profileId: number;
-  type: string; // "upload" | "download"
+  /** Destination connection profile for a "copy_cross" task (see `type`'s doc comment); `0` for every other type. */
+  destProfileId: number;
+  type: string; // "upload" | "download" | "download_zip" | "copy_cross"
   sourcePath: string;
   destinationPath: string;
   status: string;
@@ -162,6 +164,8 @@ export interface TransferTask {
   transferredBytes: number;
   errorMessage: string;
   multipartUploadId: string;
+  /** Only meaningful for a "copy_cross" task: `false` is a copy, `true` is a move. `false` for every other type. */
+  isMove: boolean;
   priority: number;
   createdAt: string;
   updatedAt: string;

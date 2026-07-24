@@ -214,7 +214,12 @@
       "resultSingle": "The file will be",
       "resultMultiple": "{{count}} files will be",
       "resultMultiple_one": "{{count}} file will be",
-      "resultSuffix": "keeping their original names."
+      "resultSuffix": "keeping their original names.",
+      "crossConnectionToggleLabel": "Copy to a different connection",
+      "destinationProfileLabel": "Destination connection",
+      "destinationProfilePlaceholder": "Select a connection",
+      "crossBucketsLoadError": "Failed to load the bucket list",
+      "crossConnectionDiskWarning": "Files will be temporarily copied to local disk (~{{size}}) to transfer them between connections, then deleted right after the transfer. Continue?"
     },
     "presignedUrlModal": {
       "title": "Get presigned URL",

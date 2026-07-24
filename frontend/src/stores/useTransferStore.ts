@@ -5,6 +5,7 @@ import {
   getHistory,
   getQueue,
   pauseTask,
+  queueCopyBetweenProfiles as queueCopyBetweenProfilesApi,
   queueDownload as queueDownloadApi,
   queueDownloadPrefix as queueDownloadPrefixApi,
   queueDownloadPrefixZip as queueDownloadPrefixZipApi,
@@ -64,6 +65,16 @@ interface TransferState {
     prefix: string,
     localZipPath: string,
   ) => Promise<number | null>;
+  /** Queues one "copy_cross" task per key — see `lib/wails/transfer.ts#queueCopyBetweenProfiles`'s doc comment. */
+  queueCopyBetweenProfiles: (
+    sourceProfileId: number,
+    destProfileId: number,
+    sourceBucket: string,
+    keys: string[],
+    destBucket: string,
+    destPrefix: string,
+    move: boolean,
+  ) => Promise<number[]>;
   pauseTask: (id: number) => Promise<void>;
   resumeTask: (id: number) => Promise<void>;
   cancelTask: (id: number) => Promise<void>;
@@ -182,6 +193,17 @@ export const useTransferStore = create<TransferState>()((set, get) => ({
     } catch (err) {
       set({ queueError: errorMessage(err) });
       return null;
+    }
+  },
+
+  queueCopyBetweenProfiles: async (sourceProfileId, destProfileId, sourceBucket, keys, destBucket, destPrefix, move) => {
+    try {
+      const ids = await queueCopyBetweenProfilesApi(sourceProfileId, destProfileId, sourceBucket, keys, destBucket, destPrefix, move);
+      await get().fetchQueue();
+      return ids;
+    } catch (err) {
+      set({ queueError: errorMessage(err) });
+      return [];
     }
   },
 

@@ -133,6 +133,98 @@ func TestTransferQueueRepositoryCreateAndGetByID(t *testing.T) {
 	}
 }
 
+// TestTransferQueueRepositoryCreateAndGetByIDCrossConnection verifies the
+// "copy_cross" task columns added by 0005_transfer_queue_cross_connection.sql
+// (dest_profile_id, is_move) round-trip through Create/GetByID exactly like
+// every other domain.TransferTask field - dest_profile_id via the same
+// nullable-column convention multipart_upload_id already uses (see
+// nullableDestProfileID's own doc comment).
+func TestTransferQueueRepositoryCreateAndGetByIDCrossConnection(t *testing.T) {
+	t.Parallel()
+
+	repo, db := newTestTransferQueueRepository(t)
+	ctx := context.Background()
+	sourceProfileID := createTestProfile(t, db)
+
+	destProfile, err := NewProfileRepository(db).Create(ctx, domain.Profile{
+		Name:            "profile-2",
+		EndpointURL:     "https://s3-2.example.com",
+		Region:          "us-east-1",
+		AccessKeyID:     "access-key-2",
+		SecretAccessKey: "secret-key-2",
+		VerifySSL:       true,
+	})
+	if err != nil {
+		t.Fatalf("create second test profile: %v", err)
+	}
+
+	task := domain.TransferTask{
+		ProfileID:       sourceProfileID,
+		DestProfileID:   destProfile.ID,
+		Type:            "copy_cross",
+		SourcePath:      "source-bucket/key.bin",
+		DestinationPath: "dest-bucket/key.bin",
+		Status:          "pending",
+		TotalBytes:      2048,
+		IsMove:          true,
+	}
+
+	created, err := repo.Create(ctx, task)
+	if err != nil {
+		t.Fatalf("Create() returned error: %v", err)
+	}
+
+	got, err := repo.GetByID(ctx, created.ID)
+	if err != nil {
+		t.Fatalf("GetByID(%d) returned error: %v", created.ID, err)
+	}
+
+	if got.ProfileID != sourceProfileID {
+		t.Errorf("ProfileID = %d, want %d", got.ProfileID, sourceProfileID)
+	}
+	if got.DestProfileID != destProfile.ID {
+		t.Errorf("DestProfileID = %d, want %d", got.DestProfileID, destProfile.ID)
+	}
+	if got.Type != "copy_cross" {
+		t.Errorf("Type = %q, want %q", got.Type, "copy_cross")
+	}
+	if !got.IsMove {
+		t.Error("IsMove = false, want true")
+	}
+}
+
+// TestTransferQueueRepositoryCreateWithoutDestProfileIDReadsBackZero
+// verifies that a non-copy_cross task (DestProfileID left at its zero
+// value, is_move left at its zero value) reads back exactly that - the
+// nullable dest_profile_id column round-trips through NULL, not 0 stored
+// literally, but domain.TransferTask.DestProfileID still reads back as the
+// same 0 either way (see nullableDestProfileID's own doc comment for why 0
+// is a safe "unset" sentinel: it is never a valid profiles.id).
+func TestTransferQueueRepositoryCreateWithoutDestProfileIDReadsBackZero(t *testing.T) {
+	t.Parallel()
+
+	repo, db := newTestTransferQueueRepository(t)
+	ctx := context.Background()
+	profileID := createTestProfile(t, db)
+
+	created, err := repo.Create(ctx, sampleTransferTask(profileID))
+	if err != nil {
+		t.Fatalf("Create() returned error: %v", err)
+	}
+
+	got, err := repo.GetByID(ctx, created.ID)
+	if err != nil {
+		t.Fatalf("GetByID(%d) returned error: %v", created.ID, err)
+	}
+
+	if got.DestProfileID != 0 {
+		t.Errorf("DestProfileID = %d, want 0", got.DestProfileID)
+	}
+	if got.IsMove {
+		t.Error("IsMove = true, want false")
+	}
+}
+
 func TestTransferQueueRepositoryCreateWithoutOptionalFields(t *testing.T) {
 	t.Parallel()
 

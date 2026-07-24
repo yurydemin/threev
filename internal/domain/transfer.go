@@ -8,21 +8,37 @@ import "time"
 type TransferTask struct {
 	ID        int64
 	ProfileID int64
-	// Type is "upload", "download", or "download_zip" (a whole folder/
-	// prefix downloaded as a single ZIP archive - see
-	// transfer.TransferService.QueueDownloadPrefixZip). A "download_zip"
-	// task's SourcePath/DestinationPath follow the same ORIGIN/TARGET
-	// convention as a plain "download": SourcePath is bucket/prefix
-	// (encodeBucketKey), DestinationPath is the local .zip file path.
+	// DestProfileID is the destination connection profile for a
+	// "copy_cross" task (transfer.TransferService.QueueCopyBetweenProfiles/
+	// runCrossConnectionCopyTask): a copy/move of an S3 object between two
+	// DIFFERENT saved connection profiles, staged through a local temp file
+	// since a single, server-side CopyObject cannot span two different S3
+	// endpoints. 0/unset for all types except copy_cross - ProfileID alone
+	// (the SOURCE profile) is all any other task type ever needs.
+	DestProfileID int64
+	// Type is "upload", "download", "download_zip" (a whole folder/prefix
+	// downloaded as a single ZIP archive - see
+	// transfer.TransferService.QueueDownloadPrefixZip), or "copy_cross" (a
+	// copy/move between two different connection profiles - see
+	// DestProfileID's doc comment). A "download_zip" task's SourcePath/
+	// DestinationPath follow the same ORIGIN/TARGET convention as a plain
+	// "download": SourcePath is bucket/prefix (encodeBucketKey),
+	// DestinationPath is the local .zip file path. A "copy_cross" task's
+	// SourcePath/DestinationPath are both S3 bucket/key pairs
+	// (encodeBucketKey), exactly like a plain "download"'s SourcePath/a
+	// plain "upload"'s DestinationPath - just resolved against ProfileID
+	// and DestProfileID respectively, instead of one of the two always
+	// being a local filesystem path.
 	Type string
 	// SourcePath is the transfer's origin: a local filesystem path for
 	// uploads, or an S3 key (bucket is carried separately in
 	// DestinationPath/SourcePath depending on direction - see
 	// upload.go/download.go in package transfer for how the two are
-	// combined) for downloads.
+	// combined) for downloads and copy_cross tasks.
 	SourcePath string
-	// DestinationPath is the transfer's target: an S3 key for uploads, a
-	// local filesystem path for downloads.
+	// DestinationPath is the transfer's target: an S3 key for uploads and
+	// copy_cross tasks (resolved against DestProfileID for copy_cross,
+	// ProfileID for upload), a local filesystem path for downloads.
 	DestinationPath string
 	// Status is one of "pending", "running", "paused", "completed",
 	// "failed", "cancelled" (FR-QUEUE-002).
@@ -43,6 +59,13 @@ type TransferTask struct {
 	// compatibility; not used as the resume source of truth (see
 	// PartsCompleted).
 	FileOffset int64
+	// IsMove is only meaningful for a "copy_cross" task: false (the zero
+	// value) is a copy, true is a move - a move deletes the source object,
+	// but only once runCrossConnectionCopyTask's upload phase has confirmed
+	// success (see its own doc comment for why that ordering is never
+	// reversed). Every other task type leaves this false and never reads
+	// it.
+	IsMove bool
 	// Priority orders pending tasks for the scheduler: lower values run
 	// first (FR-QUEUE-003).
 	Priority  int

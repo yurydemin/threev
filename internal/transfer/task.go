@@ -127,8 +127,9 @@ func (s *TransferService) startTask(task domain.TransferTask) {
 // runTask is the body of one active transfer task's goroutine: it resolves
 // the task's profile/S3 clients, decodes its Bucket/Key from
 // SourcePath/DestinationPath (see encodeBucketKey/splitBucketKey), delegates
-// to runUploadTask/runDownloadTask for the type-specific Upload/Download
-// call, and - via handleTaskResult, called from every exit path below -
+// to runUploadTask/runDownloadTask/runZipDownloadTask/
+// runCrossConnectionCopyTask for the type-specific transfer call, and - via
+// handleTaskResult, called from every exit path below -
 // persists the final outcome (completed/failed/paused/cancelled), archiving
 // to transfer_history for completed/cancelled only (see handleTaskResult's
 // doc comment for the full Queue->History rule, including the plan
@@ -206,6 +207,30 @@ func (s *TransferService) runTask(ctx context.Context, task domain.TransferTask,
 		// (splitBucketKey's decode above does not care whether the string
 		// after the bucket looks like a "file key" or a "folder prefix").
 		s.runZipDownloadTask(ctx, task, rt, pooled, fresh, host, bucket, key)
+	case "copy_cross":
+		// A second, independent profile/client/host resolution, mirroring
+		// the source-side one above exactly - the whole reason this task
+		// type exists (see domain.TransferTask.DestProfileID's doc comment):
+		// pooled/fresh/host above are already fully resolved against the
+		// SOURCE profile (task.ProfileID); a copy_cross task additionally
+		// needs its own pair resolved against the DESTINATION profile
+		// (task.DestProfileID), since a single s3.Client can only ever talk
+		// to the one endpoint/credentials it was built for.
+		destPooled, destFresh, destErr := s.connMgr.Get(task.DestProfileID)
+		if destErr != nil {
+			s.handleTaskResult(task, rt, fmt.Errorf("get destination S3 clients: %w", destErr), pooled, bucket, key, task.MultipartUploadID)
+			return
+		}
+
+		destProfile, destProfileErr := connection.ResolveProfile(context.Background(), s.profileRepo, encKey, task.DestProfileID)
+		if destProfileErr != nil {
+			s.handleTaskResult(task, rt, fmt.Errorf("resolve destination profile: %w", destProfileErr), pooled, bucket, key, task.MultipartUploadID)
+			return
+		}
+
+		destHost := extractHostname(destProfile.EndpointURL)
+
+		s.runCrossConnectionCopyTask(ctx, task, rt, pooled, fresh, host, destPooled, destFresh, destHost, bucket, key)
 	default:
 		s.handleTaskResult(task, rt, fmt.Errorf("unknown transfer task type %q", task.Type), pooled, bucket, key, task.MultipartUploadID)
 	}
@@ -430,15 +455,23 @@ func (s *TransferService) handleTaskResult(task domain.TransferTask, rt *running
 // bucket/key.
 //
 // runTask calls this unconditionally, before its own switch on task.Type
-// dispatches to runUploadTask/runDownloadTask/runZipDownloadTask - so every
-// task.Type runTask's own switch can reach must also have a case here, or
-// it fails immediately with "unknown transfer task type" before ever
-// reaching its real execution branch.
+// dispatches to runUploadTask/runDownloadTask/runZipDownloadTask/
+// runCrossConnectionCopyTask - so every task.Type runTask's own switch can
+// reach must also have a case here, or it fails immediately with "unknown
+// transfer task type" before ever reaching its real execution branch.
+//
+// "copy_cross" only ever returns its SOURCE bucket/key here (SourcePath,
+// resolved against ProfileID - exactly like a plain "download"): its
+// destination bucket/key (DestinationPath, resolved against
+// DestProfileID instead) is a second, independent pair this function's own
+// one-bucket/key-pair contract has no room for, so runTask/
+// runCrossConnectionCopyTask decode it separately themselves once they
+// already know this is a copy_cross task.
 func taskBucketKey(task domain.TransferTask) (bucket, key string, err error) {
 	switch task.Type {
 	case "upload":
 		return splitBucketKey(task.DestinationPath)
-	case "download", "download_zip":
+	case "download", "download_zip", "copy_cross":
 		return splitBucketKey(task.SourcePath)
 	default:
 		return "", "", fmt.Errorf("unknown transfer task type %q", task.Type)

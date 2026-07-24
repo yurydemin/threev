@@ -801,6 +801,107 @@ func TestCancelTasksForProfileNoTasksReturnsZero(t *testing.T) {
 	}
 }
 
+// TestQueueCopyBetweenProfilesCreatesTasksWithCorrectFields verifies
+// QueueCopyBetweenProfiles queues one "copy_cross" task per key, each with
+// ProfileID/DestProfileID/TotalBytes/IsMove set correctly - TotalBytes
+// learned from a HeadObject against the SOURCE profile (see this method's
+// own doc comment). The destination profile here points nowhere real
+// (never actually contacted by anything this test itself does): this test
+// only cares about what QueueCopyBetweenProfiles itself persists at queue
+// time, checked via an immediate GetQueue() call - mirroring
+// TestReorderTaskChangesQueueOrder's own "read straight back from GetQueue(),
+// no need to wait for anything" style - regardless of whether dispatch()
+// has, by the time that call runs, already raced ahead and started one or
+// both tasks running in the background (harmless either way: ProfileID/
+// DestProfileID/TotalBytes/IsMove are all set once, at Create time, and
+// never change over a task's lifecycle).
+func TestQueueCopyBetweenProfilesCreatesTasksWithCorrectFields(t *testing.T) {
+	t.Parallel()
+
+	deps := newTestTransferService(t)
+
+	content := []byte("cross-connection copy test content")
+	mock := newRangeMock(content)
+
+	sourceServer := httptest.NewServer(http.HandlerFunc(mock.handler))
+	t.Cleanup(sourceServer.Close)
+
+	sourceProfileID := createTestProfile(t, deps.profileRepo, deps.key, sourceServer.URL)
+	destProfileID := createTestProfile(t, deps.profileRepo, deps.key, "http://127.0.0.1:1") // never actually contacted by this test
+
+	ids, err := deps.svc.QueueCopyBetweenProfiles(sourceProfileID, destProfileID, "bucket1", []string{"key-a.txt", "key-b.txt"}, "bucket2", "dest-prefix/", true)
+	if err != nil {
+		t.Fatalf("QueueCopyBetweenProfiles() returned error: %v", err)
+	}
+	if len(ids) != 2 {
+		t.Fatalf("QueueCopyBetweenProfiles() returned %d ids, want 2", len(ids))
+	}
+
+	tasks, err := deps.svc.GetQueue()
+	if err != nil {
+		t.Fatalf("GetQueue() returned error: %v", err)
+	}
+
+	byID := make(map[int64]domain.TransferTask, len(tasks))
+	for _, task := range tasks {
+		byID[task.ID] = task
+	}
+
+	for _, id := range ids {
+		task, ok := byID[id]
+		if !ok {
+			t.Errorf("task %d not found in GetQueue()", id)
+			continue
+		}
+
+		if task.ProfileID != sourceProfileID {
+			t.Errorf("task %d ProfileID = %d, want %d", id, task.ProfileID, sourceProfileID)
+		}
+		if task.DestProfileID != destProfileID {
+			t.Errorf("task %d DestProfileID = %d, want %d", id, task.DestProfileID, destProfileID)
+		}
+		if task.Type != "copy_cross" {
+			t.Errorf("task %d Type = %q, want %q", id, task.Type, "copy_cross")
+		}
+		if task.TotalBytes != int64(len(content)) {
+			t.Errorf("task %d TotalBytes = %d, want %d", id, task.TotalBytes, len(content))
+		}
+		if !task.IsMove {
+			t.Errorf("task %d IsMove = false, want true", id)
+		}
+	}
+
+	// Clean up: cancel both tasks (whatever status they have reached by
+	// now - pending/running/failed are all accepted by CancelTask) so
+	// their goroutines/mock HTTP requests don't outlive this test.
+	for _, id := range ids {
+		if err := deps.svc.CancelTask(id); err != nil {
+			t.Errorf("CancelTask(%d) returned error: %v", id, err)
+		}
+	}
+}
+
+// TestQueueCopyBetweenProfilesReturnsErrLockedWhenLocked is
+// QueueCopyBetweenProfiles' own Этап 4 суб-этап 4.4 guard test - like
+// QueueDownloadPrefix/QueueDownloadPrefixZip, it resolves the source
+// profile synchronously and so has its own direct guard, returning
+// domain.ErrLocked immediately rather than queuing anything at all.
+func TestQueueCopyBetweenProfilesReturnsErrLockedWhenLocked(t *testing.T) {
+	t.Parallel()
+
+	deps := newTestTransferService(t)
+
+	sourceProfileID := createTestProfile(t, deps.profileRepo, deps.key, "http://127.0.0.1:1")
+	destProfileID := createTestProfile(t, deps.profileRepo, deps.key, "http://127.0.0.1:1")
+
+	deps.keyBox.Clear()
+
+	_, err := deps.svc.QueueCopyBetweenProfiles(sourceProfileID, destProfileID, "bucket1", []string{"key-a.txt"}, "bucket2", "dest-prefix/", false)
+	if !errors.Is(err, domain.ErrLocked) {
+		t.Fatalf("QueueCopyBetweenProfiles() on a locked service error = %v, want errors.Is(_, domain.ErrLocked)", err)
+	}
+}
+
 func TestEncodeSplitBucketKeyRoundTrip(t *testing.T) {
 	t.Parallel()
 

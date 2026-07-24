@@ -358,8 +358,29 @@ export function FileManagerScreen({
           keys={activeModal.keys}
           profileId={activeProfileId}
           sourceBucket={selectedBucket}
-          onConfirm={(destBucket, destPrefix) => {
+          onConfirm={(destBucket, destPrefix, destProfileId) => {
             const { keys } = activeModal;
+            // `destProfileId` is only set in `DestinationPickerModal`'s
+            // cross-connection mode — routes to `QueueCopyBetweenProfiles`
+            // (one "copy_cross" task per key, visible in "Передачи"/"История"
+            // like any other transfer) instead of the same-profile bulk
+            // `copyObjects`/`moveObjects` fast path below, which stays
+            // completely untouched for the (default, `destProfileId ===
+            // undefined`) same-profile case.
+            if (destProfileId !== undefined && destProfileId !== activeProfileId) {
+              void useTransferStore
+                .getState()
+                .queueCopyBetweenProfiles(
+                  activeProfileId,
+                  destProfileId,
+                  selectedBucket,
+                  keys,
+                  destBucket,
+                  destPrefix,
+                  activeModal.kind === 'move',
+                );
+              return;
+            }
             if (activeModal.kind === 'copy') {
               void useBulkOperationStore
                 .getState()

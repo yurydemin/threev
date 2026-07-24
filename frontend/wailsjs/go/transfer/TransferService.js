@@ -46,6 +46,10 @@ export function PickUploadFiles() {
   return window['go']['transfer']['TransferService']['PickUploadFiles']();
 }
 
+export function QueueCopyBetweenProfiles(arg1, arg2, arg3, arg4, arg5, arg6, arg7) {
+  return window['go']['transfer']['TransferService']['QueueCopyBetweenProfiles'](arg1, arg2, arg3, arg4, arg5, arg6, arg7);
+}
+
 export function QueueDownload(arg1) {
   return window['go']['transfer']['TransferService']['QueueDownload'](arg1);
 }

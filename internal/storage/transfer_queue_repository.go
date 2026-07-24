@@ -26,15 +26,15 @@ func NewTransferQueueRepository(db *sql.DB) *TransferQueueRepository {
 func (r *TransferQueueRepository) Create(ctx context.Context, t domain.TransferTask) (domain.TransferTask, error) {
 	const query = `
 INSERT INTO transfer_queue (
-    profile_id, type, source_path, destination_path, status,
+    profile_id, dest_profile_id, type, source_path, destination_path, status,
     total_bytes, transferred_bytes, error_message, multipart_upload_id,
-    parts_completed, file_offset, priority
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    parts_completed, file_offset, is_move, priority
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
 	result, err := r.db.ExecContext(ctx, query,
-		t.ProfileID, t.Type, t.SourcePath, t.DestinationPath, t.Status,
+		t.ProfileID, nullableDestProfileID(t.DestProfileID), t.Type, t.SourcePath, t.DestinationPath, t.Status,
 		t.TotalBytes, t.TransferredBytes, nullableString(t.ErrorMessage), nullableString(t.MultipartUploadID),
-		nullableString(t.PartsCompleted), t.FileOffset, t.Priority,
+		nullableString(t.PartsCompleted), t.FileOffset, t.IsMove, t.Priority,
 	)
 	if err != nil {
 		return domain.TransferTask{}, fmt.Errorf("create transfer task: %w", err)
@@ -52,9 +52,9 @@ INSERT INTO transfer_queue (
 // domain.ErrTransferTaskNotFound if no such task exists.
 func (r *TransferQueueRepository) GetByID(ctx context.Context, id int64) (domain.TransferTask, error) {
 	const query = `
-SELECT id, profile_id, type, source_path, destination_path, status,
+SELECT id, profile_id, dest_profile_id, type, source_path, destination_path, status,
        total_bytes, transferred_bytes, error_message, multipart_upload_id,
-       parts_completed, file_offset, priority, created_at, updated_at
+       parts_completed, file_offset, is_move, priority, created_at, updated_at
 FROM transfer_queue
 WHERE id = ?`
 
@@ -76,9 +76,9 @@ WHERE id = ?`
 // runs first) and then by creation time (FR-QUEUE-003).
 func (r *TransferQueueRepository) GetAll(ctx context.Context) ([]domain.TransferTask, error) {
 	const query = `
-SELECT id, profile_id, type, source_path, destination_path, status,
+SELECT id, profile_id, dest_profile_id, type, source_path, destination_path, status,
        total_bytes, transferred_bytes, error_message, multipart_upload_id,
-       parts_completed, file_offset, priority, created_at, updated_at
+       parts_completed, file_offset, is_move, priority, created_at, updated_at
 FROM transfer_queue
 ORDER BY priority ASC, created_at ASC`
 
@@ -255,22 +255,39 @@ func requireRowAffected(result sql.Result, id int64, op string) error {
 func scanTransferTask(s rowScanner) (domain.TransferTask, error) {
 	var (
 		t                 domain.TransferTask
+		destProfileID     sql.NullInt64
 		errMsg            sql.NullString
 		multipartUploadID sql.NullString
 		partsCompleted    sql.NullString
 	)
 
 	if err := s.Scan(
-		&t.ID, &t.ProfileID, &t.Type, &t.SourcePath, &t.DestinationPath, &t.Status,
+		&t.ID, &t.ProfileID, &destProfileID, &t.Type, &t.SourcePath, &t.DestinationPath, &t.Status,
 		&t.TotalBytes, &t.TransferredBytes, &errMsg, &multipartUploadID,
-		&partsCompleted, &t.FileOffset, &t.Priority, &t.CreatedAt, &t.UpdatedAt,
+		&partsCompleted, &t.FileOffset, &t.IsMove, &t.Priority, &t.CreatedAt, &t.UpdatedAt,
 	); err != nil {
 		return domain.TransferTask{}, err
 	}
 
+	t.DestProfileID = destProfileID.Int64
 	t.ErrorMessage = errMsg.String
 	t.MultipartUploadID = multipartUploadID.String
 	t.PartsCompleted = partsCompleted.String
 
 	return t, nil
+}
+
+// nullableDestProfileID converts a domain.TransferTask.DestProfileID of 0
+// (unset - every task type except "copy_cross", see its own doc comment) to
+// SQL NULL, mirroring nullableString's identical convention
+// (profile_repository.go) for the transfer_queue table's other optional
+// columns (multipart_upload_id, parts_completed, error_message). 0 is never
+// itself a valid profiles.id (AUTOINCREMENT starts at 1), so it is safe to
+// use as the "unset" sentinel here.
+func nullableDestProfileID(id int64) sql.NullInt64 {
+	if id == 0 {
+		return sql.NullInt64{}
+	}
+
+	return sql.NullInt64{Int64: id, Valid: true}
 }

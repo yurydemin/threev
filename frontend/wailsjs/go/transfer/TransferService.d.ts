@@ -25,6 +25,8 @@ export function PickUploadDirectory():Promise<string>;
 
 export function PickUploadFiles():Promise<Array<string>>;
 
+export function QueueCopyBetweenProfiles(arg1:number,arg2:number,arg3:string,arg4:Array<string>,arg5:string,arg6:string,arg7:boolean):Promise<Array<number>>;
+
 export function QueueDownload(arg1:domain.DownloadRequest):Promise<number>;
 
 export function QueueDownloadPrefix(arg1:number,arg2:string,arg3:string,arg4:string):Promise<Array<number>>;

@@ -98,9 +98,9 @@ func TestOpenDB_IdempotentReopen(t *testing.T) {
 	// Reopening must not re-run (or double-record) any migration: exactly
 	// one schema_migrations row per embedded "migrations/*.sql" file
 	// (currently 0001_init.sql, 0002_favorites.sql,
-	// 0003_transfer_queue_zip_type.sql, and 0004_profiles_proxy_url.sql),
-	// not one per OpenDB call.
-	const wantMigrationCount = 4
+	// 0003_transfer_queue_zip_type.sql, 0004_profiles_proxy_url.sql, and
+	// 0005_transfer_queue_cross_connection.sql), not one per OpenDB call.
+	const wantMigrationCount = 5
 
 	var count int
 	if err := db2.QueryRow(`SELECT COUNT(*) FROM schema_migrations`).Scan(&count); err != nil {

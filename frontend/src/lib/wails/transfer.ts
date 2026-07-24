@@ -29,6 +29,7 @@ import {
   PickDownloadDirectory,
   PickUploadDirectory,
   PickUploadFiles,
+  QueueCopyBetweenProfiles,
   QueueDownload,
   QueueDownloadPrefix,
   QueueDownloadPrefixZip,
@@ -46,6 +47,7 @@ function fromTransferTask(task: domain.TransferTask): TransferTask {
   return {
     id: task.ID,
     profileId: task.ProfileID,
+    destProfileId: task.DestProfileID,
     type: task.Type,
     sourcePath: task.SourcePath,
     destinationPath: task.DestinationPath,
@@ -54,6 +56,7 @@ function fromTransferTask(task: domain.TransferTask): TransferTask {
     transferredBytes: task.TransferredBytes,
     errorMessage: task.ErrorMessage,
     multipartUploadId: task.MultipartUploadID,
+    isMove: task.IsMove,
     priority: task.Priority,
     createdAt: toIsoString(task.CreatedAt),
     updatedAt: toIsoString(task.UpdatedAt),
@@ -119,6 +122,27 @@ export async function queueDownloadPrefix(
   localDestDir: string,
 ): Promise<number[]> {
   return call(() => QueueDownloadPrefix(profileId, bucket, prefix, localDestDir));
+}
+
+/**
+ * Queues one "copy_cross" task per key (`TransferService.QueueCopyBetweenProfiles`)
+ * — a copy/move between two DIFFERENT saved connection profiles, staged
+ * through a local temp file. Unlike the same-profile `copyObjects`/
+ * `moveObjects` (`lib/wails/fileManager.ts`), which run as a single
+ * synchronous `BulkCopyRequest`/`BulkMoveRequest`, each resulting task
+ * shows up individually in the "Передачи"/"История" screens like any other
+ * transfer.
+ */
+export async function queueCopyBetweenProfiles(
+  sourceProfileId: number,
+  destProfileId: number,
+  sourceBucket: string,
+  keys: string[],
+  destBucket: string,
+  destPrefix: string,
+  move: boolean,
+): Promise<number[]> {
+  return call(() => QueueCopyBetweenProfiles(sourceProfileId, destProfileId, sourceBucket, keys, destBucket, destPrefix, move));
 }
 
 export async function queueDownloadPrefixZip(

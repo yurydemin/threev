@@ -634,6 +634,7 @@ export namespace domain {
 	export class TransferTask {
 	    ID: number;
 	    ProfileID: number;
+	    DestProfileID: number;
 	    Type: string;
 	    SourcePath: string;
 	    DestinationPath: string;
@@ -644,6 +645,7 @@ export namespace domain {
 	    MultipartUploadID: string;
 	    PartsCompleted: string;
 	    FileOffset: number;
+	    IsMove: boolean;
 	    Priority: number;
 	    // Go type: time
 	    CreatedAt: any;
@@ -658,6 +660,7 @@ export namespace domain {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.ID = source["ID"];
 	        this.ProfileID = source["ProfileID"];
+	        this.DestProfileID = source["DestProfileID"];
 	        this.Type = source["Type"];
 	        this.SourcePath = source["SourcePath"];
 	        this.DestinationPath = source["DestinationPath"];
@@ -668,6 +671,7 @@ export namespace domain {
 	        this.MultipartUploadID = source["MultipartUploadID"];
 	        this.PartsCompleted = source["PartsCompleted"];
 	        this.FileOffset = source["FileOffset"];
+	        this.IsMove = source["IsMove"];
 	        this.Priority = source["Priority"];
 	        this.CreatedAt = this.convertValues(source["CreatedAt"], null);
 	        this.UpdatedAt = this.convertValues(source["UpdatedAt"], null);

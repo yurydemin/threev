@@ -221,7 +221,12 @@
       "resultMultiple": "{{count}} файлов будут",
       "resultMultiple_one": "{{count}} файл будет",
       "resultMultiple_few": "{{count}} файла будут",
-      "resultSuffix": "с сохранением исходных имён."
+      "resultSuffix": "с сохранением исходных имён.",
+      "crossConnectionToggleLabel": "Скопировать в другое подключение",
+      "destinationProfileLabel": "Подключение назначения",
+      "destinationProfilePlaceholder": "Выберите подключение",
+      "crossBucketsLoadError": "Не удалось загрузить список бакетов",
+      "crossConnectionDiskWarning": "Файлы будут временно скопированы на локальный диск (~{{size}}) для переноса между подключениями и удалены сразу после переноса. Продолжить?"
     },
     "presignedUrlModal": {
       "title": "Получить presigned URL",
